@@ -222,3 +222,4 @@ discord-bot/.env
 __pycache__/
 *.pyc
 bot.py
+actions-runner
