@@ -116,6 +116,7 @@ jobs:
 
       - name: Notify Slack on new PR
         if: steps.ensure_pr.outputs.newly_created == 'true' && steps.ensure_pr.outputs.pr_number != ''
+        continue-on-error: true
         env:
           SLACK_PR_WEBHOOK_URL: ${{ secrets.SLACK_PR_WEBHOOK_URL }}
           PR_TITLE: ${{ steps.ensure_pr.outputs.pr_title }}
@@ -292,6 +293,7 @@ jobs:
       # 기존 열린 이슈를 찾아 있으면 코멘트만, 없으면 새로 생성한다.
       - name: Create Jira issue on PR issues
         if: steps.check_issues.outputs.has_issue == 'true'
+        continue-on-error: true
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
