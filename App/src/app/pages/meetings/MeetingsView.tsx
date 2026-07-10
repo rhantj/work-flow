@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { CatTag } from "../../components/common/CatTag";
 import { PriorityBadge } from "../../components/common/PriorityBadge";
 import { getCat } from "../../services/taskService";
+import { getStoredMeetings, getSavedMeetings, saveSavedMeetings, getStoredTasks, saveStoredTasks, saveStoredMeetings } from "../../services/localStore";
 import { MEMBERS } from "../../data/members";
-import {
-  MEETINGS, GEN_TODOS, ANALYZE_STAGES, MOCK_SUMMARY, MOCK_DECISIONS, MOCK_RISKS,
-} from "../../data/meetings";
-import type { UploadFlow, UploadType, GenTodo } from "../../models/meeting";
+import { CATEGORIES } from "../../data/tasks";
+import type { Meeting, UploadFlow, UploadType, GenTodo, SavedMeetingRecord } from "../../models/meeting";
+import type { CatId, Priority, Task } from "../../models/task";
+import { analyzeMeeting } from "../../meetingAiApi";
+import type { MeetingAiResult } from "../../meetingAiTypes";
 import {
   LayoutDashboard,
   Columns3,
@@ -34,22 +37,153 @@ import {
   Radio,
 } from "lucide-react";
 
+const CURRENT_USER_ROLE: "leader" | "member" = "leader";
+
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char));
+
+const DOCUMENT_ANALYZE_STAGES = [
+  "파일 업로드 완료", "문서 텍스트 추출 중",
+  "회의 내용 분석 중", "핵심 결정사항 추출 중",
+  "업무 자동 생성 중", "역할 분배 생성 중",
+];
+
+const AUDIO_ANALYZE_STAGES = [
+  "파일 업로드 완료", "음성 변환 중", "텍스트 정리 중",
+  "회의 내용 분석 중", "핵심 결정사항 추출 중",
+  "업무 자동 생성 중", "역할 분배 생성 중",
+];
+
+const VIDEO_ANALYZE_STAGES = [
+  "파일 업로드 완료", "영상 음성 트랙 추출 중", "음성 변환 중",
+  "회의 내용 분석 중", "핵심 결정사항 추출 중",
+  "업무 자동 생성 중", "역할 분배 생성 중",
+];
+
+const getAnalyzeStages = (type: UploadType): string[] => {
+  if (type === "audio") return AUDIO_ANALYZE_STAGES;
+  if (type === "video") return VIDEO_ANALYZE_STAGES;
+  return DOCUMENT_ANALYZE_STAGES;
+};
+
+const AI_CATEGORY_TO_BOARD: Record<string, CatId> = {
+  PLANNING: "planning",
+  RESEARCH: "research",
+  UX: "ux-ui",
+  UI: "ux-ui",
+  DESIGN: "design",
+  FRONTEND: "frontend",
+  BACKEND: "backend",
+  AI: "ai-ml",
+  ML: "ai-ml",
+  STT: "ai-ml",
+  RAG: "ai-ml",
+  DATA: "data",
+  DATABASE: "db",
+  DB: "db",
+  DEVOPS: "devops",
+  GITHUB: "github",
+  DASHBOARD: "frontend",
+  DOCUMENT: "docs",
+  DOCS: "docs",
+  PRESENTATION: "presentation",
+  QA: "qa",
+  SECURITY: "security",
+  DELIVERABLE: "deliverable",
+  OPERATION: "operation",
+  ETC: "other",
+};
+
+const mapAiPriority = (priority: string): Priority => {
+  if (priority === "HIGH") return "high";
+  if (priority === "LOW") return "low";
+  return "medium";
+};
+
+const formatAiDueDate = (dueDate: string | null) => {
+  if (!dueDate) return "미정";
+  const [, month, day] = dueDate.split("-");
+  return month && day ? `${month}.${day}` : dueDate;
+};
+
+const resolveAiAssignee = (candidate: string) => {
+  const normalized = candidate.trim();
+  const member = MEMBERS.find(m => normalized.includes(m.name) || m.name.includes(normalized));
+  return member?.id ?? "";
+};
+
+const buildGeneratedTodos = (result: MeetingAiResult): GenTodo[] =>
+  result.todos.map((todo, index) => {
+    const assignee = resolveAiAssignee(todo.assignee_candidate);
+    return {
+      id: `GT-${String(index + 1).padStart(2, "0")}`,
+      title: todo.title,
+      desc: todo.description,
+      category: AI_CATEGORY_TO_BOARD[todo.category.toUpperCase()] ?? "other",
+      assignee,
+      dueDate: formatAiDueDate(todo.due_date),
+      priority: mapAiPriority(todo.priority),
+      basis: todo.assignee_candidate ? `회의록 후보 담당자: ${todo.assignee_candidate}` : "회의록 AI 분석 결과",
+      assigned: Boolean(assignee),
+      source: "MEETING_AI" as const,
+    };
+  });
+
+const buildRiskCards = (risks: string[]) =>
+  risks.map((text, index) => ({
+    level: index === 0 ? "high" : "medium",
+    text,
+    suggestion: index === 0
+      ? "팀장 검토 후 담당자와 마감일을 먼저 확정하는 것을 권장합니다."
+      : "관련 업무의 우선순위와 일정 여유를 재점검하세요.",
+  }));
+
+const getTodayIsoDate = () => {
+  const date = new Date();
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
+
+const stripFileExtension = (fileName: string) => fileName.replace(/\.[^/.]+$/, "");
+const formatDisplayDate = (date: string) => (date || getTodayIsoDate()).replace(/-/g, ".");
+
 export function MeetingsView() {
+  const navigate = useNavigate();
+  const [meetings, setMeetings] = useState<Meeting[]>(getStoredMeetings);
   const [selected, setSelected] = useState<string|null>("m1");
   const [uploadFlow, setUploadFlow] = useState<UploadFlow>(null);
   const [uploadType, setUploadType] = useState<UploadType>(null);
   const [modalStep, setModalStep] = useState(0);
   const [analyzeStage, setAnalyzeStage] = useState(0);
   const [analyzeProgress, setAnalyzeProgress] = useState(0);
-  const [meetTitle, setMeetTitle] = useState("7차 정기 회의 — 결제 연동 최종 점검");
-  const [meetDate, setMeetDate] = useState("2024-12-17");
+  const [meetTitle, setMeetTitle] = useState("");
+  const [meetDate, setMeetDate] = useState(getTodayIsoDate());
   const [meetKind, setMeetKind] = useState("정기회의");
   const [partIds, setPartIds] = useState<string[]>(["1","2","3","4"]);
-  const [selTodos, setSelTodos] = useState<string[]>(GEN_TODOS.map(t => t.id));
+  const [analysisResult, setAnalysisResult] = useState<MeetingAiResult | null>(null);
+  const [selTodos, setSelTodos] = useState<string[]>([]);
   const [todoAssignees, setTodoAssignees] = useState<Record<string,string>>({});
+  const [todoDueDates, setTodoDueDates] = useState<Record<string,string>>({});
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [uploadFileName, setUploadFileName] = useState("");
+  const [uploadFileSize, setUploadFileSize] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [analysisSource, setAnalysisSource] = useState<"fastapi"|"spring-fallback"|null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [panelTab, setPanelTab] = useState<"summary"|"todos"|"risks">("summary");
+  const [manualTodos, setManualTodos] = useState<GenTodo[]>([]);
+  const [showAddTodo, setShowAddTodo] = useState(false);
+  const [newTodoTitle, setNewTodoTitle] = useState("");
+  const [newTodoDesc, setNewTodoDesc] = useState("");
+  const [newTodoCategory, setNewTodoCategory] = useState<CatId>("other");
+  const [newTodoAssignee, setNewTodoAssignee] = useState(MEMBERS[0].id);
+  const [newTodoDueDate, setNewTodoDueDate] = useState("");
+  const [newTodoPriority, setNewTodoPriority] = useState<Priority>("medium");
+  const [newTodoError, setNewTodoError] = useState<string | null>(null);
+  const [saveMeetingMessage, setSaveMeetingMessage] = useState<string | null>(null);
+  const [originalViewMessage, setOriginalViewMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const analyzeStages = getAnalyzeStages(uploadType);
+  const canAddManualTodo = CURRENT_USER_ROLE === "leader";
 
   // Simulate analysis progress
   useEffect(() => {
@@ -57,14 +191,14 @@ export function MeetingsView() {
     let prog = 0; let stg = 0;
     const iv = setInterval(() => {
       prog = Math.min(prog + 1.5, 100);
-      stg = Math.min(Math.floor(prog / (100 / ANALYZE_STAGES.length)), ANALYZE_STAGES.length - 1);
+      stg = Math.min(Math.floor(prog / (100 / analyzeStages.length)), analyzeStages.length - 1);
       setAnalyzeStage(stg); setAnalyzeProgress(Math.round(prog));
       if (prog >= 100) { clearInterval(iv); setTimeout(() => { setUploadFlow("results"); setPanelTab("summary"); }, 600); }
     }, 70);
     return () => clearInterval(iv);
-  }, [uploadFlow]);
+  }, [uploadFlow, analyzeStages.length]);
 
-  const meeting = MEETINGS.find(m => m.id === selected);
+  const meeting = meetings.find(m => m.id === selected);
 
   // ── Upload type metadata ─────────────────────────────────────────────────────
   const UPLOAD_TYPES = [
@@ -76,7 +210,204 @@ export function MeetingsView() {
   const MEET_KINDS = ["정기회의","중간점검","발표준비","개발회의","기타"];
 
   const getAssignee = (todo: GenTodo): string => todoAssignees[todo.id] ?? todo.assignee;
-  const displayedTodos = showUnassigned ? GEN_TODOS.filter(t => !getAssignee(t)) : GEN_TODOS;
+  const getDueDate = (todo: GenTodo): string => todoDueDates[todo.id] ?? todo.dueDate;
+
+  const generatedTodos = analysisResult ? buildGeneratedTodos(analysisResult) : [];
+  const riskCards = analysisResult ? buildRiskCards(analysisResult.risks) : [];
+  const unassignedCount = generatedTodos.filter(t => !getAssignee(t)).length;
+  const assignedCount = generatedTodos.filter(t => Boolean(getAssignee(t))).length;
+  const nextActions = generatedTodos.slice(0, 3).map(t => t.title);
+  const reviewTodos = [...generatedTodos, ...manualTodos];
+
+  const handleAddManualTodo = () => {
+    if (!newTodoTitle.trim() || !newTodoAssignee || !newTodoDueDate) {
+      setNewTodoError("업무명, 담당자, 마감일은 필수입니다.");
+      return;
+    }
+    const todo: GenTodo = {
+      id: `MANUAL-${Date.now()}`,
+      title: newTodoTitle.trim(),
+      desc: newTodoDesc.trim(),
+      category: newTodoCategory,
+      assignee: newTodoAssignee,
+      dueDate: formatAiDueDate(newTodoDueDate),
+      priority: newTodoPriority,
+      basis: "팀장이 직접 추가",
+      assigned: true,
+      source: canAddManualTodo ? "LEADER_MANUAL" : "MANUAL",
+    };
+    setManualTodos(prev => [...prev, todo]);
+    setSelTodos(prev => [...prev, todo.id]);
+    setShowAddTodo(false);
+    setNewTodoTitle(""); setNewTodoDesc(""); setNewTodoCategory("other");
+    setNewTodoAssignee(MEMBERS[0].id); setNewTodoDueDate(""); setNewTodoPriority("medium");
+    setNewTodoError(null);
+  };
+
+  const handleSaveMeeting = () => {
+    if (!analysisResult) return;
+    const meetingId = meeting?.id ?? selected ?? `local-${Date.now()}`;
+    const record: SavedMeetingRecord = {
+      meetingId,
+      title: meetTitle,
+      meetingDate: meetDate,
+      meetingKind: meetKind,
+      participants: partIds.map(id => MEMBERS.find(m => m.id === id)?.name ?? id),
+      originalFileName: selectedFile?.name ?? uploadFileName ?? "",
+      fileType: uploadType,
+      summary: analysisResult.summary,
+      decisions: analysisResult.decisions,
+      risks: analysisResult.risks,
+      actionItems: reviewTodos,
+      createdAt: new Date().toISOString(),
+      source: "MEETING_AI",
+    };
+    const next = [record, ...getSavedMeetings().filter(item => item.meetingId !== meetingId)];
+    saveSavedMeetings(next);
+    setSaveMeetingMessage("회의록이 저장되었습니다.");
+    setTimeout(() => setSaveMeetingMessage(null), 2500);
+  };
+
+  const handleViewOriginal = () => {
+    if (selectedFile) {
+      const url = URL.createObjectURL(selectedFile);
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setOriginalViewMessage("원본 파일 URL이 없습니다.");
+    setTimeout(() => setOriginalViewMessage(null), 2500);
+  };
+
+  const handleExportPdf = () => {
+    if (!analysisResult) return;
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=800,height=1000");
+    if (!printWindow) return;
+    const participantsText = partIds.map(id => MEMBERS.find(m => m.id === id)?.name ?? id).join(", ");
+    const decisionsHtml = analysisResult.decisions.map(d => `<li>${escapeHtml(d)}</li>`).join("");
+    const risksHtml = analysisResult.risks.map(r => `<li>${escapeHtml(r)}</li>`).join("");
+    const todosHtml = reviewTodos.map(t => {
+      const assigneeName = MEMBERS.find(m => m.id === getAssignee(t))?.name ?? "미배정";
+      return `<li>${escapeHtml(t.title)} - ${escapeHtml(assigneeName)} (${escapeHtml(getDueDate(t))})</li>`;
+    }).join("");
+    const docTitle = `회의록_${meetTitle}_${meetDate}`;
+    printWindow.document.write(`
+      <!DOCTYPE html><html><head><meta charset="utf-8" /><title>${escapeHtml(docTitle)}</title>
+      <style>
+        body { font-family: 'Inter','Noto Sans KR',sans-serif; padding: 32px; color:#1a1a1a; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        .meta { font-size: 12px; color:#666; margin-bottom: 20px; }
+        h2 { font-size: 14px; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+        ul { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; }
+        p { font-size: 13px; line-height: 1.6; }
+      </style>
+      </head><body>
+        <h1>${escapeHtml(meetTitle)}</h1>
+        <div class="meta">${escapeHtml(meetDate)} · ${escapeHtml(meetKind)} · 참석자 ${escapeHtml(participantsText)}</div>
+        <h2>회의 요약</h2><p>${escapeHtml(analysisResult.summary)}</p>
+        <h2>핵심 결정사항</h2><ul>${decisionsHtml || "<li>결정사항이 없습니다.</li>"}</ul>
+        <h2>생성된 To-Do</h2><ul>${todosHtml || "<li>생성된 업무가 없습니다.</li>"}</ul>
+        <h2>위험 요소</h2><ul>${risksHtml || "<li>감지된 위험 요소가 없습니다.</li>"}</ul>
+      </body></html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  const handleFileSelect = (file: File | undefined) => {
+    if (!file) return;
+    const mb = file.size / (1024 * 1024);
+    setSelectedFile(file);
+    setUploadFileName(file.name);
+    setUploadFileSize(mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`);
+    setAnalysisError(null);
+    if (!meetTitle.trim()) setMeetTitle(stripFileExtension(file.name));
+  };
+
+  const startAnalysis = () => {
+    if (!selectedFile || !uploadType) {
+      setAnalysisError("분석할 회의록 파일을 먼저 업로드해주세요.");
+      return;
+    }
+    const title = meetTitle.trim() || stripFileExtension(selectedFile.name);
+    setMeetTitle(title);
+    setAnalysisResult(null);
+    setSelTodos([]);
+    setTodoAssignees({});
+    setTodoDueDates({});
+    setShowUnassigned(false);
+    setAnalysisSource(null);
+    setAnalysisError(null);
+    setAnalyzeStage(0);
+    setAnalyzeProgress(0);
+    setUploadFlow("analyzing");
+
+    void analyzeMeeting({
+      projectId: "demo-project",
+      file: selectedFile,
+      title,
+      meetingDate: meetDate,
+      meetingKind: meetKind,
+      sourceType: uploadType,
+      participants: partIds.map(id => MEMBERS.find(member => member.id === id)?.name ?? id),
+    }).then(response => {
+      const apiTodos = buildGeneratedTodos(response.analysis);
+      const source = response.analysisSource === "FASTAPI" ? "fastapi" : "spring-fallback";
+      const analyzedMeeting: Meeting = {
+        id: response.meetingId,
+        title: response.analysis.meeting_meta.title || title,
+        date: formatDisplayDate(response.analysis.meeting_meta.meeting_date || meetDate),
+        duration: "분석 완료",
+        status: "processed",
+        summary: response.analysis.summary,
+        decisions: response.analysis.decisions,
+        todos: response.analysis.todos.map(todo => {
+          const assignee = todo.assignee_candidate || "미배정";
+          const due = todo.due_date ? ` (${todo.due_date.slice(5).replace("-", ".")})` : "";
+          return `${assignee}: ${todo.title}${due}`;
+        }),
+        risks: response.analysis.risks,
+        analysisSource: source,
+      };
+      setAnalysisResult(response.analysis);
+      setSelTodos(apiTodos.map(t => t.id));
+      setAnalysisSource(source);
+      setMeetings(prev => {
+        const next = [analyzedMeeting, ...prev.filter(item => item.id !== analyzedMeeting.id)];
+        saveStoredMeetings(next);
+        return next;
+      });
+      setSelected(analyzedMeeting.id);
+    }).catch(() => {
+      setAnalysisResult(null);
+      setSelTodos([]);
+      setAnalysisSource(null);
+      setAnalysisError("분석 서버 연결에 실패했습니다. Spring Boot와 FastAPI 서버가 실행 중인지 확인한 뒤 다시 시도해주세요.");
+    });
+  };
+
+  const registerSelectedTodos = () => {
+    const now = Date.now();
+    const selectedGeneratedTodos = reviewTodos.filter(todo => selTodos.includes(todo.id));
+    const createdTasks: Task[] = selectedGeneratedTodos.map((todo, index) => {
+      const cat = getCat(todo.category);
+      const sourceLabel = todo.source === "MEETING_AI" ? "회의록 AI" : "직접 추가";
+      return {
+        id: `AI-${now}-${String(index + 1).padStart(2, "0")}`,
+        title: todo.title,
+        status: "todo",
+        priority: todo.priority,
+        assignee: getAssignee(todo) || MEMBERS[0].id,
+        dueDate: getDueDate(todo),
+        labels: [sourceLabel, cat.label],
+      };
+    });
+
+    if (createdTasks.length > 0) {
+      saveStoredTasks([...createdTasks, ...getStoredTasks()]);
+    }
+    setUploadFlow("done");
+  };
 
   // ── Analyzing screen ────────────────────────────────────────────────────────
   const renderAnalyzing = () => (
@@ -98,13 +429,13 @@ export function MeetingsView() {
           </div>
         </div>
 
-        <div className="mb-2 text-xs font-mono text-muted-foreground">{uploadFileName || "회의록_7차.pdf"}</div>
+        <div className="mb-2 text-xs font-mono text-muted-foreground">{uploadFileName || "업로드된 회의록"}</div>
         <h2 className="text-xl font-bold text-foreground mb-1">AI 분석 진행 중</h2>
         <p className="text-sm text-muted-foreground mb-8">잠시만 기다려주세요. 회의 내용을 분석하고 업무를 자동 생성합니다.</p>
 
         {/* Stage list */}
         <div className="space-y-2 text-left max-w-sm mx-auto">
-          {ANALYZE_STAGES.map((stage, i) => {
+          {analyzeStages.map((stage, i) => {
             const done = i < analyzeStage; const active = i === analyzeStage;
             return (
               <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${active ? "bg-blue-50 border border-blue-200" : done ? "opacity-60" : "opacity-30"}`}>
@@ -124,7 +455,32 @@ export function MeetingsView() {
   );
 
   // ── Results screen ───────────────────────────────────────────────────────────
-  const renderResults = () => (
+  const renderResults = () => {
+    if (!analysisResult) {
+      return (
+        <div className="h-full flex items-center justify-center bg-background" style={{ fontFamily:"'Inter','Noto Sans KR',sans-serif" }}>
+          <div className="w-full max-w-md px-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-5">
+              {analysisError ? <AlertTriangle className="w-8 h-8 text-amber-500" /> : <Sparkles className="w-8 h-8 text-blue-500 animate-pulse" />}
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">{analysisError ? "분석을 완료하지 못했습니다" : "분석 결과를 불러오는 중"}</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+              {analysisError ?? "업로드한 회의록의 요약, 결정사항, To-Do, 위험요소를 정리하고 있습니다."}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setUploadFlow("modal")} className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl hover:opacity-90 transition-opacity" style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
+                다시 업로드
+              </button>
+              <button onClick={() => setUploadFlow(null)} className="px-5 py-2.5 text-sm font-medium border border-border rounded-xl hover:bg-muted transition-colors">
+                회의록으로 돌아가기
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
     <div className="h-full flex overflow-hidden" style={{ fontFamily:"'Inter','Noto Sans KR',sans-serif" }}>
       {/* Left: meeting list (mini) */}
       <div className="w-72 shrink-0 border-r border-border flex flex-col bg-card">
@@ -151,9 +507,9 @@ export function MeetingsView() {
         {/* Quick info */}
         <div className="p-4 space-y-2 text-xs text-muted-foreground border-b border-border">
           <div className="flex justify-between"><span>업로드 유형</span><span className="font-medium text-foreground">{UPLOAD_TYPES.find(u => u.id === uploadType)?.label ?? "문서 업로드"}</span></div>
-          <div className="flex justify-between"><span>생성된 To-Do</span><span className="font-semibold text-blue-600">{GEN_TODOS.length}개</span></div>
-          <div className="flex justify-between"><span>미배정 업무</span><span className="font-semibold text-amber-600">{GEN_TODOS.filter(t => !t.assignee).length}개</span></div>
-          <div className="flex justify-between"><span>위험 요소</span><span className="font-semibold text-red-600">{MOCK_RISKS.length}건</span></div>
+          <div className="flex justify-between"><span>생성된 To-Do</span><span className="font-semibold text-blue-600">{generatedTodos.length}개</span></div>
+          <div className="flex justify-between"><span>미배정 업무</span><span className="font-semibold text-amber-600">{unassignedCount}개</span></div>
+          <div className="flex justify-between"><span>위험 요소</span><span className="font-semibold text-red-600">{riskCards.length}건</span></div>
         </div>
         {/* Actions */}
         <div className="p-4 space-y-2">
@@ -162,9 +518,10 @@ export function MeetingsView() {
             style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
             <ListChecks className="w-4 h-4" />역할 분배 검토 →
           </button>
-          <button className="w-full py-2 text-xs font-medium text-muted-foreground border border-border rounded-xl hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
+          <button onClick={handleSaveMeeting} className="w-full py-2 text-xs font-medium text-muted-foreground border border-border rounded-xl hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
             <FileText className="w-3.5 h-3.5" />회의록 저장
           </button>
+          {saveMeetingMessage && <div className="text-[10px] text-emerald-600 text-center">{saveMeetingMessage}</div>}
           <button onClick={() => setUploadFlow(null)} className="w-full py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
             닫기
           </button>
@@ -178,14 +535,20 @@ export function MeetingsView() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ AI 분석 완료</span>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${analysisSource === "fastapi" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                {analysisSource === "fastapi" ? "Spring/FastAPI 응답" : "Spring 분석 응답"}
+              </span>
               <span className="text-[10px] text-muted-foreground">{meetDate}</span>
             </div>
             <h1 className="text-lg font-bold text-foreground">{meetTitle}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">{meetKind} · 참석자 {partIds.length}명</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card rounded-lg hover:bg-muted transition-colors"><Eye className="w-3.5 h-3.5" />원본 보기</button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card rounded-lg hover:bg-muted transition-colors"><FileText className="w-3.5 h-3.5" />PDF 저장</button>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <button onClick={handleViewOriginal} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card rounded-lg hover:bg-muted transition-colors"><Eye className="w-3.5 h-3.5" />원본 보기</button>
+              <button onClick={handleExportPdf} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card rounded-lg hover:bg-muted transition-colors"><FileText className="w-3.5 h-3.5" />PDF 저장</button>
+            </div>
+            {originalViewMessage && <div className="text-[10px] text-amber-600">{originalViewMessage}</div>}
           </div>
         </div>
 
@@ -197,7 +560,7 @@ export function MeetingsView() {
                 <Sparkles className="w-4 h-4" style={{ color:"var(--accent)" }} />
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI 회의 요약</span>
               </div>
-              <p className="text-sm text-foreground leading-relaxed">{MOCK_SUMMARY}</p>
+              <p className="text-sm text-foreground leading-relaxed">{analysisResult.summary}</p>
             </div>
 
             <div className="bg-card rounded-xl p-5 border border-border shadow-sm">
@@ -206,7 +569,7 @@ export function MeetingsView() {
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">핵심 결정사항</span>
               </div>
               <ul className="space-y-2.5">
-                {MOCK_DECISIONS.map((d, i) => (
+                {analysisResult.decisions.map((d, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold text-emerald-600">{i + 1}</div>
                     <span className="text-sm text-foreground leading-relaxed">{d}</span>
@@ -218,7 +581,7 @@ export function MeetingsView() {
             <div className="bg-card rounded-xl p-5 border border-border shadow-sm">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">다음 회의 전까지</div>
               <ul className="space-y-1.5">
-                {["SDK 교체 완료 및 테스트 결과 공유", "AI 모델 80 epoch 학습 결과 리포트", "발표 대본 1차 초안 팀 채널 공유"].map((t, i) => (
+                {(nextActions.length ? nextActions : ["담당자 검토 후 업무 보드에 등록"]).map((t, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm text-foreground">
                     <ArrowRight className="w-3.5 h-3.5 text-blue-500 shrink-0" />{t}
                   </li>
@@ -232,15 +595,15 @@ export function MeetingsView() {
         {panelTab === "todos" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-foreground">생성된 To-Do <span className="text-muted-foreground font-normal">({GEN_TODOS.length}개)</span></div>
+              <div className="text-sm font-semibold text-foreground">생성된 To-Do <span className="text-muted-foreground font-normal">({generatedTodos.length}개)</span></div>
               <button onClick={() => setUploadFlow("review")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg hover:opacity-90"
                 style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
                 <ListChecks className="w-3.5 h-3.5" />역할 분배 검토
               </button>
             </div>
-            {GEN_TODOS.map(todo => {
-              const cat = getCat(todo.category);
-              const m = MEMBERS.find(me => me.id === todo.assignee);
+            {generatedTodos.map(todo => {
+              const assigneeId = getAssignee(todo);
+              const m = MEMBERS.find(me => me.id === assigneeId);
               return (
                 <div key={todo.id} className={`bg-card rounded-xl p-4 border shadow-sm ${!todo.assigned ? "border-amber-300" : "border-border"}`}>
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -272,7 +635,7 @@ export function MeetingsView() {
         {/* Risks tab */}
         {panelTab === "risks" && (
           <div className="space-y-4">
-            {MOCK_RISKS.map((r, i) => (
+            {riskCards.map((r, i) => (
               <div key={i} className={`rounded-xl p-5 border ${r.level==="high" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
                 <div className="flex items-start gap-2 mb-2">
                   <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${r.level==="high" ? "text-red-500" : "text-amber-500"}`} />
@@ -289,18 +652,19 @@ export function MeetingsView() {
             ))}
             <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
               <div className="flex items-center gap-2 mb-1"><Sparkles className="w-3.5 h-3.5 text-blue-500" /><span className="text-xs font-semibold text-blue-700">AI 종합 제안</span></div>
-              <p className="text-xs text-blue-800 leading-relaxed">결제 연동 이슈를 최우선 해결하고, AI 모델 목표를 단계적으로 설정하는 것이 현실적입니다. QA 일정은 결제 완료 후 집중 진행으로 조정을 권장합니다.</p>
+              <p className="text-xs text-blue-800 leading-relaxed">핵심 키워드({analysisResult.keywords.slice(0, 4).join(", ")})를 기준으로 업무 우선순위를 정리하고, 미배정 업무는 팀장이 먼저 확정하는 것을 권장합니다.</p>
             </div>
           </div>
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   // ── Review screen ────────────────────────────────────────────────────────────
   const renderReview = () => {
-    const todos = showUnassigned ? GEN_TODOS.filter(t => !getAssignee(t)) : GEN_TODOS;
-    const selCount = selTodos.filter(id => todos.find(t => t.id === id)).length;
+    const todos = showUnassigned ? reviewTodos.filter(t => !getAssignee(t)) : reviewTodos;
+    const approvedCount = selTodos.length;
     return (
       <div className="h-full flex flex-col overflow-hidden" style={{ fontFamily:"'Inter','Noto Sans KR',sans-serif" }}>
         {/* Header */}
@@ -316,28 +680,30 @@ export function MeetingsView() {
             <div className="flex items-center gap-2">
               <button onClick={() => setShowUnassigned(v => !v)}
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all ${showUnassigned ? "border-amber-400 bg-amber-50 text-amber-700" : "border-border bg-card text-muted-foreground hover:border-slate-300"}`}>
-                <AlertTriangle className="w-3.5 h-3.5" />미배정만 보기 {showUnassigned && <span className="bg-amber-200 text-amber-800 px-1 rounded text-[10px]">{GEN_TODOS.filter(t=>!getAssignee(t)).length}</span>}
+                <AlertTriangle className="w-3.5 h-3.5" />미배정만 보기 {showUnassigned && <span className="bg-amber-200 text-amber-800 px-1 rounded text-[10px]">{unassignedCount}</span>}
               </button>
-              <button onClick={() => setUploadFlow("done")}
+              <button onClick={registerSelectedTodos}
+                disabled={approvedCount === 0}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
                 style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
-                <CheckCircle2 className="w-4 h-4" />{selCount}개 업무 보드에 등록
+                <CheckCircle2 className="w-4 h-4" />{approvedCount}개 업무 보드에 등록
               </button>
             </div>
           </div>
 
           {/* Summary chips */}
           <div className="flex items-center gap-2 text-xs">
-            <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">{GEN_TODOS.length}개 AI 생성</span>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">{GEN_TODOS.filter(t=>t.assigned).length}개 배정 완료</span>
-            <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{GEN_TODOS.filter(t=>!getAssignee(t)).length}개 미배정</span>
-            <button onClick={() => setSelTodos(GEN_TODOS.map(t=>t.id))} className="ml-auto text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">전체 선택</button>
+            <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">{generatedTodos.length}개 AI 생성</span>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">{assignedCount}개 배정 완료</span>
+            <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{unassignedCount}개 미배정</span>
+            {manualTodos.length > 0 && <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">{manualTodos.length}개 직접 추가</span>}
+            <button onClick={() => setSelTodos(reviewTodos.map(t=>t.id))} className="ml-auto text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">전체 선택</button>
             <button onClick={() => setSelTodos([])} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">전체 해제</button>
           </div>
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-24">
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden mt-4">
             <table className="w-full text-sm">
               <thead>
@@ -353,7 +719,6 @@ export function MeetingsView() {
                 {todos.map(todo => {
                   const checked = selTodos.includes(todo.id);
                   const assigneeId = getAssignee(todo);
-                  const assigneeMember = MEMBERS.find(m => m.id === assigneeId);
                   const isUnassigned = !assigneeId;
                   return (
                     <tr key={todo.id} className={`hover:bg-muted/30 transition-colors ${isUnassigned ? "bg-amber-50/30" : ""}`}>
@@ -377,7 +742,12 @@ export function MeetingsView() {
                         </select>
                       </td>
                       <td className="px-3 py-3">
-                        <input type="text" defaultValue={todo.dueDate} className="text-xs rounded-lg border border-border bg-card px-2 py-1.5 outline-none focus:border-blue-400 w-16 text-center" />
+                        <input
+                          type="text"
+                          value={getDueDate(todo)}
+                          onChange={e => setTodoDueDates(p => ({ ...p, [todo.id]: e.target.value }))}
+                          className="text-xs rounded-lg border border-border bg-card px-2 py-1.5 outline-none focus:border-blue-400 w-16 text-center"
+                        />
                       </td>
                       <td className="px-3 py-3"><PriorityBadge priority={todo.priority} /></td>
                       <td className="px-3 py-3 text-[10px] text-muted-foreground max-w-[120px] truncate" title={todo.basis}>{todo.basis}</td>
@@ -392,9 +762,67 @@ export function MeetingsView() {
           </div>
 
           {/* Add task */}
-          <button className="mt-3 flex items-center gap-2 px-4 py-2 text-xs font-medium text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors">
-            <Plus className="w-3.5 h-3.5" />새 업무 직접 추가
-          </button>
+          {canAddManualTodo && (
+            <div className="mt-3">
+              {!showAddTodo && (
+                <button onClick={() => setShowAddTodo(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors">
+                  <Plus className="w-3.5 h-3.5" />새 업무 직접 추가
+                </button>
+              )}
+              {showAddTodo && (
+                <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="text-xs font-semibold text-foreground block mb-1.5">업무명 <span className="text-red-500">*</span></label>
+                      <input value={newTodoTitle} onChange={e => setNewTodoTitle(e.target.value)} placeholder="업무명을 입력하세요"
+                        className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-xs outline-none focus:border-blue-400" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-semibold text-foreground block mb-1.5">설명</label>
+                      <input value={newTodoDesc} onChange={e => setNewTodoDesc(e.target.value)} placeholder="업무 설명 (선택)"
+                        className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-xs outline-none focus:border-blue-400" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-foreground block mb-1.5">카테고리</label>
+                      <select value={newTodoCategory} onChange={e => setNewTodoCategory(e.target.value as CatId)}
+                        className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-xs outline-none focus:border-blue-400">
+                        {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-foreground block mb-1.5">담당자 <span className="text-red-500">*</span></label>
+                      <select value={newTodoAssignee} onChange={e => setNewTodoAssignee(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-xs outline-none focus:border-blue-400">
+                        {MEMBERS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-foreground block mb-1.5">마감일 <span className="text-red-500">*</span></label>
+                      <input type="date" value={newTodoDueDate} onChange={e => setNewTodoDueDate(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-xs outline-none focus:border-blue-400" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-foreground block mb-1.5">우선순위</label>
+                      <div className="flex gap-1.5">
+                        {(["low","medium","high"] as Priority[]).map(p => (
+                          <button key={p} type="button" onClick={() => setNewTodoPriority(p)}
+                            className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg border transition-all ${newTodoPriority===p ? "border-blue-500 bg-blue-50 text-blue-700" : "border-border bg-card text-muted-foreground"}`}>
+                            {p==="low"?"낮음":p==="medium"?"중간":"높음"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {newTodoError && <div className="text-[11px] text-red-600">{newTodoError}</div>}
+                  <div className="flex items-center gap-2 justify-end pt-1">
+                    <button onClick={() => { setShowAddTodo(false); setNewTodoError(null); }} className="px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition-colors">취소</button>
+                    <button onClick={handleAddManualTodo} className="px-3 py-1.5 text-xs font-semibold text-white rounded-lg hover:opacity-90 transition-opacity" style={{ background:"var(--primary)" }}>추가</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -438,7 +866,7 @@ export function MeetingsView() {
           <button onClick={() => setUploadFlow(null)} className="px-5 py-2.5 text-sm font-medium border border-border rounded-xl hover:bg-muted transition-colors">
             회의록으로 돌아가기
           </button>
-          <button onClick={() => setUploadFlow(null)} className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl hover:opacity-90 transition-opacity" style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
+          <button onClick={() => { setUploadFlow(null); navigate("/board"); }} className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl hover:opacity-90 transition-opacity" style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
             업무 보드 확인하기
           </button>
         </div>
@@ -478,7 +906,14 @@ export function MeetingsView() {
                       {UPLOAD_TYPES.map(t => {
                         const Icon = t.icon; const sel = uploadType === t.id;
                         return (
-                          <button key={t.id} onClick={() => setUploadType(t.id as UploadType)}
+                          <button key={t.id} onClick={() => {
+                            const nextType = t.id as UploadType;
+                            setUploadType(nextType);
+                            setSelectedFile(null);
+                            setUploadFileName("");
+                            setUploadFileSize("");
+                            setAnalysisError(null);
+                          }}
                             className={`flex flex-col items-center gap-2.5 p-5 rounded-xl border-2 transition-all hover:shadow-sm ${sel ? "shadow-sm" : "border-border hover:border-slate-300"}`}
                             style={sel ? { borderColor:t.color, background:t.bg } : {}}>
                             <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background:sel ? t.bg : "#F4F6FA" }}>
@@ -514,13 +949,27 @@ export function MeetingsView() {
                       </div>
 
                       {/* File drop zone */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={utype.accept}
+                        className="hidden"
+                        onChange={e => handleFileSelect(e.target.files?.[0])}
+                      />
                       <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer"
-                        onClick={() => setUploadFileName(utype.id === "document" ? "회의록_7차.pdf" : utype.id === "audio" ? "7차회의_녹음.m4a" : "7차회의_zoom.mp4")}>
+                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                        onDragEnter={e => { e.preventDefault(); e.stopPropagation(); }}
+                        onDrop={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleFileSelect(e.dataTransfer.files?.[0]);
+                        }}
+                        onClick={() => fileInputRef.current?.click()}>
                         {uploadFileName ? (
                           <div className="flex flex-col items-center gap-2">
                             <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background:utype.bg }}><Icon className="w-6 h-6" style={{ color:utype.color }} /></div>
                             <div className="text-sm font-semibold text-foreground">{uploadFileName}</div>
-                            <div className="text-[10px] text-muted-foreground">{utype.id==="document"?"245 KB":utype.id==="audio"?"18.2 MB":"127 MB"}</div>
+                            <div className="text-[10px] text-muted-foreground">{uploadFileSize || "파일 선택됨"}</div>
                             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600">업로드 완료</span>
                           </div>
                         ) : (
@@ -597,8 +1046,8 @@ export function MeetingsView() {
                     다음<ArrowRight className="w-4 h-4" />
                   </button>
                 ) : (
-                  <button onClick={() => { setUploadFlow("analyzing"); setAnalyzeStage(0); setAnalyzeProgress(0); }}
-                    disabled={!uploadFileName}
+                  <button onClick={startAnalysis}
+                    disabled={!selectedFile}
                     className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-40 hover:opacity-90 transition-opacity"
                     style={{ background:"linear-gradient(135deg,#7048E8,#4F6EF7)" }}>
                     <Sparkles className="w-4 h-4" />AI 분석 시작
@@ -613,7 +1062,7 @@ export function MeetingsView() {
       {/* ── Meeting list ── */}
       <div className="w-80 shrink-0 border-r border-border flex flex-col">
         <div className="p-4 border-b border-border flex items-center gap-2">
-          <button onClick={() => { setUploadFlow("modal"); setModalStep(0); setUploadType(null); setUploadFileName(""); }}
+          <button onClick={() => { setUploadFlow("modal"); setModalStep(0); setUploadType(null); setUploadFileName(""); setUploadFileSize(""); setSelectedFile(null); setAnalysisSource(null); setAnalysisError(null); }}
             className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-white text-sm font-medium transition-opacity hover:opacity-90"
             style={{ background:"linear-gradient(135deg,#7048E8 0%,#4F6EF7 100%)" }}>
             <Upload className="w-4 h-4" />회의록 업로드
@@ -623,7 +1072,20 @@ export function MeetingsView() {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {MEETINGS.map(m => (
+          {meetings.length === 0 ? (
+            <div className="h-full min-h-[360px] flex flex-col items-center justify-center text-center px-4 text-muted-foreground">
+              <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                <FileAudio className="w-7 h-7 text-slate-400" />
+              </div>
+              <div className="text-sm font-semibold text-foreground mb-1">아직 업로드한 회의록이 없습니다</div>
+              <div className="text-xs leading-relaxed mb-4">문서, 음성, 영상 파일을 업로드하면 AI 분석 결과가 이곳에 자동으로 쌓입니다.</div>
+              <button onClick={() => { setUploadFlow("modal"); setModalStep(0); setUploadType(null); setUploadFileName(""); setUploadFileSize(""); setSelectedFile(null); setAnalysisError(null); }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+                style={{ background:"linear-gradient(135deg,#7048E8,#4F6EF7)" }}>
+                회의록 업로드
+              </button>
+            </div>
+          ) : meetings.map(m => (
             <button key={m.id} onClick={() => setSelected(m.id)}
               className={`w-full text-left p-3 rounded-lg border transition-all ${selected === m.id ? "border-blue-300 bg-blue-50" : "border-border bg-card hover:bg-muted"}`}>
               <div className="flex items-center justify-between mb-1">
@@ -681,7 +1143,12 @@ export function MeetingsView() {
                     <CheckSquare className="w-4 h-4" style={{ color: "var(--primary)" }} />
                     <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">생성된 To-Do</div>
                   </div>
-                  <button className="text-xs font-medium text-blue-600 hover:text-blue-700">업무로 등록</button>
+                  <button
+                    onClick={() => analysisResult && setUploadFlow("review")}
+                    disabled={!analysisResult}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700 disabled:text-slate-400 disabled:cursor-not-allowed">
+                    업무로 등록
+                  </button>
                 </div>
                 <ul className="space-y-2">
                   {meeting.todos.map((t, i) => (
@@ -716,14 +1183,30 @@ export function MeetingsView() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-            <FileAudio className="w-12 h-12 text-muted" />
-            <div className="text-sm font-medium">회의록을 선택하세요</div>
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center text-muted-foreground">
+            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+              <FileAudio className="w-8 h-8 text-slate-400" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-foreground mb-1">
+                {meetings.length === 0 ? "분석할 회의록을 업로드해주세요" : "회의록을 선택하세요"}
+              </div>
+              <div className="text-xs leading-relaxed max-w-sm">
+                {meetings.length === 0
+                  ? "업로드 후 분석이 완료되면 회의 요약, 핵심 결정사항, 생성된 To-Do, 위험 요소가 이 화면에 표시됩니다."
+                  : "왼쪽 목록에서 분석된 회의록을 선택하면 상세 결과를 확인할 수 있습니다."}
+              </div>
+            </div>
+            {meetings.length === 0 && (
+              <button onClick={() => { setUploadFlow("modal"); setModalStep(0); setUploadType(null); setUploadFileName(""); setUploadFileSize(""); setSelectedFile(null); setAnalysisError(null); }}
+                className="mt-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+                style={{ background:"linear-gradient(135deg,#7048E8,#4F6EF7)" }}>
+                회의록 업로드
+              </button>
+            )}
           </div>
         )}
       </div>
     </div>
   );
 }
-
-// ─── deliverables (redesigned) ────────────────────────────────────────────────
