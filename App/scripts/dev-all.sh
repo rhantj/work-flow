@@ -49,6 +49,16 @@ echo "[3/3] 프론트엔드(Vite) 시작 (로그: $LOG_DIR/frontend.log) — Ctr
 (cd "$APP_DIR/frontend" && exec pnpm dev) > "$LOG_DIR/frontend.log" 2>&1 &
 PIDS+=("$!")
 
+echo "프론트엔드 부팅 대기 중..."
+sleep 3
+
+echo ""
+echo "===== 로컬 접속 주소 ====="
+echo "프론트엔드      : http://localhost:5173"
+echo "Spring Boot API : http://localhost:8080/api/v1/health"
+echo "Swagger UI      : http://localhost:8080/swagger-ui/index.html"
+echo "AI FastAPI      : http://127.0.0.1:8000/api/v1/health"
+echo "=========================="
 echo ""
 echo "모두 시작됨. 로그는 $LOG_DIR 에서 tail -f로 확인 가능. Ctrl+C로 전체 종료."
 # macOS 기본 bash(3.2)는 `wait -n`을 지원하지 않으므로 전체 대기로 처리한다.
