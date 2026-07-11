@@ -13,4 +13,5 @@ supportedArchitectures:
 minimumReleaseAge: 10080
 allowBuilds:
   '@tailwindcss/oxide': true
+  core-js: true
   esbuild: true
