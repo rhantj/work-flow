@@ -4,8 +4,9 @@ import { TaskStatusPill } from "../../components/common/TaskStatusPill";
 import { PriorityBadge } from "../../components/common/PriorityBadge";
 import { LabelBadge } from "../../components/common/LabelBadge";
 import { getCat } from "../../services/taskService";
-import { TASKS, CATEGORIES, TASK_CAT, CAT_EXTRA, BOARD_COLS } from "../../data/tasks";
+import { CATEGORIES, TASK_CAT, CAT_EXTRA, BOARD_COLS } from "../../data/tasks";
 import { MEMBERS } from "../../data/members";
+import { useStoredTasks } from "../../hooks/useStoredTasks";
 import type { Priority, TaskStatus } from "../../models/task";
 import {
   FileAudio,
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 
 export function BoardView() {
+  const TASKS = useStoredTasks();
   const [selId, setSelId] = useState<string|null>(null);
   const [showModal, setShowModal] = useState(false);
   const [step, setStep] = useState(0);
