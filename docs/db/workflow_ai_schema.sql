@@ -1,14 +1,17 @@
 -- ============================================================================
--- WorkFlow AI - Database Schema (MySQL DDL)
+-- WorkFlow AI - Database Schema (MariaDB DDL)
 -- 출처: docs/WorkFlow_AI_PRD.md, docs/WorkFlow_AI_API_명세서.md,
 --       docs/WorkFlow_AI_7인_구현_상세.md, docs/WorkFlow_AI_Data_Architecture.pptx
 -- 스코프: P0+P1+P2 전체 기능 (20개 테이블)
--- 용도: ERD Cloud(erdcloud.com) "SQL 가져오기"로 임포트해 ERD 시각화
--- 주의: 실제 서비스 스택은 PostgreSQL + pgvector(§6.4). 이 스크립트는 ERD 시각화용
---       MySQL 방언이며, document_chunks.embedding은 pgvector VECTOR 대신 JSON으로 표현.
+-- 용도: ERD Cloud(erdcloud.com) "SQL 가져오기"로 임포트해 ERD 시각화 /
+--       MariaDB 서버에 직접 실행 가능
+-- 요구 버전: MariaDB 10.2+ (JSON 타입 = LONGTEXT + CHECK(JSON_VALID()) 별칭 지원)
+-- 주의: 실제 서비스 스택은 PostgreSQL + pgvector(§6.4). document_chunks.embedding은
+--       pgvector VECTOR 대신 JSON으로 표현.
 -- ============================================================================
 
 SET NAMES utf8mb4;
+SET default_storage_engine = InnoDB;
 
 -- ----------------------------------------------------------------------------
 -- 1. 인증 / 프로젝트
