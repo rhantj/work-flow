@@ -254,6 +254,7 @@ figma_export/
 prototype/
 output/
 App/backend_spring/build/
+App/backend_spring/bin/
 App/backend_spring/.gradle/
 App/scripts/.dev-logs/
 
