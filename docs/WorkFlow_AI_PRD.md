@@ -8,7 +8,7 @@
 | 문서 버전 | v2.0 |
 | 목적 | 최종 기능 범위, 요구사항, 권한, AI/ML/DL 기술 적용 범위 정의 |
 | 개발 기간 | 약 1개월 |
-| 대상 | 대학생 팀프로젝트, 캡스톤디자인, 해커톤, AI 경진대회, 공모전 팀 |
+| 대상 | 캡스톤디자인 |
 
 ## 2. 제품 한 줄 정의
 
@@ -56,39 +56,33 @@ WorkFlow AI는 팀 프로젝트의 회의, 업무, 개발 기록, 산출물, 평
 
 | ID | 기능 | 요구사항 | 기술 |
 | --- | --- | --- | --- |
-| FR-01 | 인증/권한 | 회원가입, 로그인, 팀장/팀원/심사자 권한 | Spring Boot, JWT, RBAC |
+| FR-01 | 인증/권한/마이페이지 | 회원가입, 로그인, 팀장/팀원/심사자 권한, 팀장/팀원/심사자별 개인 화면 | Spring Boot, JWT, RBAC, React, RBAC |
 | FR-02 | 프로젝트 관리 | 프로젝트 생성, 팀원 초대, 마감일 설정 | Spring Boot, DB |
 | FR-03 | 업무 보드 | 상태별 칸반, 카테고리별 상세 UI, 담당자/마감일 관리 | React, Spring Boot |
 | FR-04 | 회의록 업로드 | 문서 업로드, 텍스트 추출, AI 분석 | LLM, File Parser |
 | FR-05 | To-Do 자동 생성 | 회의록 기반 업무 추출, 담당자 후보, 미배정 처리 | LLM, Function Calling |
 | FR-06 | 대시보드 | 전체 진행률, 마감 임박, 업무량, 최근 활동 | DB Aggregation, Chart UI |
-| FR-07 | ML 지연 위험도 | 업무 데이터 기반 정상/주의/위험 예측 | scikit-learn, LightGBM |
-| FR-08 | ML 업무 편중 점수 | 팀원별 과부하 점수 산정 | Regression/Classification |
-| FR-09 | AI Assistant | 프로젝트 맥락 기반 Q&A | LLM, RAG, Vector DB |
-| FR-10 | 산출물 생성 | 발표자료/보고서/README 초안 생성 | LLM, Template |
-| FR-11 | 심사자 기여도 기본 | 업무/회의/GitHub/문서 기반 리포트 | DB Aggregation, LLM |
-| FR-12 | 마이페이지 | 팀장/팀원/심사자별 개인 화면 | React, RBAC |
+| FR-07 | ML 업무 편중 점수 | 팀원별 과부하 점수 산정 | Regression/Classification |
+| FR-08 | AI Assistant | 프로젝트 맥락 기반 Q&A | LLM, RAG, Vector DB |
+| FR-09 | 심사자 기여도 기본 | 업무/회의/GitHub/문서 기반 리포트 | DB Aggregation, LLM |
 
 ### P1
 
 | ID | 기능 | 요구사항 | 기술 |
 | --- | --- | --- | --- |
-| FR-13 | 음성 STT | 녹음파일을 회의록 텍스트로 변환 | Whisper, Deep Learning |
-| FR-14 | 회의록 문장 분류 | 결정사항/할 일/위험요소/일반 문장 분류 | KoBERT/KLUE-BERT |
-| FR-15 | 업무 우선순위 분류 | 제목/설명 기반 우선순위 자동 추천 | BERT Text Classification |
-| FR-16 | GitHub 연동 | 저장소 연결, 커밋/브랜치 조회, 소스트리 형태의 커밋 그래프·diff 뷰어 | GitHub REST/GraphQL API, Webhook |
-| FR-17 | 기여도 이상치 탐지 | 지나치게 낮거나 높은 기여 패턴 탐지 | Isolation Forest |
-| FR-18 | 역할 추천 | 회의록 기반 미배정 업무 담당자 추천 | KNN/Clustering |
-| FR-19 | 평가 점수 공개 | 심사자 점수 입력, 공개/비공개 설정 | Audit Log, RBAC |
+| FR-10 | 음성 STT | 녹음파일을 회의록 텍스트로 변환 | Whisper, Deep Learning |
+| FR-11 | 회의록 문장 분류 | 결정사항/할 일/위험요소/일반 문장 분류 | KoBERT/KLUE-BERT |
+| FR-12 | 업무 우선순위 분류 | 제목/설명 기반 우선순위 자동 추천 | BERT Text Classification |
+| FR-13 | GitHub 연동 | 저장소 연결, 커밋/브랜치 조회, 소스트리 형태의 커밋 그래프·diff 뷰어 | GitHub REST/GraphQL API, Webhook |
+| FR-14 | 기여도 이상치 탐지 | 지나치게 낮거나 높은 기여 패턴 탐지 | Isolation Forest |
+| FR-15 | 역할 추천 | 회의록 기반 미배정 업무 담당자 추천 | KNN/Clustering |
+| FR-16 | 평가 점수 공개 | 심사자 점수 입력, 공개/비공개 설정 | Audit Log, RBAC |
 
 ### P2
 
 | ID | 기능 | 요구사항 | 기술 |
 | --- | --- | --- | --- |
-| FR-20 | 영상 회의 분석 | 영상에서 음성 추출 후 STT | FFmpeg, Whisper |
-| FR-21 | PPT/PDF/DOCX 다운로드 | 산출물 파일 생성 | python-pptx, ReportLab |
-| FR-22 | 회의 감정/위험 신호 분석 | 갈등, 일정 불안, 역할 불명확 신호 탐지 | BERT Sentiment |
-| FR-23 | 외부 캘린더 연동 | 마감일/회의일 캘린더 동기화 | Google Calendar API |
+| FR-17 | 외부 캘린더 연동 | 마감일/회의일 캘린더 동기화 | Google Calendar API |
 
 ## 7. 주요 사용자 흐름
 
@@ -155,7 +149,6 @@ WorkFlow AI는 팀 프로젝트의 회의, 업무, 개발 기록, 산출물, 평
 | task_checklists | id, task_id, title, is_done |
 | activities | id, project_id, actor_id, type, target_id, created_at |
 | github_records | id, project_id, type, title, author, url, linked_task_id |
-| deliverables | id, project_id, type, title, content, status, file_path |
 | ml_predictions | id, project_id, target_type, target_id, model_type, result, score |
 | contribution_reports | id, project_id, user_id, summary, evidence |
 | evaluation_scores | id, project_id, user_id, score, is_public |
@@ -171,6 +164,5 @@ WorkFlow AI는 팀 프로젝트의 회의, 업무, 개발 기록, 산출물, 평
 | AC-04 | 업무 보드 상태 변경이 대시보드 진행률에 반영된다. |
 | AC-05 | ML 지연 위험도와 업무 편중 점수가 화면에 표시된다. |
 | AC-06 | AI Assistant가 프로젝트 데이터 기반 질문에 출처와 함께 답변한다. |
-| AC-07 | 산출물 생성에서 최소 발표자료, 보고서, README 초안이 생성된다. |
-| AC-08 | 심사자만 개인별 기여도 리포트와 AI 평가 근거를 볼 수 있다. |
-| AC-09 | 최종 발표에서 회의록 업로드부터 평가 근거 확인까지 한 흐름으로 시연 가능하다. |
+| AC-07 | 심사자만 개인별 기여도 리포트와 AI 평가 근거를 볼 수 있다. |
+| AC-08 | 최종 발표에서 회의록 업로드부터 평가 근거 확인까지 한 흐름으로 시연 가능하다. |
