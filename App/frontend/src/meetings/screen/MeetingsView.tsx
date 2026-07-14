@@ -204,6 +204,17 @@ const decodeTextFile = async (file: File): Promise<string> => {
   }
 };
 
+// ZIP 스트리밍(data descriptor) 방식으로 쓰인 항목은 로컬 헤더의 compressedSize가 0이라
+// 실제 길이를 알 수 없다. 다음 데이터 디스크립터/로컬 헤더/중앙 디렉터리 시그니처가
+// 나오는 지점까지를 압축 데이터로 간주해 역산한다.
+const findStreamedEntryLength = (bytes: Uint8Array, view: DataView, dataStart: number): number => {
+  for (let i = dataStart; i < bytes.length - 4; i++) {
+    const sig = view.getUint32(i, true);
+    if (sig === 0x08074b50 || sig === 0x04034b50 || sig === 0x02014b50) return i - dataStart;
+  }
+  return bytes.length - dataStart;
+};
+
 // 외부 라이브러리 없이 docx(zip) 안의 word/document.xml만 추출해 태그를 제거한 순수 텍스트로 변환한다.
 const extractDocxText = async (file: File): Promise<string> => {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -211,13 +222,16 @@ const extractDocxText = async (file: File): Promise<string> => {
   let offset = 0;
   while (offset < bytes.length - 4) {
     if (view.getUint32(offset, true) !== 0x04034b50) { offset++; continue; }
+    const flags = view.getUint16(offset + 6, true);
     const compressionMethod = view.getUint16(offset + 8, true);
-    const compressedSize = view.getUint32(offset + 18, true);
     const nameLen = view.getUint16(offset + 26, true);
     const extraLen = view.getUint16(offset + 28, true);
     const nameStart = offset + 30;
     const name = new TextDecoder().decode(bytes.subarray(nameStart, nameStart + nameLen));
     const dataStart = nameStart + nameLen + extraLen;
+    const headerSize = view.getUint32(offset + 18, true);
+    const usesDataDescriptor = (flags & 0x0008) !== 0 && headerSize === 0;
+    const compressedSize = usesDataDescriptor ? findStreamedEntryLength(bytes, view, dataStart) : headerSize;
     if (name === "word/document.xml") {
       const compressed = bytes.subarray(dataStart, dataStart + compressedSize);
       let xmlBytes: Uint8Array;
