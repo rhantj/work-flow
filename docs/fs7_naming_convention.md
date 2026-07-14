@@ -41,6 +41,6 @@ POST  /ai/ml/anomaly                  (FastAPI)
   - `project_members.role` 값은 영문 `team_lead`/`member`/`reviewer`로 저장 (한글 아님) — `Comment.AuthorRole` enum과 값 일치 확인됨
 
 ## 5. 다른 오너에게 요청할 것
-- FS-2(박지수) / FS-6(허영주): 회의 참석 데이터가 `activities`로 통합됐는지 별도 테이블인지 확인 필요, `github_records` 정확한 컬럼명도 공유 부탁 — `evidence` JSONB 매핑에 필요
-- FS-3(유소은): 이상치 탐지 결과는 `ml_predictions` 테이블 재사용 예정, `model_type='isolation_forest'`로 넣을 거라 미리 공지
+- FS-2(박지수) / FS-6(박지수): 회의 참석 데이터가 `activities`로 통합됐는지 별도 테이블인지 확인 필요, `github_records` 정확한 컬럼명도 공유 부탁 — `evidence` JSONB 매핑에 필요
+- FS-3(박지수): 이상치 탐지 결과는 `ml_predictions` 테이블 재사용 예정, `model_type='isolation_forest'`로 넣을 거라 미리 공지
 - DB 설계 담당자: 위 확장 필드 2건 공식 ERD에 반영 요청
