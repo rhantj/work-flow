@@ -64,6 +64,10 @@ public class TaskController {
         @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId,
         @RequestBody TaskCreateRequest request
     ) {
+        if (request.title() == null || request.title().isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.fail("TITLE_REQUIRED", "업무 제목은 필수입니다."));
+        }
+
         Long projectDbId = demoDataService.resolveProjectId(projectId);
         LocalDate dueDate;
         try {
@@ -75,10 +79,12 @@ public class TaskController {
         // TODO: "1"은 로그인한 사용자가 없어 임시로 쓰는 mock 담당자 id다. 실제 인증이 붙으면 로그인 사용자 id로 교체.
         Long createdBy = demoDataService.resolveUserId("1");
         String status = request.status() == null ? "todo" : request.status();
+        // category는 DB NOT NULL이라 누락 시 저장 단계에서 예외가 나기 전에 기본값으로 방어한다.
+        String category = defaultString(request.category(), "other");
         Task task = taskRepository.save(new Task(
             projectDbId,
             request.title(),
-            request.category(),
+            category,
             status,
             demoDataService.resolveUserId(request.assigneeId()),
             dueDate,
@@ -167,5 +173,9 @@ public class TaskController {
 
     private static LocalDate parseDate(String dueDate) {
         return dueDate == null || dueDate.isBlank() ? null : LocalDate.parse(dueDate);
+    }
+
+    private static String defaultString(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 }

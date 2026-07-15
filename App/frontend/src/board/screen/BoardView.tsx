@@ -11,7 +11,7 @@ import { AddTaskModal } from "../components/AddTaskModal";
 import { fetchTasks, updateTaskPosition, deleteTask } from "../libs/utils/taskApi";
 import { useStoredComments, addActivity } from "../libs/utils/activityStore";
 import { STATUS_LABELS, NEXT_STATUS } from "../libs/utils/taskActions";
-import { buildDefaultChecklist, computeInsertPosition } from "../libs/utils/taskService";
+import { buildDefaultChecklist, reorderTasks } from "../libs/utils/taskService";
 import { MEMBERS } from "../../global/lib/mock/members";
 import type { Task, TaskStatus } from "../libs/types/task";
 
@@ -75,30 +75,17 @@ export function BoardView() {
   };
 
   // 업무를 targetStatus 컬럼의 insertAtIndex 위치로 옮긴다(같은 컬럼 안 재정렬 + 다른 컬럼으로 이동 모두 이 함수 하나로 처리).
-  // tasks 배열은 항상 "표시 순서"(같은 status끼리는 position 오름차순)를 그대로 반영하도록 유지한다.
+  // 배열 재배치/position 계산 자체는 reorderTasks()에 위임하고, 여기서는 낙관적 업데이트 + API 호출 + 롤백만 담당한다.
   const moveTask = async (taskId: string, targetStatus: TaskStatus, insertAtIndex: number) => {
     const dragged = tasks.find((t) => t.id === taskId);
-    if (!dragged) return;
+    const result = reorderTasks(tasks, taskId, targetStatus, insertAtIndex);
+    if (!dragged || !result) return;
     const prevTasks = tasks;
-
-    const withoutDragged = tasks.filter((t) => t.id !== taskId);
-    const columnTasks = withoutDragged.filter((t) => t.status === targetStatus);
-    const newPosition = computeInsertPosition(columnTasks, insertAtIndex);
-    const movedTask = { ...dragged, status: targetStatus, position: newPosition };
-
-    const anchor = columnTasks[insertAtIndex] ?? columnTasks[insertAtIndex - 1];
-    const anchorGlobalIndex = anchor ? withoutDragged.indexOf(anchor) : -1;
-    const insertGlobalIndex = anchor
-      ? (columnTasks[insertAtIndex] ? anchorGlobalIndex : anchorGlobalIndex + 1)
-      : withoutDragged.length;
-
-    const next = [...withoutDragged];
-    next.splice(insertGlobalIndex, 0, movedTask);
-    setTasks(next);
+    setTasks(result.next);
 
     const statusChanged = dragged.status !== targetStatus;
     try {
-      await updateTaskPosition(taskId, targetStatus, newPosition);
+      await updateTaskPosition(taskId, targetStatus, result.newPosition);
       if (statusChanged) {
         addActivity(`'${dragged.title}' 상태를 '${STATUS_LABELS[targetStatus]}'(으)로 변경`, CURRENT_USER.name, "status");
       }

@@ -59,3 +59,34 @@ export function computeInsertPosition(columnTasks: Task[], insertAtIndex: number
   if (next) return next.position - 1;
   return 0;
 }
+
+/**
+ * 업무(taskId)를 targetStatus 컬럼의 insertAtIndex 위치로 옮긴 새 배열과, 저장할 새 position을 계산한다.
+ * 드래그앤드롭(컬럼 이동/같은 컬럼 재정렬)과 빠른 액션 버튼(컬럼 맨 끝에 추가) 모두 이 함수 하나로 처리한다.
+ * 반환된 tasks 배열은 항상 "표시 순서"(같은 status끼리는 position 오름차순)를 그대로 반영한다.
+ * 다른 status의 카드들은 화면에서 항상 status로 필터링해서 렌더링하므로, 배열 안 상대 위치가 어디든 상관없다.
+ */
+export function reorderTasks(
+  tasks: Task[],
+  taskId: string,
+  targetStatus: TaskStatus,
+  insertAtIndex: number
+): { next: Task[]; newPosition: number } | null {
+  const dragged = tasks.find(t => t.id === taskId);
+  if (!dragged) return null;
+
+  const withoutDragged = tasks.filter(t => t.id !== taskId);
+  const columnTasks = withoutDragged.filter(t => t.status === targetStatus);
+  const newPosition = computeInsertPosition(columnTasks, insertAtIndex);
+  const movedTask = { ...dragged, status: targetStatus, position: newPosition };
+
+  // columnTasks[insertAtIndex]가 있으면 그 카드 바로 앞에, 없으면(컬럼 맨 끝) 그 컬럼 마지막 카드 바로 뒤에 끼워 넣는다.
+  const anchor = columnTasks[insertAtIndex] ?? columnTasks[insertAtIndex - 1];
+  const insertGlobalIndex = !anchor
+    ? withoutDragged.length
+    : withoutDragged.indexOf(anchor) + (columnTasks[insertAtIndex] ? 0 : 1);
+
+  const next = [...withoutDragged];
+  next.splice(insertGlobalIndex, 0, movedTask);
+  return { next, newPosition };
+}
