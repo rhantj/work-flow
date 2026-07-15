@@ -290,15 +290,32 @@ public class MeetingAnalysisService {
     private String storeUploadedFile(Long meetingId, MultipartFile file) {
         if (file == null || file.isEmpty()) return null;
         try {
-            Path dir = Path.of(uploadsDir, String.valueOf(meetingId));
+            Path dir = Path.of(uploadsDir, String.valueOf(meetingId)).toAbsolutePath().normalize();
             Files.createDirectories(dir);
-            String safeName = file.getOriginalFilename() == null ? "upload.bin" : file.getOriginalFilename();
-            Path target = dir.resolve(safeName);
+            String safeName = sanitizeFileName(file.getOriginalFilename());
+            Path target = dir.resolve(safeName).normalize();
+            if (!target.startsWith(dir)) {
+                throw new IOException("Invalid upload file name: " + file.getOriginalFilename());
+            }
             file.transferTo(target);
             return target.toString();
         } catch (IOException e) {
             return null;
         }
+    }
+
+    private String sanitizeFileName(String originalFilename) {
+        if (originalFilename == null || originalFilename.isBlank()) return "upload.bin";
+        String name = originalFilename.replace('\\', '/');
+        int slashIndex = name.lastIndexOf('/');
+        if (slashIndex >= 0) {
+            name = name.substring(slashIndex + 1);
+        }
+        name = name.replaceAll("[\\p{Cntrl}:*?\"<>|]+", "_").trim();
+        if (name.isBlank() || ".".equals(name) || "..".equals(name)) {
+            return "upload.bin";
+        }
+        return name;
     }
 
     private void saveAttendees(Long meetingId, List<String> participantNames) {
