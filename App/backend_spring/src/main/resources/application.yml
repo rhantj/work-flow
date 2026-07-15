@@ -15,8 +15,9 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:root}
   jpa:
     open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
     properties:
       hibernate:
         format_sql: true

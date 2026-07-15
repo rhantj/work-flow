@@ -9,3 +9,8 @@ logging:
   level:
     root: INFO
     org.springframework.web: WARN
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
