@@ -7,6 +7,7 @@ import com.workflowai.user.UserRepository;
 import java.util.List;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,14 +30,22 @@ public class DemoDataService implements ApplicationRunner {
 
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final boolean seedEnabled;
 
-    public DemoDataService(ProjectRepository projectRepository, UserRepository userRepository) {
+    public DemoDataService(
+        ProjectRepository projectRepository,
+        UserRepository userRepository,
+        @Value("${workflow.demo.seed-enabled:true}") boolean seedEnabled
+    ) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
+        this.seedEnabled = seedEnabled;
     }
 
     @Override
     public void run(ApplicationArguments args) {
+        if (!seedEnabled) return;
+
         projectRepository.findFirstByTitle(DEMO_PROJECT_TITLE)
             .orElseGet(() -> projectRepository.save(
                 new Project(DEMO_PROJECT_TITLE, "캡스톤디자인", "회의록 AI 데모/개발용 프로젝트")

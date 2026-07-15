@@ -47,4 +47,35 @@ class DatabaseUrlPropertyMapperTest {
 
         assertFalse(properties.containsKey("spring.datasource.url"));
     }
+
+    @Test
+    void replacesLocalhostSpringDatasourceUrlWithRailwayDatabaseUrl() {
+        Map<String, String> properties = DatabaseUrlPropertyMapper.toSpringProperties(Map.of(
+            "SPRING_DATASOURCE_URL", "jdbc:postgresql://localhost:5432/workflow",
+            "DATABASE_PRIVATE_URL", "postgresql://railway:secret@postgres.railway.internal:5432/railway"
+        ));
+
+        assertEquals(
+            "jdbc:postgresql://postgres.railway.internal:5432/railway",
+            properties.get("spring.datasource.url")
+        );
+        assertEquals("railway", properties.get("spring.datasource.username"));
+        assertEquals("secret", properties.get("spring.datasource.password"));
+    }
+
+    @Test
+    void convertsRailwayPostgresVariablesToSpringDatasourceProperties() {
+        Map<String, String> properties = DatabaseUrlPropertyMapper.toSpringProperties(Map.of(
+            "SPRING_DATASOURCE_URL", "jdbc:postgresql://localhost:5432/workflow",
+            "POSTGRES_HOST", "postgres.railway.internal",
+            "POSTGRES_PORT", "5432",
+            "POSTGRES_DATABASE", "railway",
+            "POSTGRES_USER", "railway",
+            "POSTGRES_PASSWORD", "secret"
+        ));
+
+        assertEquals("jdbc:postgresql://postgres.railway.internal:5432/railway", properties.get("spring.datasource.url"));
+        assertEquals("railway", properties.get("spring.datasource.username"));
+        assertEquals("secret", properties.get("spring.datasource.password"));
+    }
 }

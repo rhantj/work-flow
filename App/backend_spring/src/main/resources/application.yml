@@ -27,5 +27,7 @@ workflow:
     base-url: ${WORKFLOW_AI_FASTAPI_URL:http://localhost:8000}
   cors:
     allowed-origins: ${WORKFLOW_CORS_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  demo:
+    seed-enabled: ${WORKFLOW_DEMO_SEED_ENABLED:true}
   uploads:
     dir: ${WORKFLOW_UPLOADS_DIR:uploads}
