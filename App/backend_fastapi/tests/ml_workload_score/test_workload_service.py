@@ -51,8 +51,12 @@ async def test_get_workload_score_synthetic_fallback_still_works():
     with patch(
         "ml_workload_score.app.services.workload_service.db.load_tasks_from_db",
         side_effect=RuntimeError("no db"),
-    ):
+    ), patch(
+        "ml_workload_score.app.services.workload_service.compute_embedding_adjustments",
+        AsyncMock(),
+    ) as mock_adjustments:
         result = await get_workload_score(project_id=1, use_synthetic_fallback=True)
 
     assert result.source == "synthetic_fallback"
     assert len(result.members) > 0
+    mock_adjustments.assert_not_called()
