@@ -30,4 +30,22 @@ describe("AppShell (mobile)", () => {
     await userEvent.click(screen.getByRole("button", { name: "대시보드" }));
     expect(sidebarWrapper.className).toContain("-translate-x-full");
   });
+
+  it("removes the off-screen sidebar from the accessibility tree and tab order, and restores it once opened", async () => {
+    render(
+      <MemoryRouter initialEntries={["/board"]}>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const sidebarWrapper = screen.getByText("TeamFlow").closest("[data-sidebar-wrapper]") as HTMLElement;
+    expect(sidebarWrapper).toHaveAttribute("aria-hidden", "true");
+    expect(sidebarWrapper).toHaveAttribute("inert");
+
+    await userEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+    expect(sidebarWrapper).not.toHaveAttribute("aria-hidden");
+    expect(sidebarWrapper).not.toHaveAttribute("inert");
+  });
 });

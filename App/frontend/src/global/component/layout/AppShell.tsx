@@ -57,6 +57,7 @@ export function AppShell() {
             ? `fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`
             : ""
         }
+        {...(isMobile && !mobileOpen ? { "aria-hidden": true, inert: true } : {})}
       >
         <Sidebar
           active={activeTab}
