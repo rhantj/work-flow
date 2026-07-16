@@ -48,6 +48,19 @@ public class AuthController {
         this.authService = authService;
         this.frontendBaseUrl = frontendBaseUrl;
         this.forceSecureCookies = forceSecureCookies;
+
+        // 배포 시 Secure 쿠키 설정을 잘못 맞추면 로그인이 조용히 깨지므로, 기동 로그에서 바로 눈에 띄게 남긴다.
+        if (frontendBaseUrl.startsWith("https://") && !forceSecureCookies) {
+            log.warn(
+                "OAuth state cookie security: frontend가 HTTPS({})인데 "
+                    + "workflow.security.force-secure-cookies=false다. 프록시가 사설 대역 IP가 아니면 "
+                    + "request.isSecure()가 false로 판정되어 Secure 쿠키가 붙지 않고 로그인이 깨질 수 있다 — "
+                    + "SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES 또는 WORKFLOW_FORCE_SECURE_COOKIES 설정을 확인할 것.",
+                frontendBaseUrl
+            );
+        } else {
+            log.info("OAuth state cookie security: force-secure-cookies={}", forceSecureCookies);
+        }
     }
 
     @Operation(summary = "Google OAuth 인가 URL로 리다이렉트")
