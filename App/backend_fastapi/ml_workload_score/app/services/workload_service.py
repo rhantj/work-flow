@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from ml_workload_score.app.services import workload_db as db
@@ -28,7 +29,7 @@ async def get_workload_score(project_id: int, use_synthetic_fallback: bool = Fal
     """
     embedding_adjustments: dict[int, float] = {}
     try:
-        tasks_df = db.load_tasks_from_db(project_id)
+        tasks_df = await asyncio.to_thread(db.load_tasks_from_db, project_id)
         source = "db"
         if not tasks_df.empty:
             embedding_adjustments = await compute_embedding_adjustments(
