@@ -3,10 +3,12 @@ package com.workflowai.auth;
 import com.workflowai.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -34,7 +36,6 @@ public class AuthController {
     private final GoogleOAuthService googleOAuthService;
     private final AuthService authService;
     private final String frontendBaseUrl;
-    private final boolean secureCookies;
 
     public AuthController(
         GoogleOAuthService googleOAuthService,
@@ -44,17 +45,16 @@ public class AuthController {
         this.googleOAuthService = googleOAuthService;
         this.authService = authService;
         this.frontendBaseUrl = frontendBaseUrl;
-        this.secureCookies = frontendBaseUrl.startsWith("https://");
     }
 
     @Operation(summary = "Google OAuth 인가 URL로 리다이렉트")
     @GetMapping("/google")
-    public ResponseEntity<Void> redirectToGoogle() {
+    public ResponseEntity<Void> redirectToGoogle(HttpServletRequest request) {
         String state = UUID.randomUUID().toString();
         String authorizationUrl = googleOAuthService.buildAuthorizationUrl(state);
         return ResponseEntity.status(HttpStatus.FOUND)
             .location(URI.create(authorizationUrl))
-            .header(HttpHeaders.SET_COOKIE, stateCookie(state, Duration.ofMinutes(5)).toString())
+            .header(HttpHeaders.SET_COOKIE, stateCookie(state, Duration.ofMinutes(5), request).toString())
             .build();
     }
 
@@ -68,14 +68,15 @@ public class AuthController {
     public ResponseEntity<Void> handleGoogleCallback(
         @RequestParam(required = false) String code,
         @RequestParam(required = false) String state,
-        @CookieValue(name = STATE_COOKIE, required = false) String expectedState
+        @CookieValue(name = STATE_COOKIE, required = false) String expectedState,
+        HttpServletRequest request
     ) {
-        ResponseCookie clearStateCookie = stateCookie("", Duration.ZERO);
+        ResponseCookie clearStateCookie = stateCookie("", Duration.ZERO, request);
 
         if (code == null || code.isBlank()) {
             return redirectToFrontend("/login?error=oauth_failed", clearStateCookie);
         }
-        if (state == null || expectedState == null || !state.equals(expectedState)) {
+        if (!statesMatch(state, expectedState)) {
             log.warn("Google OAuth state 불일치로 콜백 거부");
             return redirectToFrontend("/login?error=oauth_failed", clearStateCookie);
         }
@@ -114,14 +115,25 @@ public class AuthController {
             .build();
     }
 
-    private ResponseCookie stateCookie(String value, Duration maxAge) {
+    private ResponseCookie stateCookie(String value, Duration maxAge, HttpServletRequest request) {
         return ResponseCookie.from(STATE_COOKIE, value)
             .httpOnly(true)
-            .secure(secureCookies)
+            .secure(request.isSecure())
             .sameSite("Lax")
             .path("/api/v1/auth")
             .maxAge(maxAge)
             .build();
+    }
+
+    /** 타이밍 공격 여지를 없애기 위해 상수 시간으로 state 값을 비교한다. */
+    private boolean statesMatch(String state, String expectedState) {
+        if (state == null || expectedState == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+            state.getBytes(StandardCharsets.UTF_8),
+            expectedState.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private String encode(String value) {
