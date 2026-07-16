@@ -133,7 +133,7 @@ export function Sidebar({ active, onSelect, onAI, collapsed, onToggleCollapsed, 
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-3 space-y-0.5 scrollbar-thin-dark">
         {navItems.map((item) => {
           const showGroup = !collapsed && !rendered.includes(item.group);
           if (showGroup) rendered.push(item.group);

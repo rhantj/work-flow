@@ -78,4 +78,10 @@ describe("Sidebar", () => {
     renderSidebar({ showCollapseToggle: false });
     expect(screen.queryByRole("button", { name: "사이드바 접기" })).not.toBeInTheDocument();
   });
+
+  it("applies the dark scrollbar styling to the nav element", () => {
+    renderSidebar();
+    const nav = screen.getByRole("navigation");
+    expect(nav).toHaveClass("scrollbar-thin-dark");
+  });
 });
