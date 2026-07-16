@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY App/backend_fastapi/app app
 COPY App/backend_fastapi/core core
 COPY App/backend_fastapi/llm_rag_assistant llm_rag_assistant
+# FS-3(대시보드) - 지연 위험도 예측
+COPY App/backend_fastapi/ml_delayrisk_classification ml_delayrisk_classification
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
