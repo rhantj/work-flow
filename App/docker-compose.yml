@@ -106,15 +106,19 @@ services:
         condition: service_started
 
   frontend:
-    build: ./frontend
+    # Dockerfile이 pnpm build 결과를 nginx(1.27-alpine)에 얹어 5173으로 서빙하고
+    # /api/는 backend-spring:8080으로 프록시한다 (frontend/nginx.conf).
+    # 정적 빌드라 HMR은 동작하지 않는다 — 프론트를 고치며 개발할 땐 이 컨테이너 대신
+    # 호스트에서 `cd frontend && pnpm dev`를 쓸 것.
+    # 데모 로그인 버튼을 Docker에서도 기본으로 보이게 함(임시 - 나중에 기능 제거 시 같이 정리).
+    # 끄고 싶으면 VITE_ENABLE_DEMO_AUTH=false로 빌드.
+    build:
+      context: ./frontend
+      args:
+        VITE_ENABLE_DEMO_AUTH: ${VITE_ENABLE_DEMO_AUTH:-true}
     container_name: workflow-frontend
-    environment:
-      API_PROXY_TARGET: http://backend-spring:8080
     ports:
       - '5173:5173'
-    volumes:
-      - ./frontend:/app # 호스트 코드 수정 → 컨테이너에 바로 반영 (HMR)
-      - /app/node_modules # 컨테이너 안의 node_modules를 위 마운트가 안 덮도록 보호
     depends_on:
       - backend-spring
 
