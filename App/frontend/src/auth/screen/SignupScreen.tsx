@@ -5,6 +5,8 @@ import { AuthBrandPanel } from "../components/AuthBrandPanel";
 import { AuthInput } from "../components/AuthInput";
 import { useAuth } from "../../global/hooks/useAuth";
 
+const demoAuthEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === "true";
+
 export function SignupScreen() {
   const navigate = useNavigate();
   const { completeSignup, approveProfessorSignup, login } = useAuth();
@@ -74,13 +76,15 @@ export function SignupScreen() {
                 </div>
               </div>
 
-              <button onClick={handleApproveDemo}
-                className="mt-5 w-full py-3 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg, #7048E8 0%, #4F6EF7 100%)" }}>
-                <ShieldCheck className="w-4 h-4" />
-                승인 완료 시연하기
-              </button>
-              <button onClick={() => navigate("/login")} className="w-full mt-3 text-sm font-semibold text-blue-600 hover:text-blue-700">
+              {demoAuthEnabled && (
+                <button onClick={handleApproveDemo}
+                  className="mt-5 w-full py-3 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #7048E8 0%, #4F6EF7 100%)" }}>
+                  <ShieldCheck className="w-4 h-4" />
+                  승인 완료 시연하기
+                </button>
+              )}
+              <button onClick={() => navigate("/login")} className={`w-full text-sm font-semibold text-blue-600 hover:text-blue-700 ${demoAuthEnabled ? "mt-3" : "mt-5"}`}>
                 로그인 화면으로 이동
               </button>
             </div>

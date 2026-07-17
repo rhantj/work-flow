@@ -5,6 +5,8 @@ import { AuthBrandPanel } from "../components/AuthBrandPanel";
 import { AuthInput } from "../components/AuthInput";
 import { useAuth } from "../../global/hooks/useAuth";
 
+const demoAuthEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === "true";
+
 export function LoginScreen() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -71,17 +73,21 @@ export function LoginScreen() {
             )}
           </button>
 
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">또는</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
+          {demoAuthEnabled && (
+            <>
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">또는</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
 
-          <button onClick={handleJudgeDemoLogin}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">
-            <GraduationCap className="w-4 h-4" />
-            교수/심사자 데모 로그인
-          </button>
+              <button onClick={handleJudgeDemoLogin}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">
+                <GraduationCap className="w-4 h-4" />
+                교수/심사자 데모 로그인
+              </button>
+            </>
+          )}
 
           <p className="text-center text-sm text-muted-foreground mt-5">
             아직 계정이 없으신가요?{" "}

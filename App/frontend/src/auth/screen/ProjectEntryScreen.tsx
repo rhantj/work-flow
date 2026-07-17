@@ -5,6 +5,8 @@ import { AuthBrandPanel } from "../components/AuthBrandPanel";
 import { useAuth, type AppRole } from "../../global/hooks/useAuth";
 import { REVIEWER_ACTIVITIES, REVIEWER_TEAMS } from "../../board/libs/mock/reviewer";
 
+const demoAuthEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === "true";
+
 const PROJECTS: Array<{ id: string; name: string; type: string; role: AppRole; deadline: string; progress: number }> = [
   { id: "p1", name: "스마트 주차 관리 시스템", type: "캡스톤디자인", role: "LEADER", deadline: "D-18", progress: 71 },
   { id: "p2", name: "AI 식단 추천 앱", type: "팀프로젝트", role: "MEMBER", deadline: "D-24", progress: 48 },
@@ -51,6 +53,10 @@ export function ProjectEntryScreen() {
     const code = inviteCode.trim();
     if (!code) {
       setMessage("초대 URL 또는 코드를 입력해주세요.");
+      return;
+    }
+    if (!demoAuthEnabled) {
+      setMessage("초대 검증 기능은 준비 중입니다. 관리자에게 문의해주세요.");
       return;
     }
     const name = code.includes("parking") || code.includes("gX4mKp")
