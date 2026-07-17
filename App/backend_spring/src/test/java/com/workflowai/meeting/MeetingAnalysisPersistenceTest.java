@@ -2,6 +2,7 @@ package com.workflowai.meeting;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -89,7 +90,6 @@ class MeetingAnalysisPersistenceTest {
         ArgumentCaptor<Meeting> meetingCaptor = ArgumentCaptor.forClass(Meeting.class);
         verify(meetingRepository).save(meetingCaptor.capture());
         assertThat(meetingCaptor.getValue().getAnalysisStatus()).isEqualTo("failed");
-        assertThat(meetingCaptor.getValue().getAnalysisErrorMessage())
-            .isEqualTo(MeetingAnalysisPersistence.DEFAULT_ANALYSIS_ERROR_MESSAGE);
+        verify(meetingAnalysisRepository, never()).save(any());
     }
 }

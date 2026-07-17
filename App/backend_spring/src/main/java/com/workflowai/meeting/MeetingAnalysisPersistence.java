@@ -65,7 +65,6 @@ public class MeetingAnalysisPersistence {
         }
 
         meeting.setAnalysisStatus("completed");
-        meeting.setAnalysisErrorMessage(null);
         meetingRepository.save(meeting);
     }
 
@@ -73,7 +72,6 @@ public class MeetingAnalysisPersistence {
     public void saveAnalysisFailure(Long meetingId, String errorMessage) {
         meetingRepository.findById(meetingId).ifPresent(meeting -> {
             meeting.setAnalysisStatus("failed");
-            meeting.setAnalysisErrorMessage(toSafeErrorMessage(errorMessage));
             meetingRepository.save(meeting);
         });
     }

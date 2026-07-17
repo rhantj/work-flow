@@ -37,6 +37,7 @@ public class MeetingAnalysisService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final RagIngestService ragIngestService;
+    private final MeetingAnalysisPersistence meetingAnalysisPersistence;
     private final String uploadsDir;
 
     public MeetingAnalysisService(
@@ -50,6 +51,7 @@ public class MeetingAnalysisService {
         NotificationRepository notificationRepository,
         UserRepository userRepository,
         RagIngestService ragIngestService,
+        MeetingAnalysisPersistence meetingAnalysisPersistence,
         @Value("${workflow.uploads.dir}") String uploadsDir
     ) {
         this.meetingAnalysisRunner = meetingAnalysisRunner;
@@ -62,6 +64,7 @@ public class MeetingAnalysisService {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.ragIngestService = ragIngestService;
+        this.meetingAnalysisPersistence = meetingAnalysisPersistence;
         this.uploadsDir = uploadsDir;
     }
 
@@ -124,11 +127,11 @@ public class MeetingAnalysisService {
         if (!"completed".equals(meeting.getAnalysisStatus())) {
             String status = "failed".equals(meeting.getAnalysisStatus()) ? "FAILED" : "PROCESSING";
             String errorMessage = "FAILED".equals(status)
-                ? MeetingAnalysisPersistence.toSafeErrorMessage(meeting.getAnalysisErrorMessage())
+                ? MeetingAnalysisPersistence.DEFAULT_ANALYSIS_ERROR_MESSAGE
                 : null;
             return new MeetingAnalysisResponse(
                 meetingId,
-                String.valueOf(meeting.getProjectId()),
+                toResponseProjectId(meeting.getProjectId()),
                 status,
                 meeting.getFileType(),
                 meeting.getOriginalFileName(),
@@ -158,7 +161,7 @@ public class MeetingAnalysisService {
         );
         return new MeetingAnalysisResponse(
             meetingId,
-            String.valueOf(meeting.getProjectId()),
+            toResponseProjectId(meeting.getProjectId()),
             "COMPLETED",
             meeting.getFileType(),
             meeting.getOriginalFileName(),
@@ -179,7 +182,7 @@ public class MeetingAnalysisService {
             default -> "PROCESSING";
         };
         String errorMessage = "FAILED".equals(status)
-            ? MeetingAnalysisPersistence.toSafeErrorMessage(meeting.getAnalysisErrorMessage())
+            ? MeetingAnalysisPersistence.DEFAULT_ANALYSIS_ERROR_MESSAGE
             : null;
         return new MeetingStatusResponse(meetingId, status, errorMessage);
     }
@@ -196,11 +199,10 @@ public class MeetingAnalysisService {
         String text = extractTextFromStoredFile(meeting);
         if (text == null) {
             String errorMessage = MeetingAnalysisPersistence.REUPLOAD_REQUIRED_ERROR_MESSAGE;
-            meeting.setAnalysisErrorMessage(errorMessage);
-            meetingRepository.save(meeting);
+            meetingAnalysisPersistence.saveAnalysisFailure(id, errorMessage);
             return new MeetingAnalysisResponse(
                 meetingId,
-                String.valueOf(meeting.getProjectId()),
+                toResponseProjectId(meeting.getProjectId()),
                 "FAILED",
                 meeting.getFileType(),
                 meeting.getOriginalFileName(),
@@ -211,11 +213,10 @@ public class MeetingAnalysisService {
         }
         if (text.isBlank()) {
             String errorMessage = MeetingAnalysisPersistence.REUPLOAD_READ_ERROR_MESSAGE;
-            meeting.setAnalysisErrorMessage(errorMessage);
-            meetingRepository.save(meeting);
+            meetingAnalysisPersistence.saveAnalysisFailure(id, errorMessage);
             return new MeetingAnalysisResponse(
                 meetingId,
-                String.valueOf(meeting.getProjectId()),
+                toResponseProjectId(meeting.getProjectId()),
                 "FAILED",
                 meeting.getFileType(),
                 meeting.getOriginalFileName(),
@@ -230,7 +231,7 @@ public class MeetingAnalysisService {
             .toList();
 
         AiAnalyzeRequest request = new AiAnalyzeRequest(
-            String.valueOf(meeting.getProjectId()),
+            toResponseProjectId(meeting.getProjectId()),
             meeting.getTitle(),
             meeting.getMeetingDate() == null ? LocalDate.now().toString() : meeting.getMeetingDate().toString(),
             defaultString(meeting.getMeetingType(), "정기회의"),
@@ -241,14 +242,13 @@ public class MeetingAnalysisService {
         );
 
         meeting.setAnalysisStatus("processing");
-        meeting.setAnalysisErrorMessage(null);
         meetingRepository.save(meeting);
 
         meetingAnalysisRunner.runAnalysis(id, request);
 
         return new MeetingAnalysisResponse(
             meetingId,
-            String.valueOf(meeting.getProjectId()),
+            toResponseProjectId(meeting.getProjectId()),
             "PROCESSING",
             meeting.getFileType(),
             meeting.getOriginalFileName(),
@@ -423,6 +423,18 @@ public class MeetingAnalysisService {
                 meetingAnalysisRunner.runAnalysis(meetingId, request);
             }
         });
+    }
+
+    private String toResponseProjectId(Long projectDbId) {
+        try {
+            Long demoProjectId = demoDataService.resolveProjectId("demo-project");
+            if (demoProjectId != null && demoProjectId.equals(projectDbId)) {
+                return "demo-project";
+            }
+        } catch (Exception ignored) {
+            // 데모 시딩이 꺼진 운영 환경에서는 DB id를 그대로 응답한다.
+        }
+        return String.valueOf(projectDbId);
     }
 
     private Long resolveAssignee(String assigneeIdParam) {

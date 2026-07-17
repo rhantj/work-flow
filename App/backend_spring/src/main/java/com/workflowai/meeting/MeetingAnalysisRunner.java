@@ -32,6 +32,7 @@ public class MeetingAnalysisRunner {
             try {
                 fastApiResult = fastApiMeetingClient.analyze(request);
             } catch (Exception e) {
+                log.warn("FastAPI meeting analysis failed. meetingId={}, fallback=SPRING_FALLBACK", meetingId, e);
                 fastApiResult = null;
             }
             if (fastApiResult != null) {
@@ -42,7 +43,7 @@ public class MeetingAnalysisRunner {
                 analysisSource = "SPRING_FALLBACK";
             }
         } catch (Exception e) {
-            log.warn("Meeting analysis failed. meetingId={}", meetingId, e);
+            log.warn("Meeting analysis failed after FastAPI/fallback attempts. meetingId={}", meetingId, e);
             meetingAnalysisPersistence.saveAnalysisFailure(meetingId, MeetingAnalysisPersistence.DEFAULT_ANALYSIS_ERROR_MESSAGE);
             return;
         }
