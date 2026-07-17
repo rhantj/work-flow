@@ -12,10 +12,6 @@ COPY . .
 # (apiClient는 /api/v1, ragApi는 /v1을 벗겨 /api로 사용 — 단일 값으로 둘 다 충족)
 ARG VITE_API_BASE_URL=/api/v1
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-# 기본은 false(진짜 프로덕션과 동일하게 데모 로그인 버튼 제외).
-# 로컬에서 Docker로도 데모 로그인 버튼을 보고 싶을 때만 true로 빌드.
-ARG VITE_ENABLE_DEMO_AUTH=false
-ENV VITE_ENABLE_DEMO_AUTH=$VITE_ENABLE_DEMO_AUTH
 RUN pnpm build
 
 FROM nginx:1.27-alpine
