@@ -37,6 +37,7 @@ public class MeetingAnalysisService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final RagIngestService ragIngestService;
+    private final MeetingAnalysisPersistence meetingAnalysisPersistence;
     private final String uploadsDir;
 
     public MeetingAnalysisService(
@@ -50,6 +51,7 @@ public class MeetingAnalysisService {
         NotificationRepository notificationRepository,
         UserRepository userRepository,
         RagIngestService ragIngestService,
+        MeetingAnalysisPersistence meetingAnalysisPersistence,
         @Value("${workflow.uploads.dir}") String uploadsDir
     ) {
         this.meetingAnalysisRunner = meetingAnalysisRunner;
@@ -62,6 +64,7 @@ public class MeetingAnalysisService {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.ragIngestService = ragIngestService;
+        this.meetingAnalysisPersistence = meetingAnalysisPersistence;
         this.uploadsDir = uploadsDir;
     }
 
@@ -124,7 +127,7 @@ public class MeetingAnalysisService {
         if (!"completed".equals(meeting.getAnalysisStatus())) {
             String status = "failed".equals(meeting.getAnalysisStatus()) ? "FAILED" : "PROCESSING";
             String errorMessage = "FAILED".equals(status)
-                ? findFailureMessage(id)
+                ? MeetingAnalysisPersistence.DEFAULT_ANALYSIS_ERROR_MESSAGE
                 : null;
             return new MeetingAnalysisResponse(
                 meetingId,
@@ -179,7 +182,7 @@ public class MeetingAnalysisService {
             default -> "PROCESSING";
         };
         String errorMessage = "FAILED".equals(status)
-            ? findFailureMessage(id)
+            ? MeetingAnalysisPersistence.DEFAULT_ANALYSIS_ERROR_MESSAGE
             : null;
         return new MeetingStatusResponse(meetingId, status, errorMessage);
     }
@@ -196,7 +199,7 @@ public class MeetingAnalysisService {
         String text = extractTextFromStoredFile(meeting);
         if (text == null) {
             String errorMessage = MeetingAnalysisPersistence.REUPLOAD_REQUIRED_ERROR_MESSAGE;
-            saveRetryFailure(meeting, errorMessage);
+            meetingAnalysisPersistence.saveAnalysisFailure(id, errorMessage);
             return new MeetingAnalysisResponse(
                 meetingId,
                 toResponseProjectId(meeting.getProjectId()),
@@ -210,7 +213,7 @@ public class MeetingAnalysisService {
         }
         if (text.isBlank()) {
             String errorMessage = MeetingAnalysisPersistence.REUPLOAD_READ_ERROR_MESSAGE;
-            saveRetryFailure(meeting, errorMessage);
+            meetingAnalysisPersistence.saveAnalysisFailure(id, errorMessage);
             return new MeetingAnalysisResponse(
                 meetingId,
                 toResponseProjectId(meeting.getProjectId()),
@@ -420,28 +423,6 @@ public class MeetingAnalysisService {
                 meetingAnalysisRunner.runAnalysis(meetingId, request);
             }
         });
-    }
-
-    private String findFailureMessage(Long meetingId) {
-        return meetingAnalysisRepository.findById(meetingId)
-            .filter(analysis -> MeetingAnalysisPersistence.FAILURE_ANALYSIS_SOURCE.equals(analysis.getAnalysisEngine()))
-            .map(MeetingAnalysis::getSummary)
-            .map(MeetingAnalysisPersistence::toSafeErrorMessage)
-            .orElse(MeetingAnalysisPersistence.DEFAULT_ANALYSIS_ERROR_MESSAGE);
-    }
-
-    private void saveRetryFailure(Meeting meeting, String errorMessage) {
-        String safeErrorMessage = MeetingAnalysisPersistence.toSafeErrorMessage(errorMessage);
-        meeting.setAnalysisStatus("failed");
-        meetingRepository.save(meeting);
-        meetingAnalysisRepository.save(new MeetingAnalysis(
-            meeting.getId(),
-            safeErrorMessage,
-            List.of(),
-            List.of(),
-            List.of(),
-            MeetingAnalysisPersistence.FAILURE_ANALYSIS_SOURCE
-        ));
     }
 
     private String toResponseProjectId(Long projectDbId) {

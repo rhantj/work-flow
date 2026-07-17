@@ -38,12 +38,13 @@ class MeetingAnalysisServiceTest {
     @Mock private NotificationRepository notificationRepository;
     @Mock private UserRepository userRepository;
     @Mock private RagIngestService ragIngestService;
+    @Mock private MeetingAnalysisPersistence meetingAnalysisPersistence;
 
     private MeetingAnalysisService newService() {
         return new MeetingAnalysisService(
             meetingAnalysisRunner, demoDataService, meetingRepository, meetingAttendeeRepository,
             meetingAnalysisRepository, meetingActionItemRepository, taskRepository, notificationRepository,
-            userRepository, ragIngestService, "/tmp/workflow-uploads"
+            userRepository, ragIngestService, meetingAnalysisPersistence, "/tmp/workflow-uploads"
         );
     }
 
@@ -134,11 +135,8 @@ class MeetingAnalysisServiceTest {
 
         assertThat(response.status()).isEqualTo("FAILED");
         assertThat(response.errorMessage()).isEqualTo(MeetingAnalysisPersistence.REUPLOAD_REQUIRED_ERROR_MESSAGE);
-        assertThat(meeting.getAnalysisStatus()).isEqualTo("failed");
-        ArgumentCaptor<MeetingAnalysis> analysisCaptor = ArgumentCaptor.forClass(MeetingAnalysis.class);
-        verify(meetingAnalysisRepository).save(analysisCaptor.capture());
-        assertThat(analysisCaptor.getValue().getSummary()).isEqualTo(MeetingAnalysisPersistence.REUPLOAD_REQUIRED_ERROR_MESSAGE);
-        assertThat(analysisCaptor.getValue().getAnalysisEngine()).isEqualTo(MeetingAnalysisPersistence.FAILURE_ANALYSIS_SOURCE);
+        verify(meetingAnalysisPersistence).saveAnalysisFailure(6L, MeetingAnalysisPersistence.REUPLOAD_REQUIRED_ERROR_MESSAGE);
+        verify(meetingAnalysisRepository, never()).save(any());
         verify(meetingAnalysisRunner, never()).runAnalysis(any(), any());
         Files.deleteIfExists(audioFile);
     }
@@ -156,11 +154,8 @@ class MeetingAnalysisServiceTest {
 
         assertThat(response.status()).isEqualTo("FAILED");
         assertThat(response.errorMessage()).isEqualTo(MeetingAnalysisPersistence.REUPLOAD_READ_ERROR_MESSAGE);
-        assertThat(meeting.getAnalysisStatus()).isEqualTo("failed");
-        ArgumentCaptor<MeetingAnalysis> analysisCaptor = ArgumentCaptor.forClass(MeetingAnalysis.class);
-        verify(meetingAnalysisRepository).save(analysisCaptor.capture());
-        assertThat(analysisCaptor.getValue().getSummary()).isEqualTo(MeetingAnalysisPersistence.REUPLOAD_READ_ERROR_MESSAGE);
-        assertThat(analysisCaptor.getValue().getAnalysisEngine()).isEqualTo(MeetingAnalysisPersistence.FAILURE_ANALYSIS_SOURCE);
+        verify(meetingAnalysisPersistence).saveAnalysisFailure(7L, MeetingAnalysisPersistence.REUPLOAD_READ_ERROR_MESSAGE);
+        verify(meetingAnalysisRepository, never()).save(any());
         verify(meetingAnalysisRunner, never()).runAnalysis(any(), any());
         Files.deleteIfExists(emptyFile);
     }
