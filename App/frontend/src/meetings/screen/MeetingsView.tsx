@@ -837,7 +837,7 @@ export function MeetingsView() {
               {analysisError ?? "업로드한 회의록의 요약, 결정사항, To-Do, 위험요소를 정리하고 있습니다."}
             </p>
             <div className="flex gap-3 justify-center">
-              {analysisError && (
+              {analysisError && activeMeetingId && (
                 <button onClick={handleRetryAnalysis} className="px-5 py-2.5 text-sm font-semibold text-white rounded-xl hover:opacity-90 transition-opacity" style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
                   다시 분석
                 </button>
