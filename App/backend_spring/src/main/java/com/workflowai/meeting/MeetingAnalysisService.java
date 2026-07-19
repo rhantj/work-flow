@@ -338,6 +338,31 @@ public class MeetingAnalysisService {
     }
 
     @Transactional
+    public MeetingDeleteResponse delete(String projectId, String meetingId, boolean deleteLinkedTasks) {
+        Meeting meeting = requireProjectMeeting(projectId, meetingId);
+        if (meeting == null) return null;
+
+        Long meetingDbId = parseLongOrNull(meetingId);
+        if (meetingDbId == null) return null;
+        String filePath = meeting.getFilePath();
+        meetingAttendeeRepository.deleteByMeetingId(meetingDbId);
+        if (meetingAnalysisRepository.existsById(meetingDbId)) {
+            meetingAnalysisRepository.deleteById(meetingDbId);
+        }
+        if (deleteLinkedTasks) {
+            meetingActionItemRepository.deleteByMeetingId(meetingDbId);
+            taskRepository.deleteBySourceMeetingId(meetingDbId);
+        } else {
+            meetingActionItemRepository.clearMeetingId(meetingDbId);
+            taskRepository.clearSourceMeetingId(meetingDbId);
+        }
+        meetingRepository.delete(meeting);
+        deleteUploadedFile(filePath);
+
+        return new MeetingDeleteResponse(meetingId, "DELETED");
+    }
+
+    @Transactional
     public TaskRegisterResponse registerTasks(String projectId, String meetingId, TaskRegisterRequest request) {
         Meeting meeting = requireProjectMeeting(projectId, meetingId);
         if (meeting == null) return null;
@@ -530,6 +555,24 @@ public class MeetingAnalysisService {
             return "upload.bin";
         }
         return name;
+    }
+
+    private void deleteUploadedFile(String filePath) {
+        if (filePath == null || filePath.isBlank()) return;
+        try {
+            Path target = Path.of(filePath).toAbsolutePath().normalize();
+            Files.deleteIfExists(target);
+            Path parent = target.getParent();
+            if (parent != null && Files.isDirectory(parent)) {
+                try (var children = Files.list(parent)) {
+                    if (children.findAny().isEmpty()) {
+                        Files.deleteIfExists(parent);
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+            // 파일 삭제 실패는 회의록 DB 삭제를 막지 않는다.
+        }
     }
 
     private void saveAttendees(Long meetingId, Long projectId, List<String> participantNames) {

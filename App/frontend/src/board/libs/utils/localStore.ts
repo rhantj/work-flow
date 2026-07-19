@@ -9,6 +9,7 @@ export const TASKS_UPDATED_EVENT = "workflow-ai:tasks-updated";
 export const MEETINGS_UPDATED_EVENT = "workflow-ai:meetings-updated";
 export const SAVED_MEETING_STORAGE_KEY = "workflow-ai.saved-meetings";
 export const SAVED_MEETINGS_UPDATED_EVENT = "workflow-ai:saved-meetings-updated";
+export const DELETED_MEETING_STORAGE_KEY = "workflow-ai.deleted-meetings";
 
 function scopedKey(baseKey: string, projectId?: string | number): string {
   return projectId == null || String(projectId).trim() === "" ? baseKey : `${baseKey}.${projectId}`;
@@ -43,3 +44,12 @@ export const getSavedMeetings = (projectId?: string | number) =>
   readStoredArray<SavedMeetingRecord>(scopedKey(SAVED_MEETING_STORAGE_KEY, projectId), []);
 export const saveSavedMeetings = (records: SavedMeetingRecord[], projectId?: string | number) =>
   writeStoredArray(scopedKey(SAVED_MEETING_STORAGE_KEY, projectId), SAVED_MEETINGS_UPDATED_EVENT, records);
+
+export const getDeletedMeetingIds = (projectId?: string | number) =>
+  new Set(readStoredArray<string>(scopedKey(DELETED_MEETING_STORAGE_KEY, projectId), []));
+
+export const markDeletedMeeting = (meetingId: string, projectId?: string | number) => {
+  const ids = getDeletedMeetingIds(projectId);
+  ids.add(meetingId);
+  writeStoredArray(scopedKey(DELETED_MEETING_STORAGE_KEY, projectId), MEETINGS_UPDATED_EVENT, [...ids]);
+};

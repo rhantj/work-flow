@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,11 +45,11 @@ public class MeetingAnalysisController {
     @PreAuthorize("@projectAccess.isMember(#projectId)")
     public ResponseEntity<ApiResponse<MeetingAnalysisResponse>> analyze(
         @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId,
-        @Parameter(description = "회의록 원본 파일 (문서/음성/영상)") @RequestPart(value = "file", required = false) MultipartFile file,
+        @Parameter(description = "회의록 원본 파일 (문서/음성)") @RequestPart(value = "file", required = false) MultipartFile file,
         @Parameter(description = "회의 제목", example = "7차 정기회의") @RequestParam(value = "title", required = false) String title,
         @Parameter(description = "회의 날짜 (YYYY-MM-DD)", example = "2026-07-09") @RequestParam(value = "meetingDate", required = false) String meetingDate,
         @Parameter(description = "회의 유형", example = "정기회의") @RequestParam(value = "meetingKind", required = false) String meetingKind,
-        @Parameter(description = "업로드 파일 유형", example = "document", schema = @Schema(allowableValues = {"document", "audio", "video"})) @RequestParam(value = "sourceType", required = false) String sourceType,
+        @Parameter(description = "업로드 파일 유형", example = "document", schema = @Schema(allowableValues = {"document", "audio"})) @RequestParam(value = "sourceType", required = false) String sourceType,
         @Parameter(description = "참석자 이름 목록 (attendeeIds가 없을 때만 사용되는 하위호환 경로)", example = "[\"김민준\", \"이서연\"]") @RequestParam(value = "participants", required = false) List<String> participants,
         @Parameter(description = "참석자 사용자 ID 목록 (프로젝트 멤버만 허용)", example = "[1, 2]") @RequestParam(value = "attendeeIds", required = false) List<Long> attendeeIds
     ) {
@@ -125,6 +126,28 @@ public class MeetingAnalysisController {
         @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId
     ) {
         return ApiResponse.ok(meetingAnalysisService.attendanceSummary(projectId));
+    }
+
+    @Operation(
+        summary = "회의록 삭제",
+        description = "프로젝트에 업로드된 회의록을 삭제합니다. "
+            + "회의록 원본 파일, 참석자 정보, AI 분석 결과, To-Do 후보가 함께 정리됩니다. "
+            + "deleteLinkedTasks=true이면 업무보드에 등록된 연동 업무도 함께 삭제하고, false이면 업무는 유지한 채 원본 회의록 연결만 해제합니다. "
+            + "meetingId가 이 프로젝트 소속이 아니면 404를, 프로젝트 멤버가 아니면 403을 반환합니다."
+    )
+    @DeleteMapping("/{meetingId}")
+    @PreAuthorize("@projectAccess.isMember(#projectId)")
+    public ResponseEntity<ApiResponse<MeetingDeleteResponse>> deleteMeeting(
+        @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId,
+        @Parameter(description = "회의록 ID", example = "42") @PathVariable String meetingId,
+        @Parameter(description = "업무보드에 등록된 연동 업무도 함께 삭제할지 여부", example = "false")
+        @RequestParam(value = "deleteLinkedTasks", defaultValue = "false") boolean deleteLinkedTasks
+    ) {
+        MeetingDeleteResponse response = meetingAnalysisService.delete(projectId, meetingId, deleteLinkedTasks);
+        if (response == null) {
+            return ResponseEntity.status(404).body(ApiResponse.fail("MEETING_NOT_FOUND", "회의록을 찾을 수 없습니다."));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @Operation(

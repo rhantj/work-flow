@@ -7,7 +7,7 @@ interface AnalyzeMeetingParams {
   title: string;
   meetingDate: string;
   meetingKind: string;
-  sourceType: "document" | "audio" | "video";
+  sourceType: "document" | "audio";
   participants: string[];
   attendeeIds?: number[];
 }
@@ -62,6 +62,18 @@ export async function fetchAttendanceSummary(projectId: string): Promise<Meeting
 
 export async function fetchMeeting(projectId: string, meetingId: string): Promise<MeetingAnalysisResponse> {
   return apiFetch<MeetingAnalysisResponse>(`/projects/${projectId}/meetings/${meetingId}`);
+}
+
+export interface MeetingDeleteResponse {
+  meetingId: string;
+  status: "DELETED";
+}
+
+export async function deleteMeeting(projectId: string, meetingId: string, deleteLinkedTasks = false): Promise<MeetingDeleteResponse> {
+  const query = new URLSearchParams({ deleteLinkedTasks: String(deleteLinkedTasks) });
+  return apiFetch<MeetingDeleteResponse>(`/projects/${projectId}/meetings/${meetingId}?${query.toString()}`, {
+    method: "DELETE",
+  });
 }
 
 export async function retryMeetingAnalysis(projectId: string, meetingId: string): Promise<MeetingAnalysisResponse> {
