@@ -1660,7 +1660,7 @@ export function MeetingsView() {
                 {modalStep === 0 && (
                   <div>
                     <div className="text-sm font-semibold text-foreground mb-3">업로드 유형 선택</div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {UPLOAD_TYPES.map(t => {
                         const Icon = t.icon; const sel = uploadType === t.id;
                         return (
@@ -1672,7 +1672,7 @@ export function MeetingsView() {
                             setUploadFileSize("");
                             setAnalysisError(null);
                           }}
-                            className={`flex flex-col items-center gap-2.5 p-5 rounded-xl border-2 transition-all hover:shadow-sm ${sel ? "shadow-sm" : "border-border hover:border-slate-300"}`}
+                            className={`min-h-[180px] flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 transition-all hover:shadow-sm ${sel ? "shadow-sm" : "border-border hover:border-slate-300"}`}
                             style={sel ? { borderColor:t.color, background:t.bg } : {}}>
                             <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background:sel ? t.bg : "#F4F6FA" }}>
                               <Icon className="w-6 h-6" style={{ color:t.color }} />
