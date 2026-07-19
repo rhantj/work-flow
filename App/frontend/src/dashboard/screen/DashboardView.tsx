@@ -14,6 +14,7 @@ import { WORKLOAD_DATA, PROGRESS_HISTORY } from "../libs/mock/workload";
 import { getDoneCount, getProgressPercent, getBlockedCount, getInProgressCount, formatDueDate } from "../../board/libs/utils/taskService";
 import type { DetailPage } from "../../board/libs/types/task";
 import { useState } from "react";
+import { NAV_ITEMS } from "../../global/lib/constants/nav";
 
 const OPEN_AI_ASSISTANT_EVENT = "workflow-ai:open-ai-assistant";
 
@@ -45,10 +46,12 @@ export function DashboardView() {
   const atRisk = getBlockedCount(TASKS);
   const inProgress = getInProgressCount(TASKS);
 
+  const deliverablesActive = NAV_ITEMS.find((item) => item.id === "deliverables")?.activate !== false;
+
   const QUICK_ACTIONS = [
     { label: "새 업무 추가", icon: Plus, color: "#3B5BDB", onClick: () => navigate("/board?openAdd=1") },
     { label: "회의록 업로드", icon: Upload, color: "#7048E8", onClick: () => navigate("/meetings?upload=1") },
-    { label: "산출물 생성", icon: Package, color: "#0F766E", onClick: () => navigate("/deliverables") },
+    ...(deliverablesActive ? [{ label: "산출물 생성", icon: Package, color: "#0F766E", onClick: () => navigate("/deliverables") }] : []),
     { label: "GitHub 연동", icon: Github, color: "#374151", onClick: () => navigate("/github") },
     { label: "AI 어시스턴트 열기", icon: Sparkles, color: "#F59E0B", onClick: () => window.dispatchEvent(new Event(OPEN_AI_ASSISTANT_EVENT)) },
     { label: "업무 보드 이동", icon: Columns3, color: "#0EA5E9", onClick: () => navigate("/board") },
