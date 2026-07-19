@@ -21,7 +21,7 @@ export function AIAssistant({ onClose }: { onClose: () => void }) {
       setMessages(prev => [...prev, { role: "assistant", content: answer.content, sources: answer.sources }]);
     }
     if (status === "error" && error) {
-      setMessages(prev => [...prev, { role: "assistant", content: "일시적으로 답변을 생성할 수 없습니다." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: error }]);
     }
   }, [status, answer, error]);
 

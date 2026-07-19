@@ -2,9 +2,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AIAssistant } from "./AIAssistant";
+import { apiFetch } from "../../global/api/apiClient";
 
 vi.mock("../../global/hooks/useAuth", () => ({
   useAuth: () => ({ currentProjectId: 1 }),
+}));
+
+vi.mock("../../global/api/apiClient", () => ({
+  apiFetch: vi.fn(),
 }));
 
 describe("AIAssistant", () => {
@@ -18,16 +23,10 @@ describe("AIAssistant", () => {
   });
 
   it("shows loading indicator then renders answer with source badge", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        data: {
-          answer: "실제 RAG 답변",
-          sources: [{ source_type: "meeting", source_id: 3, content_snippet: "요약", similarity: 0.8 }],
-        },
-      }),
-    }) as unknown as typeof fetch;
+    vi.mocked(apiFetch).mockResolvedValue({
+      answer: "실제 RAG 답변",
+      sources: [{ source_type: "meeting", source_id: 3, content_snippet: "요약", similarity: 0.8 }],
+    });
 
     render(<AIAssistant onClose={() => {}} />);
     const textbox = screen.getByPlaceholderText("프로젝트에 대해 무엇이든 물어보세요...");
@@ -38,17 +37,13 @@ describe("AIAssistant", () => {
     expect(screen.getByText(/출처: 회의록 #3/)).toBeInTheDocument();
   });
 
-  it("shows fallback message on API error", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 503,
-      json: async () => ({ success: false, error: { code: "RAG_UNAVAILABLE", message: "실패" } }),
-    }) as unknown as typeof fetch;
+  it("shows API error message", async () => {
+    vi.mocked(apiFetch).mockRejectedValue(new Error("로그인이 필요합니다."));
 
     render(<AIAssistant onClose={() => {}} />);
     const textbox = screen.getByPlaceholderText("프로젝트에 대해 무엇이든 물어보세요...");
     await userEvent.type(textbox, "질문{enter}");
 
-    await waitFor(() => expect(screen.getByText("일시적으로 답변을 생성할 수 없습니다.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("로그인이 필요합니다.")).toBeInTheDocument());
   });
 });
