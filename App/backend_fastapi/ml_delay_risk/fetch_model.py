@@ -35,6 +35,7 @@ def main() -> None:
         return
 
     from huggingface_hub import hf_hub_download
+    from huggingface_hub.errors import HFValidationError
 
     if not settings.hf_model_revision:
         logger.warning(
@@ -57,11 +58,15 @@ def main() -> None:
         )
         target_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(downloaded_path, target_path)
-    except Exception:
-        # 네트워크 오류, 잘못된 repo/revision, private 저장소 토큰 누락 등으로 여기서
-        # 예외가 나면 docker-entrypoint.sh가 set -e 때문에 컨테이너 기동 자체를 멈춰버린다.
-        # 모델 없이도 서버는 뜰 수 있어야 하므로(health가 model_loaded=False를 보고하고,
-        # predict 계열은 503을 반환) 예외를 삼키고 기동을 계속한다.
+    except (OSError, HFValidationError):
+        # OSError는 requests/huggingface_hub가 던지는 네트워크 오류와 HTTP 오류(잘못된
+        # repo/revision, private 저장소 인증 실패 등 HfHubHTTPError 계열)를 모두 포괄한다
+        # (requests.exceptions.RequestException이 OSError를 상속). HFValidationError는
+        # repo_id/revision 형식 자체가 잘못된 경우. 이런 "외부 요인으로 재시도하면 나아질 수
+        # 있는" 실패까지만 삼킨다 — set -e인 docker-entrypoint.sh가 이 때문에 컨테이너 기동을
+        # 멈추면 안 되므로. 모델 없이도 서버는 뜰 수 있고(health가 model_loaded=False를
+        # 보고, predict 계열은 503을 반환), 반대로 이 좁은 목록에 없는 예외(예: 코드 자체의
+        # 버그)는 그대로 전파해 배포 실패가 조용히 묻히지 않도록 한다.
         logger.exception(
             "Hugging Face Hub 모델 다운로드 실패. 모델 없이 서버 기동을 계속합니다 "
             "(관련 API는 모델을 준비하기 전까지 503을 반환합니다). repo=%s revision=%s",
