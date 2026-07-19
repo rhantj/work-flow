@@ -10,7 +10,6 @@ export function SignupScreen() {
   const [affiliation, setAffiliation] = useState("");
   const [professorCode, setProfessorCode] = useState("");
   const [certificateFileName, setCertificateFileName] = useState("");
-  const [signupMessage, setSignupMessage] = useState<string | null>(null);
   const [signupError, setSignupError] = useState<string | null>(null);
 
   const handleCertificateChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -18,20 +17,15 @@ export function SignupScreen() {
   };
 
   const handleSignup = () => {
-    setSignupMessage(null);
     setSignupError(null);
 
-    if (!judgeSignup) {
-      loginWithGoogle();
-      return;
-    }
-
-    if (!affiliation.trim() || !professorCode.trim()) {
+    if (judgeSignup && (!affiliation.trim() || !professorCode.trim())) {
       setSignupError("소속 학교/기관과 교수 인증번호를 입력해주세요.");
       return;
     }
 
-    setSignupMessage("심사자 가입 신청이 접수되었습니다. 관리자 승인 후 가입 처리되며, 승인 완료 시 심사자 전용 화면으로 로그인됩니다.");
+    // 심사자 인증 심사(소속/교수 인증번호/서류) 백엔드가 아직 없어, 우선 일반 Google 가입/로그인으로 연결한다.
+    loginWithGoogle();
   };
 
   return (
@@ -63,7 +57,6 @@ export function SignupScreen() {
                   checked={judgeSignup}
                   onChange={event => {
                     setJudgeSignup(event.target.checked);
-                    setSignupMessage(null);
                     setSignupError(null);
                   }}
                   className="mt-1 h-4 w-4 rounded border-border accent-blue-600"
@@ -71,7 +64,7 @@ export function SignupScreen() {
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-foreground">교수/심사자로 가입 신청</div>
                   <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    인증 정보 확인 후 관리자 승인 상태로 접수됩니다.
+                    입력한 인증 정보는 Google 가입 후 관리자가 별도로 확인합니다. (자동 승인 아님)
                   </div>
                 </div>
               </div>
@@ -111,12 +104,6 @@ export function SignupScreen() {
             {signupError && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
                 {signupError}
-              </div>
-            )}
-
-            {signupMessage && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-relaxed text-emerald-700">
-                {signupMessage}
               </div>
             )}
           </div>
