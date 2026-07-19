@@ -842,6 +842,7 @@ export function MeetingsView() {
   };
 
   const handleDeleteMeeting = async (target: Meeting) => {
+    if (deletingMeetingId) return;
     const confirmed = window.confirm(`'${target.title}' 회의록을 삭제할까요?`);
     if (!confirmed) return;
     const deleteLinkedTasks = window.confirm("업무보드에 등록된 To-Do도 같이 삭제할까요?\n\n확인: 회의록과 연동 업무 모두 삭제\n취소: 회의록만 삭제");
@@ -1018,6 +1019,20 @@ export function MeetingsView() {
         <div className="text-base font-bold text-foreground">업무보드에 등록 중입니다</div>
         <div className="text-xs text-muted-foreground mt-2 leading-relaxed">
           선택한 To-Do를 업무보드에 저장하고 담당자 정보를 반영하는 중입니다.
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const renderDeletingOverlay = () => deletingMeetingId ? (
+    <div className="fixed inset-0 z-[70] bg-white/65 backdrop-blur-sm flex items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-red-100 bg-white shadow-2xl px-6 py-7 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center mx-auto mb-4">
+          <Loader2 className="w-7 h-7 text-red-600 animate-spin" />
+        </div>
+        <div className="text-base font-bold text-foreground">회의록을 삭제하는 중입니다</div>
+        <div className="text-xs text-muted-foreground mt-2 leading-relaxed">
+          회의록 데이터와 선택한 연동 정보를 정리하고 있습니다.
         </div>
       </div>
     </div>
@@ -1584,6 +1599,7 @@ export function MeetingsView() {
   return (
     <div className="flex h-full overflow-hidden relative" style={{ fontFamily:"'Inter','Noto Sans KR',sans-serif" }}>
       {renderRegisteringOverlay()}
+      {renderDeletingOverlay()}
       {/* ── Upload modal ── */}
       {uploadFlow === "modal" && (
         <>
@@ -1824,12 +1840,12 @@ export function MeetingsView() {
                       event.stopPropagation();
                       void handleDeleteMeeting(m);
                     }}
-                    disabled={deletingMeetingId === m.id}
+                    disabled={Boolean(deletingMeetingId)}
                     className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     title="회의록 삭제"
                     aria-label={`${m.title} 회의록 삭제`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {deletingMeetingId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" /> : <Trash2 className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
