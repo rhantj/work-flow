@@ -58,6 +58,10 @@ def main() -> None:
         )
         target_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(downloaded_path, target_path)
+        # huggingface_hub 캐시 구조는 항상 snapshots/<확정된 커밋 해시>/<파일명>이므로,
+        # revision을 안 고정했더라도 실제로 어떤 커밋을 받았는지 로그로 남겨 사후 추적이
+        # 가능하게 한다.
+        resolved_revision = Path(downloaded_path).parent.name
     except (OSError, HFValidationError):
         # OSError는 requests/huggingface_hub가 던지는 네트워크 오류와 HTTP 오류(잘못된
         # repo/revision, private 저장소 인증 실패 등 HfHubHTTPError 계열)를 모두 포괄한다
@@ -75,7 +79,9 @@ def main() -> None:
         )
         return
 
-    logger.info("모델 다운로드 완료: %s", target_path)
+    logger.info(
+        "모델 다운로드 완료: %s (실제 커밋=%s)", target_path, resolved_revision
+    )
 
 
 if __name__ == "__main__":
