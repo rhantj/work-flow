@@ -36,6 +36,7 @@ python-dotenv==1.0.1
 
 # FS-3 ml_delay_risk (MongoDB ml_dashboard 접근)
 pymongo==4.17.0
+catboost==1.2.10
 imbalanced-learn==0.14.2
 matplotlib==3.10.0
 seaborn==0.13.2
