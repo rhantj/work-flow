@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -125,6 +126,28 @@ public class MeetingAnalysisController {
         @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId
     ) {
         return ApiResponse.ok(meetingAnalysisService.attendanceSummary(projectId));
+    }
+
+    @Operation(
+        summary = "회의록 삭제",
+        description = "프로젝트에 업로드된 회의록을 삭제합니다. "
+            + "회의록 원본 파일, 참석자 정보, AI 분석 결과, To-Do 후보가 함께 정리됩니다. "
+            + "deleteLinkedTasks=true이면 업무보드에 등록된 연동 업무도 함께 삭제하고, false이면 업무는 유지한 채 원본 회의록 연결만 해제합니다. "
+            + "meetingId가 이 프로젝트 소속이 아니면 404를, 프로젝트 멤버가 아니면 403을 반환합니다."
+    )
+    @DeleteMapping("/{meetingId}")
+    @PreAuthorize("@projectAccess.isMember(#projectId)")
+    public ResponseEntity<ApiResponse<MeetingDeleteResponse>> deleteMeeting(
+        @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId,
+        @Parameter(description = "회의록 ID", example = "42") @PathVariable String meetingId,
+        @Parameter(description = "업무보드에 등록된 연동 업무도 함께 삭제할지 여부", example = "false")
+        @RequestParam(value = "deleteLinkedTasks", defaultValue = "false") boolean deleteLinkedTasks
+    ) {
+        MeetingDeleteResponse response = meetingAnalysisService.delete(projectId, meetingId, deleteLinkedTasks);
+        if (response == null) {
+            return ResponseEntity.status(404).body(ApiResponse.fail("MEETING_NOT_FOUND", "회의록을 찾을 수 없습니다."));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @Operation(

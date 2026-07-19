@@ -7,4 +7,6 @@ public interface MeetingAttendeeRepository extends JpaRepository<MeetingAttendee
     List<MeetingAttendee> findByMeetingId(Long meetingId);
 
     List<MeetingAttendee> findByMeetingIdIn(List<Long> meetingIds);
+
+    void deleteByMeetingId(Long meetingId);
 }

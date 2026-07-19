@@ -8,4 +8,6 @@ public interface MeetingActionItemRepository extends JpaRepository<MeetingAction
     List<MeetingActionItem> findByMeetingId(Long meetingId);
 
     Optional<MeetingActionItem> findFirstByMeetingIdAndTitle(Long meetingId, String title);
+
+    void deleteByMeetingId(Long meetingId);
 }
