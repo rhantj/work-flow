@@ -183,6 +183,7 @@ class MeetingAnalysisServiceTest {
         verify(meetingRepository, never()).delete(any());
         verify(meetingAttendeeRepository, never()).deleteByMeetingId(any());
         verify(meetingActionItemRepository, never()).deleteByMeetingId(any());
+        verify(meetingActionItemRepository, never()).clearMeetingId(any());
         verify(meetingAnalysisRepository, never()).deleteById(any());
         verify(taskRepository, never()).clearSourceMeetingId(any());
         verify(taskRepository, never()).deleteBySourceMeetingId(any());
@@ -204,6 +205,7 @@ class MeetingAnalysisServiceTest {
         assertThat(response.meetingId()).isEqualTo("8");
         assertThat(response.status()).isEqualTo("DELETED");
         verify(meetingActionItemRepository, never()).deleteByMeetingId(any());
+        verify(meetingActionItemRepository).clearMeetingId(8L);
         verify(meetingAttendeeRepository).deleteByMeetingId(8L);
         verify(taskRepository).clearSourceMeetingId(8L);
         verify(taskRepository, never()).deleteBySourceMeetingId(any());
@@ -229,6 +231,7 @@ class MeetingAnalysisServiceTest {
         inOrder.verify(meetingRepository).delete(meeting);
         verify(taskRepository).deleteBySourceMeetingId(9L);
         verify(taskRepository, never()).clearSourceMeetingId(any());
+        verify(meetingActionItemRepository, never()).clearMeetingId(any());
         verify(meetingRepository).delete(meeting);
     }
 

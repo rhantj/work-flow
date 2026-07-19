@@ -353,6 +353,7 @@ public class MeetingAnalysisService {
             meetingActionItemRepository.deleteByMeetingId(meetingDbId);
             taskRepository.deleteBySourceMeetingId(meetingDbId);
         } else {
+            meetingActionItemRepository.clearMeetingId(meetingDbId);
             taskRepository.clearSourceMeetingId(meetingDbId);
         }
         meetingRepository.delete(meeting);
