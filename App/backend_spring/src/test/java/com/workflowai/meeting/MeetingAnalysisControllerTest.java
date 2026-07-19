@@ -1,6 +1,7 @@
 package com.workflowai.meeting;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,7 +22,7 @@ class MeetingAnalysisControllerTest {
 
     @Test
     void statusReturns404WhenMeetingMissing() throws Exception {
-        when(meetingAnalysisService.findStatus("999")).thenReturn(null);
+        when(meetingAnalysisService.findStatus("demo-project", "999")).thenReturn(null);
         MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
@@ -32,12 +33,35 @@ class MeetingAnalysisControllerTest {
 
     @Test
     void retryReturns409WhenMeetingIsNotFailed() throws Exception {
-        when(meetingAnalysisService.retry("42")).thenThrow(new IllegalStateException("MEETING_NOT_FAILED"));
+        when(meetingAnalysisService.retry("demo-project", "42")).thenThrow(new IllegalStateException("MEETING_NOT_FAILED"));
         MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         mockMvc.perform(post("/api/v1/projects/demo-project/meetings/42/retry"))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.error.code").value("MEETING_NOT_FAILED"));
+    }
+
+    @Test
+    void deleteReturns404WhenMeetingMissing() throws Exception {
+        when(meetingAnalysisService.delete("demo-project", "999", false)).thenReturn(null);
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(delete("/api/v1/projects/demo-project/meetings/999"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.error.code").value("MEETING_NOT_FOUND"));
+    }
+
+    @Test
+    void deleteReturnsDeletedStatus() throws Exception {
+        when(meetingAnalysisService.delete("demo-project", "42", true)).thenReturn(new MeetingDeleteResponse("42", "DELETED"));
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(delete("/api/v1/projects/demo-project/meetings/42").param("deleteLinkedTasks", "true"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.meetingId").value("42"))
+            .andExpect(jsonPath("$.data.status").value("DELETED"));
     }
 }
