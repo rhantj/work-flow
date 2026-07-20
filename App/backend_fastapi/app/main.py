@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from typing import List, Optional
 
@@ -132,7 +133,7 @@ def analyze_meeting(request: AnalyzeRequest) -> MeetingAnalysisResult:
     if not risks:
         risks = ["담당자와 마감일이 명확하지 않은 업무는 일정 지연으로 이어질 수 있다."]
 
-    todos = build_todos(text, request.meeting_date, participants)
+    todos = build_todos(text, request.meeting_date)
     summary = (
         f"{request.title} 내용을 분석해 핵심 결정사항 {len(decisions)}건, "
         f"업무 후보 {len(todos)}건, 위험요소 {len(risks)}건을 추출했습니다."
@@ -152,7 +153,7 @@ def analyze_meeting(request: AnalyzeRequest) -> MeetingAnalysisResult:
     )
 
 
-def build_todos(text: str, meeting_date: str, participants: List[str]) -> List[MeetingTodo]:
+def build_todos(text: str, meeting_date: str) -> List[MeetingTodo]:
     sentences = extract_sentences(
         text,
         ["담당", "작성", "구현", "정리", "검토", "준비", "연결", "테스트", "제출", "설계"],
@@ -172,7 +173,7 @@ def build_todos(text: str, meeting_date: str, participants: List[str]) -> List[M
 
     todos: List[MeetingTodo] = []
     for index, sentence in enumerate(sentences):
-        assignee = participants[index % len(participants)]
+        assignee = extract_assignee_candidate(sentence)
         todos.append(
             MeetingTodo(
                 title=shorten(sentence, 44),
@@ -184,6 +185,22 @@ def build_todos(text: str, meeting_date: str, participants: List[str]) -> List[M
             )
         )
     return todos
+
+
+_ASSIGNEE_PATTERNS = [
+    re.compile(r"^([가-힣]{2,4})(?:은|는|이|가)\s"),
+    re.compile(r"담당[:\s]+([가-힣]{2,4})"),
+]
+
+
+def extract_assignee_candidate(sentence: str) -> str:
+    """문장에서 "OO가/은/는 ~한다" 또는 "담당: OO" 형태로 적힌 담당자 이름을 추출한다. 없으면 빈 문자열(미배정 후보)."""
+    trimmed = sentence.strip()
+    for pattern in _ASSIGNEE_PATTERNS:
+        match = pattern.search(trimmed)
+        if match:
+            return match.group(1)
+    return ""
 
 
 def extract_sentences(text: str, keywords: List[str], limit: int) -> List[str]:
