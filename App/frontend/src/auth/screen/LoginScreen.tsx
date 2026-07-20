@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { AuthBrandPanel } from "../components/AuthBrandPanel";
+import { AuthInput } from "../components/AuthInput";
 import { useAuth } from "../../global/hooks/useAuth";
 import { API_BASE_URL, type ApiEnvelope } from "../../global/api/apiClient";
 import type { AuthTokenResponse } from "../../global/api/authTypes";
@@ -20,6 +22,9 @@ export function LoginScreen() {
   const [searchParams] = useSearchParams();
   const [devLoginError, setDevLoginError] = useState<string | null>(null);
   const [devLoggingInId, setDevLoggingInId] = useState<string | null>(null);
+  const [demoId, setDemoId] = useState("");
+  const [demoPw, setDemoPw] = useState("");
+  const [showDemoPw, setShowDemoPw] = useState(false);
   const oauthFailed = searchParams.get("error") === "oauth_failed";
 
   const handleDevLogin = async (demoUserId: string) => {
@@ -41,6 +46,17 @@ export function LoginScreen() {
     } finally {
       setDevLoggingInId(null);
     }
+  };
+
+  // 데모 ID/PW 로그인: 실제 비밀번호 인증 백엔드는 없음 — 입력한 이름/번호를 데모 계정과 매칭해
+  // 기존 dev-login-token 발급 흐름(handleDevLogin)을 그대로 재사용한다. 비밀번호는 검증하지 않는다.
+  const handleDemoIdPwLogin = () => {
+    const matched = DEV_TEST_ACCOUNTS.find(account => account.id === demoId.trim() || account.name === demoId.trim());
+    if (!matched) {
+      setDevLoginError("데모 환경에 등록된 테스트 계정이 아닙니다. 이름(예: 김민준) 또는 번호(1~4)를 입력해주세요.");
+      return;
+    }
+    void handleDevLogin(matched.id);
   };
 
   return (
@@ -77,6 +93,34 @@ export function LoginScreen() {
 
           {demoAuthEnabled && (
             <div className="mt-8 pt-6 border-t border-border">
+              <p className="text-center text-[11px] font-semibold text-amber-600 mb-3">
+                ⚠ 개발/데모 전용 — 아래는 실제 계정 인증이 아닙니다
+              </p>
+
+              <div className="space-y-3 mb-5">
+                <AuthInput
+                  label="데모 ID (계정 이름 또는 번호)" type="text" placeholder="예: 김민준 또는 1"
+                  value={demoId} onChange={setDemoId} icon={Mail}
+                />
+                <AuthInput
+                  label="비밀번호 (데모 - 검증하지 않음)" type={showDemoPw ? "text" : "password"} placeholder="아무 값이나 입력"
+                  value={demoPw} onChange={setDemoPw} icon={Lock}
+                  right={
+                    <button type="button" onClick={() => setShowDemoPw(v => !v)} className="text-muted-foreground hover:text-foreground transition-colors">
+                      {showDemoPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  }
+                />
+                <button
+                  onClick={handleDemoIdPwLogin}
+                  disabled={Boolean(devLoggingInId)}
+                  className="w-full py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-70 hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #3B5BDB 0%, #4F6EF7 100%)" }}
+                >
+                  <ArrowRight className="w-4 h-4" /> ID/PW로 로그인 (데모)
+                </button>
+              </div>
+
               <p className="text-center text-[11px] font-semibold text-muted-foreground mb-3">개발용 테스트 계정으로 입장</p>
               {devLoginError && (
                 <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-600">

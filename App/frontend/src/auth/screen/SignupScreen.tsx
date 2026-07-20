@@ -1,16 +1,34 @@
 import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { AuthBrandPanel } from "../components/AuthBrandPanel";
+import { AuthInput } from "../components/AuthInput";
 import { useAuth } from "../../global/hooks/useAuth";
+import { API_BASE_URL, type ApiEnvelope } from "../../global/api/apiClient";
+import type { AuthTokenResponse } from "../../global/api/authTypes";
+import { tokenStore } from "../../global/api/tokenStore";
+
+const DEV_TEST_ACCOUNTS = [
+  { id: "1", name: "김민준", role: "팀장" },
+  { id: "2", name: "이서연", role: "팀원" },
+  { id: "3", name: "박지수", role: "팀원" },
+  { id: "4", name: "최동혁", role: "심사자" },
+];
+const demoAuthEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === "true";
 
 export function SignupScreen() {
   const navigate = useNavigate();
-  const { loginWithGoogle } = useAuth();
+  const { loginWithGoogle, refreshMe } = useAuth();
   const [judgeSignup, setJudgeSignup] = useState(false);
   const [affiliation, setAffiliation] = useState("");
   const [professorCode, setProfessorCode] = useState("");
   const [certificateFileName, setCertificateFileName] = useState("");
   const [signupError, setSignupError] = useState<string | null>(null);
+  const [demoId, setDemoId] = useState("");
+  const [demoPw, setDemoPw] = useState("");
+  const [showDemoPw, setShowDemoPw] = useState(false);
+  const [demoSignupError, setDemoSignupError] = useState<string | null>(null);
+  const [demoSigningUp, setDemoSigningUp] = useState(false);
 
   const handleCertificateChange = (event: ChangeEvent<HTMLInputElement>) => {
     setCertificateFileName(event.target.files?.[0]?.name ?? "");
@@ -26,6 +44,34 @@ export function SignupScreen() {
 
     // 심사자 인증 심사(소속/교수 인증번호/서류) 백엔드가 아직 없어, 우선 일반 Google 가입/로그인으로 연결한다.
     loginWithGoogle();
+  };
+
+  // 데모 ID/PW 회원가입: 실제 계정 생성 백엔드는 없음 — 데모 계정 이름/번호로 매칭해
+  // 기존 dev-login-token 발급 흐름을 그대로 재사용한다(LoginScreen의 데모 로그인과 동일한 방식).
+  const handleDemoSignup = async () => {
+    if (demoSigningUp) return;
+    setDemoSignupError(null);
+    const matched = DEV_TEST_ACCOUNTS.find(account => account.id === demoId.trim() || account.name === demoId.trim());
+    if (!matched) {
+      setDemoSignupError("데모 환경에서는 새 계정을 만들 수 없습니다. 이름(예: 김민준) 또는 번호(1~4)의 기존 데모 계정으로 입장해주세요.");
+      return;
+    }
+    setDemoSigningUp(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/dev-login-token/${matched.id}`);
+      const body = await response.json() as ApiEnvelope<AuthTokenResponse>;
+      if (!response.ok || !body.success || !body.data?.accessToken || !body.data?.refreshToken) {
+        throw new Error(body.error?.message ?? "데모 회원가입에 실패했습니다.");
+      }
+      tokenStore.clear();
+      tokenStore.setTokens(body.data.accessToken, body.data.refreshToken);
+      await refreshMe();
+      navigate("/dashboard", { replace: true });
+    } catch (error) {
+      setDemoSignupError(error instanceof Error ? error.message : "데모 회원가입에 실패했습니다.");
+    } finally {
+      setDemoSigningUp(false);
+    }
   };
 
   return (
@@ -98,6 +144,9 @@ export function SignupScreen() {
                     <input type="file" className="hidden" onChange={handleCertificateChange} />
                   </label>
                 </div>
+                <div className="rounded-xl bg-blue-100/60 border border-blue-200 px-3 py-2.5 text-xs text-blue-800 leading-relaxed">
+                  가입 신청 후 <strong>관리자 승인 절차</strong>를 거칩니다. 승인이 완료되면 심사자 권한으로 로그인됩니다.
+                </div>
               </div>
             )}
 
@@ -118,6 +167,42 @@ export function SignupScreen() {
               로그인
             </button>
           </p>
+
+          {demoAuthEnabled && (
+            <div className="mt-8 pt-6 border-t border-border">
+              <p className="text-center text-[11px] font-semibold text-amber-600 mb-3">
+                ⚠ 개발/데모 전용 — 실제 계정을 생성하지 않습니다
+              </p>
+              <div className="space-y-3">
+                <AuthInput
+                  label="데모 ID (계정 이름 또는 번호)" type="text" placeholder="예: 김민준 또는 1"
+                  value={demoId} onChange={setDemoId} icon={Mail}
+                />
+                <AuthInput
+                  label="비밀번호 (데모 - 검증하지 않음)" type={showDemoPw ? "text" : "password"} placeholder="아무 값이나 입력"
+                  value={demoPw} onChange={setDemoPw} icon={Lock}
+                  right={
+                    <button type="button" onClick={() => setShowDemoPw(v => !v)} className="text-muted-foreground hover:text-foreground transition-colors">
+                      {showDemoPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  }
+                />
+                {demoSignupError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-600">
+                    {demoSignupError}
+                  </div>
+                )}
+                <button
+                  onClick={() => void handleDemoSignup()}
+                  disabled={demoSigningUp}
+                  className="w-full py-2.5 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-70 hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #3B5BDB 0%, #4F6EF7 100%)" }}
+                >
+                  <ArrowRight className="w-4 h-4" /> {demoSigningUp ? "처리 중..." : "ID/PW로 회원가입 (데모)"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
