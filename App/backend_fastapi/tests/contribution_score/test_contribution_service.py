@@ -54,6 +54,8 @@ def test_meeting_component_full_attendance():
 
 
 def test_compute_contribution_scores_missing_attendance_defaults_to_zero():
+    from contribution_score.app.services import contribution_service as svc
+
     members = [_member(assignee_id="9", completion_rate=0.8, overload_score=0.0, anomaly_type="정상")]
     results = compute_contribution_scores(members, attendance={}, total_meetings=4)
 
@@ -63,12 +65,16 @@ def test_compute_contribution_scores_missing_attendance_defaults_to_zero():
     assert result.workload_component == 100.0
     assert result.task_component == 80.0
     assert result.meeting_component == 0.0
-    assert result.contribution_score == pytest.approx((100.0 + 80.0 + 0.0) / 3, abs=0.1)
+    # 균등 가중치가 아니라 Task 4에서 반영한 엔트로피 실험 가중치를 사용한 기대값.
+    expected = svc.WEIGHT_WORKLOAD * 100.0 + svc.WEIGHT_TASK * 80.0 + svc.WEIGHT_MEETING * 0.0
+    assert result.contribution_score == pytest.approx(expected, abs=0.1)
 
 
-def test_compute_contribution_scores_uses_equal_weights_by_default():
+def test_compute_contribution_scores_uses_experiment_derived_weights():
     from contribution_score.app.services import contribution_service as svc
 
-    assert svc.WEIGHT_WORKLOAD == pytest.approx(1 / 3)
-    assert svc.WEIGHT_TASK == pytest.approx(1 / 3)
-    assert svc.WEIGHT_MEETING == pytest.approx(1 / 3)
+    total = svc.WEIGHT_WORKLOAD + svc.WEIGHT_TASK + svc.WEIGHT_MEETING
+    assert total == pytest.approx(1.0)
+    assert svc.WEIGHT_WORKLOAD == pytest.approx(0.2016)
+    assert svc.WEIGHT_TASK == pytest.approx(0.4911)
+    assert svc.WEIGHT_MEETING == pytest.approx(0.3073)

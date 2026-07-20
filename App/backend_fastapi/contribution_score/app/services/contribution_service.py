@@ -3,10 +3,10 @@ from __future__ import annotations
 from contribution_score.app.schema.contribution_schema import ContributionMemberResult
 from ml_workload_score.app.schema.workload_schema import WorkloadMemberResult
 
-# 균등 가중치로 시작 - Task 4의 PCA/엔트로피 실험 결과로 갱신 예정.
-WEIGHT_WORKLOAD = 1 / 3
-WEIGHT_TASK = 1 / 3
-WEIGHT_MEETING = 1 / 3
+# 2026-07-20 PCA/엔트로피 가중치 실험 결과 반영 (document_이은주/2026-07-20-contribution-weight-experiment.md)
+WEIGHT_WORKLOAD = 0.2016
+WEIGHT_TASK = 0.4911
+WEIGHT_MEETING = 0.3073
 
 
 def workload_component_of(member: WorkloadMemberResult) -> float:
