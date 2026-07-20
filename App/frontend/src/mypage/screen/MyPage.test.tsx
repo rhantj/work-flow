@@ -100,4 +100,13 @@ describe("MyPage member view", () => {
     await waitFor(() => expect(screen.getByText("담당 중인 업무가 없습니다.")).toBeInTheDocument());
     expect(screen.queryByText("내가 담당한 산출물")).not.toBeInTheDocument();
   });
+
+  it("does not render the activity timeline", async () => {
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getByText("담당 중인 업무가 없습니다.")).toBeInTheDocument());
+    expect(screen.queryByText("내 활동 타임라인")).not.toBeInTheDocument();
+  });
 });

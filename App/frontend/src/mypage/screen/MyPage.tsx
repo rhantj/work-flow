@@ -12,9 +12,8 @@ import {
 import { StatusBadge } from "../../global/component/StatusBadge";
 import { DelivBadge } from "../../deliverables/components/DelivBadge";
 import { SectionTitle } from "../../global/component/SectionTitle";
-import { ActIcon } from "../../global/component/ActIcon";
 import {
-  MEMBER_USER, MY_ACTIVITIES, MY_FEEDBACKS, PUBLIC_SCORE,
+  MEMBER_USER, MY_FEEDBACKS, PUBLIC_SCORE,
 } from "../libs/mock/mypage";
 import {
   REVIEWER_USER, REVIEWER_TEAMS, CONTRIB_REPORTS, REVIEWER_ACTIVITIES,
@@ -251,24 +250,8 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
         )}
       </div>
 
-      {/* ── Bottom: activity + feedback ── */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Activity timeline */}
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-border"><SectionTitle>내 활동 타임라인</SectionTitle></div>
-          <div className="p-4 space-y-3">
-            {MY_ACTIVITIES.map((a, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <ActIcon type={a.type} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-foreground leading-snug">{a.msg}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{a.time}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+      {/* ── Bottom: feedback ── */}
+      <div className="grid grid-cols-1 gap-4">
         {/* Feedback panel */}
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-border"><SectionTitle>개인 코멘트 / 피드백</SectionTitle></div>
