@@ -190,7 +190,7 @@ _VALID_CATEGORIES = {
 
 def analyze_meeting_with_ollama(request: AnalyzeRequest) -> MeetingAnalysisResult:
     host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    model = os.getenv("MEETING_ANALYSIS_MODEL", "llama3.2:3b")
+    model = os.getenv("MEETING_ANALYSIS_MODEL", "gemma4:e2b")
     timeout_seconds = float(os.getenv("MEETING_ANALYSIS_TIMEOUT_SECONDS", "45"))
     temperature = float(os.getenv("OLLAMA_ANALYSIS_TEMPERATURE", "0.1"))
 

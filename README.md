@@ -53,7 +53,7 @@
 회의록 AI 분석은 기본적으로 로컬 Ollama 모델을 사용합니다 (외부 유료 LLM 미사용).
 
 - Ollama 설치: https://ollama.com
-- 빠른 분석용 모델(기본값): `ollama pull llama3.2:3b`
+- 빠른 분석용 모델(기본값): `gemma4:e2b` (로컬에 없으면 `ollama pull gemma4:e2b`)
 - 품질 우선 모델: `ollama pull qwen3:8b` (`MEETING_ANALYSIS_MODEL=qwen3:8b`로 전환)
 - FastAPI 직접 실행 시: `OLLAMA_HOST=http://localhost:11434`
 - Docker Compose 사용 시: `OLLAMA_HOST=http://host.docker.internal:11434`
