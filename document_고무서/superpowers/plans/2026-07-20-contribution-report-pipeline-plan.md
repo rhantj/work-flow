@@ -577,9 +577,12 @@ git commit -m "feat: /ai/report/contribution 라우터 등록"
 - Create: `App/backend_spring/src/main/java/com/workflowai/contribution/FastApiContributionClient.java`
 - Create: `App/backend_spring/src/main/java/com/workflowai/contribution/ContributionReportController.java`
 - Create: `App/backend_spring/src/test/java/com/workflowai/contribution/ContributionReportControllerTest.java`
+- Create: `App/backend_spring/src/test/java/com/workflowai/contribution/ContributionReportSecurityTest.java`
+- Create: `App/backend_spring/src/test/java/com/workflowai/contribution/AccessDeniedResponseAdvice.java`
+- Create: `App/backend_spring/src/test/java/com/workflowai/security/ProjectAccessTest.java`
 
 **Interfaces:**
-- Consumes: `FastApiRagClient`/`RagController`와 동일한 `RestClient` 패턴(`App/backend_spring/src/main/java/com/workflowai/rag/FastApiRagClient.java`), `ProjectAccess.hasRole(Long, String)`(`App/backend_spring/src/main/java/com/workflowai/security/ProjectAccess.java:19`)
+- Consumes: `FastApiRagClient`/`RagController`와 동일한 `RestClient` 패턴(`App/backend_spring/src/main/java/com/workflowai/rag/FastApiRagClient.java`), `ProjectAccess.hasRole(Long, String)`(`App/backend_spring/src/main/java/com/workflowai/security/ProjectAccess.java:19`), `RagRateLimiter`
 - Produces: `POST /api/v1/ai/contribution/report` — Task 6에서 프론트가 호출하는 실제 엔드포인트
 
 - [ ] **Step 1: 요청/응답 DTO 작성**
@@ -667,6 +670,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.workflowai.rag.RagRateLimiter;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -691,7 +695,10 @@ class ContributionReportControllerTest {
         );
         when(fastApiContributionClient.generate(any(ContributionReportRequest.class))).thenReturn(fastApiResponse);
 
-        ContributionReportController controller = new ContributionReportController(fastApiContributionClient);
+        ContributionReportController controller = new ContributionReportController(
+            fastApiContributionClient,
+            new RagRateLimiter(10, 60)
+        );
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         String body = objectMapper.writeValueAsString(new ContributionReportRequest(1L));
@@ -707,7 +714,10 @@ class ContributionReportControllerTest {
         when(fastApiContributionClient.generate(any(ContributionReportRequest.class)))
             .thenThrow(new RuntimeException("connection refused"));
 
-        ContributionReportController controller = new ContributionReportController(fastApiContributionClient);
+        ContributionReportController controller = new ContributionReportController(
+            fastApiContributionClient,
+            new RagRateLimiter(10, 60)
+        );
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         String body = objectMapper.writeValueAsString(new ContributionReportRequest(1L));
@@ -716,8 +726,27 @@ class ContributionReportControllerTest {
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.error.code").value("CONTRIBUTION_REPORT_UNAVAILABLE"));
     }
+
+    @Test
+    void generateReportReturns429WhenRateLimited() throws Exception {
+        ContributionReportController controller = new ContributionReportController(
+            fastApiContributionClient,
+            new RagRateLimiter(0, 60)
+        );
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        String body = objectMapper.writeValueAsString(new ContributionReportRequest(1L));
+
+        mockMvc.perform(post("/api/v1/ai/contribution/report").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isTooManyRequests())
+            .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"));
+    }
 }
 ```
+
+`App/backend_spring/src/test/java/com/workflowai/contribution/ContributionReportSecurityTest.java`는 테스트 전용 method security 컨텍스트에서 `projectAccess.hasRole(..., "REVIEWER") == false`일 때 `POST /api/v1/ai/contribution/report`가 403 + `FORBIDDEN` envelope를 반환하는지 검증한다.
+
+`App/backend_spring/src/test/java/com/workflowai/security/ProjectAccessTest.java`는 `UserPrincipal`을 `SecurityContextHolder`에 넣고, `ProjectRole.REVIEWER`는 `hasRole(..., "REVIEWER") == true`, `ProjectRole.MEMBER`는 false를 반환하는지 검증한다.
 
 - [ ] **Step 4: 테스트 실패 확인**
 
@@ -732,6 +761,7 @@ Expected: FAIL — 컴파일 에러 (`ContributionReportController` 없음)
 package com.workflowai.contribution;
 
 import com.workflowai.common.ApiResponse;
+import com.workflowai.rag.RagRateLimiter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -748,9 +778,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/ai/contribution")
 public class ContributionReportController {
     private final FastApiContributionClient fastApiContributionClient;
+    private final RagRateLimiter rateLimiter;
 
-    public ContributionReportController(FastApiContributionClient fastApiContributionClient) {
+    public ContributionReportController(FastApiContributionClient fastApiContributionClient, RagRateLimiter rateLimiter) {
         this.fastApiContributionClient = fastApiContributionClient;
+        this.rateLimiter = rateLimiter;
     }
 
     @Operation(
@@ -760,6 +792,11 @@ public class ContributionReportController {
     @PostMapping("/report")
     @PreAuthorize("@projectAccess.hasRole(#request.project_id(), 'REVIEWER')")
     public ResponseEntity<ApiResponse<List<MemberContributionDto>>> generateReport(@RequestBody ContributionReportRequest request) {
+        if (!rateLimiter.tryAcquire(request.project_id())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.fail("RATE_LIMITED", "요청이 너무 많습니다. 잠시 후 다시 시도하세요."));
+        }
+
         try {
             List<MemberContributionDto> response = fastApiContributionClient.generate(request);
             return ResponseEntity.ok(ApiResponse.ok(response));
@@ -774,7 +811,7 @@ public class ContributionReportController {
 - [ ] **Step 6: 테스트 통과 확인**
 
 Run: `cd App/backend_spring && ./gradlew test --tests "com.workflowai.contribution.ContributionReportControllerTest"`
-Expected: BUILD SUCCESSFUL, 2 tests passed
+Expected: BUILD SUCCESSFUL, 컨트롤러 성공/503/429 테스트, `@PreAuthorize` 403 테스트, `ProjectAccess` REVIEWER/MEMBER 역할 판정 테스트 통과
 
 - [ ] **Step 7: 커밋**
 
