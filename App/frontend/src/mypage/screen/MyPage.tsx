@@ -12,9 +12,8 @@ import {
 import { StatusBadge } from "../../global/component/StatusBadge";
 import { DelivBadge } from "../../deliverables/components/DelivBadge";
 import { SectionTitle } from "../../global/component/SectionTitle";
-import { ActIcon } from "../../global/component/ActIcon";
 import {
-  MEMBER_USER, MY_TASKS, MY_DELIVERABLES, MY_ACTIVITIES, MY_FEEDBACKS, PUBLIC_SCORE,
+  MEMBER_USER, MY_TASKS, MY_FEEDBACKS, PUBLIC_SCORE,
 } from "../libs/mock/mypage";
 import {
   REVIEWER_USER, REVIEWER_TEAMS, CONTRIB_REPORTS, REVIEWER_ACTIVITIES,
@@ -208,24 +207,8 @@ function MemberMyPage({ name, email, onLogout }: { name: string; email: string; 
         </div>
       </div>
 
-      {/* ── Bottom: activity + feedback ── */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Activity timeline */}
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-border"><SectionTitle>내 활동 타임라인</SectionTitle></div>
-          <div className="p-4 space-y-3">
-            {MY_ACTIVITIES.map((a, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <ActIcon type={a.type} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-foreground leading-snug">{a.msg}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{a.time}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+      {/* ── Bottom: feedback ── */}
+      <div className="grid grid-cols-1 gap-4">
         {/* Feedback panel */}
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-border"><SectionTitle>개인 코멘트 / 피드백</SectionTitle></div>
@@ -245,35 +228,6 @@ function MemberMyPage({ name, email, onLogout }: { name: string; email: string; 
             <button className="w-full py-2 text-xs font-medium text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5">
               <MessageSquare className="w-3.5 h-3.5" />답글 작성
             </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── My Deliverables ── */}
-      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-          <SectionTitle>내가 담당한 산출물</SectionTitle>
-          <button className="text-xs font-medium text-blue-600 hover:text-blue-700">전체 보기</button>
-        </div>
-        <div className="grid grid-cols-3 gap-3 p-4">
-          {MY_DELIVERABLES.map(d => (
-            <div key={d.id} className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/50 border border-border hover:shadow-sm transition-shadow cursor-pointer">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-100">
-                <Package className="w-3.5 h-3.5 text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] text-muted-foreground">{d.type}</div>
-                <div className="text-xs font-semibold text-foreground truncate">{d.title}</div>
-              </div>
-              <DelivBadge status={d.status} />
-            </div>
-          ))}
-          <div className="flex items-center gap-2.5 p-3 rounded-xl border border-dashed border-border hover:bg-muted/30 transition-colors cursor-pointer">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-muted">
-              <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-            </div>
-            <span className="text-xs text-muted-foreground">GitHub README</span>
-            <DelivBadge status="pending" />
           </div>
         </div>
       </div>
