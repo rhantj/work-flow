@@ -121,6 +121,10 @@ public class Meeting {
         return fileType;
     }
 
+    public Long getUploadedBy() {
+        return uploadedBy;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
