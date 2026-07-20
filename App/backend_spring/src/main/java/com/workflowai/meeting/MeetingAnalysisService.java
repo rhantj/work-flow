@@ -341,6 +341,7 @@ public class MeetingAnalysisService {
     public MeetingDeleteResponse delete(String projectId, String meetingId, boolean deleteLinkedTasks) {
         Meeting meeting = requireProjectMeeting(projectId, meetingId);
         if (meeting == null) return null;
+        requireUploader(meeting);
 
         Long meetingDbId = parseLongOrNull(meetingId);
         if (meetingDbId == null) return null;
@@ -423,7 +424,7 @@ public class MeetingAnalysisService {
 
         MeetingActionItem item = existingItem.orElseGet(() -> new MeetingActionItem(
             meetingId, todo.title(), todo.description(), todo.category(),
-            resolveAssigneeByName(todo.assignee_candidate()), assigneeId, dueDate, todo.priority(), null
+            resolveAssigneeByName(todo.assignee_candidate()), assigneeId, dueDate, todo.priority(), todo.evidence_text()
         ));
         item.setFinalAssigneeId(assigneeId);
         item.setDueDate(dueDate);
@@ -463,6 +464,14 @@ public class MeetingAnalysisService {
         Long meetingDbId = parseLongOrNull(meetingIdParam);
         if (meetingDbId == null) return null;
         return meetingRepository.findByIdAndProjectId(meetingDbId, projectDbId).orElse(null);
+    }
+
+    /** 회의록을 업로드한 본인만 통과한다. 업로더가 아니거나 uploadedBy가 비어있으면 403. */
+    private void requireUploader(Meeting meeting) {
+        Long userId = CurrentUser.id();
+        if (meeting.getUploadedBy() == null || !meeting.getUploadedBy().equals(userId)) {
+            throw new AccessDeniedException("본인이 업로드한 회의록만 삭제할 수 있습니다.");
+        }
     }
 
     private void validateAttendeeIds(Long projectId, List<Long> attendeeIds) {
@@ -517,7 +526,8 @@ public class MeetingAnalysisService {
             item.getDueDate() == null ? null : item.getDueDate().toString(),
             item.getPriority(),
             item.getCategory(),
-            item.getFinalAssigneeId() == null
+            item.getFinalAssigneeId() == null,
+            item.getBasis() == null ? "" : item.getBasis()
         );
     }
 

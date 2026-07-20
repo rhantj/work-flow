@@ -195,7 +195,7 @@ class MeetingAnalysisServiceTest {
         Path dir = Files.createTempDirectory("meeting-delete");
         Path file = dir.resolve("notes.txt");
         Files.writeString(file, "삭제할 회의록");
-        Meeting meeting = new Meeting(1L, "삭제 회의", "document", file.toString(), "completed", LocalDate.now(), "정기회의", "notes.txt", null, 5L);
+        Meeting meeting = new Meeting(1L, "삭제 회의", "document", file.toString(), "completed", LocalDate.now(), "정기회의", "notes.txt", CURRENT_USER_ID, 5L);
         when(meetingRepository.findByIdAndProjectId(8L, 1L)).thenReturn(Optional.of(meeting));
         when(meetingAnalysisRepository.existsById(8L)).thenReturn(true);
         MeetingAnalysisService service = newService();
@@ -216,9 +216,38 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
+    void deleteRejectsWhenCurrentUserIsNotTheUploader() {
+        mockMember(1L);
+        Long otherUploaderId = 999L;
+        Meeting meeting = new Meeting(1L, "삭제 회의", "document", "/tmp/x.txt", "completed", LocalDate.now(), "정기회의", "notes.txt", otherUploaderId, 5L);
+        when(meetingRepository.findByIdAndProjectId(10L, 1L)).thenReturn(Optional.of(meeting));
+        MeetingAnalysisService service = newService();
+
+        assertThatThrownBy(() -> service.delete("demo-project", "10", false))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(meetingRepository, never()).delete(any());
+        verify(meetingActionItemRepository, never()).deleteByMeetingId(any());
+        verify(meetingActionItemRepository, never()).clearMeetingId(any());
+    }
+
+    @Test
+    void deleteRejectsWhenMeetingHasNoRecordedUploader() {
+        mockMember(1L);
+        Meeting meeting = new Meeting(1L, "삭제 회의", "document", "/tmp/x.txt", "completed", LocalDate.now(), "정기회의", "notes.txt", null, 5L);
+        when(meetingRepository.findByIdAndProjectId(11L, 1L)).thenReturn(Optional.of(meeting));
+        MeetingAnalysisService service = newService();
+
+        assertThatThrownBy(() -> service.delete("demo-project", "11", false))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(meetingRepository, never()).delete(any());
+    }
+
+    @Test
     void deleteCanRemoveLinkedBoardTasksWhenRequested() {
         mockMember(1L);
-        Meeting meeting = new Meeting(1L, "삭제 회의", "document", null, "completed", LocalDate.now(), "정기회의", "notes.txt", null, 5L);
+        Meeting meeting = new Meeting(1L, "삭제 회의", "document", null, "completed", LocalDate.now(), "정기회의", "notes.txt", CURRENT_USER_ID, 5L);
         when(meetingRepository.findByIdAndProjectId(9L, 1L)).thenReturn(Optional.of(meeting));
         MeetingAnalysisService service = newService();
 

@@ -9,6 +9,7 @@ export interface MeetingAiTodo {
   priority: MeetingAiPriority;
   category: string;
   needs_leader_review: boolean;
+  evidence_text?: string;
 }
 
 export interface MeetingAiResult {
