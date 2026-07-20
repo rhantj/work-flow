@@ -36,4 +36,22 @@ describe("buildGeneratedTodos", () => {
     expect(todos[0].assignee).toBe("3");
     expect(todos[0].assigned).toBe(true);
   });
+
+  it("uses the server-provided evidence_text as the basis when present", () => {
+    const result = baseResult(null);
+    result.todos[0].evidence_text = "곽진아: 인증과 권한 구조는 제가 먼저 잡겠습니다.";
+
+    const todos = buildGeneratedTodos(result);
+
+    expect(todos[0].basis).toBe("곽진아: 인증과 권한 구조는 제가 먼저 잡겠습니다.");
+  });
+
+  it("falls back to a generic basis when evidence_text is missing, without breaking the UI", () => {
+    const result = baseResult(null);
+    result.todos[0].evidence_text = undefined;
+
+    const todos = buildGeneratedTodos(result);
+
+    expect(todos[0].basis).toBe("회의록 후보 담당자: 곽진아");
+  });
 });

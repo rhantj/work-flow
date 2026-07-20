@@ -166,7 +166,11 @@ export const buildGeneratedTodos = (result: MeetingAiResult): GenTodo[] =>
       assignee,
       dueDate: formatAiDueDate(todo.due_date),
       priority: mapAiPriority(todo.priority),
-      basis: todo.assignee_candidate ? `회의록 후보 담당자: ${todo.assignee_candidate}` : "회의록 AI 분석 결과",
+      basis: todo.evidence_text?.trim()
+        ? todo.evidence_text
+        : todo.assignee_candidate
+          ? `회의록 후보 담당자: ${todo.assignee_candidate}`
+          : "회의록 AI 분석 결과",
       assigned: Boolean(assignee),
       source: "MEETING_AI" as const,
     };
@@ -884,7 +888,7 @@ export function MeetingsView() {
         const errorMessage = isAuthError
           ? "로그인이 만료되어 DB 삭제가 되지 않았습니다. 다시 로그인 후 삭제해주세요."
           : isPermissionError
-            ? "프로젝트 권한이 없어 DB 삭제가 되지 않았습니다. 권한을 확인해주세요."
+            ? "본인이 업로드한 회의록만 삭제할 수 있습니다."
             : `서버 삭제에 실패했습니다${status}. DB에는 삭제되지 않았습니다. 잠시 후 다시 시도해주세요.`;
         setMeetingListError(errorMessage);
         setTimeout(() => setMeetingListError(null), 6000);

@@ -7,6 +7,7 @@ import re
 from datetime import date, timedelta
 from typing import List, Optional
 
+import httpx
 import ollama
 from fastapi import FastAPI, File, Form, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +20,15 @@ from ml_delay_risk.routers.delay_router import router as delay_risk_router
 from ml_delay_risk.routers.task_delay_router import router as task_delay_risk_router
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_MEETING_ANALYSIS_MODEL = "qwen2.5:1.5b"
+DEFAULT_MEETING_ANALYSIS_TIMEOUT_SECONDS = 20.0
+DEFAULT_MEETING_ANALYSIS_MAX_CHARS = 6000
+DEFAULT_MEETING_ANALYSIS_NUM_PREDICT = 650
+DEFAULT_HF_MEETING_ANALYSIS_MODEL = "Qwen/Qwen3-4B-Instruct-2507"
+DEFAULT_HF_MEETING_ANALYSIS_TIMEOUT_SECONDS = 35.0
+DEFAULT_HF_MEETING_ANALYSIS_MAX_TOKENS = 900
+HF_CHAT_COMPLETIONS_URL = "https://router.huggingface.co/v1/chat/completions"
 
 app = FastAPI(title="WorkFlow AI FastAPI", version="0.1.0")
 
@@ -73,6 +83,7 @@ class MeetingTodo(BaseModel):
     priority: str
     category: str
     needs_leader_review: bool = True
+    evidence_text: str = ""
 
 
 class MeetingMeta(BaseModel):
@@ -97,8 +108,17 @@ def health():
 
 @app.post("/api/v1/meetings/analyze-json", response_model=MeetingAnalysisResult)
 def analyze_json(request: AnalyzeRequest):
-    provider = os.getenv("MEETING_ANALYSIS_PROVIDER", "ollama")
-    if provider == "ollama":
+    provider = os.getenv("MEETING_ANALYSIS_PROVIDER", "ollama").lower()
+    if provider in {"huggingface", "hf"}:
+        try:
+            return analyze_meeting_with_huggingface(request)
+        except Exception:
+            logger.exception("Hugging Face 회의록 분석 실패, Ollama/규칙 기반 분석으로 대체합니다.")
+        try:
+            return analyze_meeting_with_ollama(request)
+        except Exception:
+            logger.exception("Ollama 회의록 분석 실패, 규칙 기반 분석으로 대체합니다.")
+    elif provider == "ollama":
         try:
             return analyze_meeting_with_ollama(request)
         except Exception:
@@ -123,7 +143,7 @@ async def analyze_upload(
         file_name = file.filename
         raw = await file.read()
         text = raw.decode("utf-8", errors="ignore")
-    return analyze_meeting(
+    return analyze_json(
         AnalyzeRequest(
             title=title,
             meeting_date=meeting_date or date.today().isoformat(),
@@ -161,7 +181,7 @@ def analyze_meeting(request: AnalyzeRequest) -> MeetingAnalysisResult:
 
     # 원본 텍스트(줄바꿈 보존)에서 "이름: 발언" 화자 형식을 먼저 시도하고, 없으면 공백-정규화 텍스트의
     # 키워드 문장 추출로 대체한다. normalize_text()는 줄바꿈을 공백으로 뭉개므로 화자 구분에 쓸 수 없다.
-    todos = build_todos(raw_text, text, request.meeting_date)
+    todos = build_todos(raw_text, text, request.meeting_date, request.participants)
     summary = (
         f"{request.title} 내용을 분석해 핵심 결정사항 {len(decisions)}건, "
         f"업무 후보 {len(todos)}건, 위험요소 {len(risks)}건을 추출했습니다."
@@ -196,24 +216,69 @@ _VALID_CATEGORIES = {
 
 def analyze_meeting_with_ollama(request: AnalyzeRequest) -> MeetingAnalysisResult:
     host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    model = os.getenv("MEETING_ANALYSIS_MODEL", "gemma4:e2b")
-    timeout_seconds = float(os.getenv("MEETING_ANALYSIS_TIMEOUT_SECONDS", "45"))
+    model = os.getenv("MEETING_ANALYSIS_MODEL", DEFAULT_MEETING_ANALYSIS_MODEL)
+    timeout_seconds = _get_env_float("MEETING_ANALYSIS_TIMEOUT_SECONDS", DEFAULT_MEETING_ANALYSIS_TIMEOUT_SECONDS)
     temperature = float(os.getenv("OLLAMA_ANALYSIS_TEMPERATURE", "0.1"))
+    num_predict = int(os.getenv("MEETING_ANALYSIS_NUM_PREDICT", str(DEFAULT_MEETING_ANALYSIS_NUM_PREDICT)))
+    keep_alive = os.getenv("MEETING_ANALYSIS_KEEP_ALIVE", "5m")
 
     client = ollama.Client(host=host, timeout=timeout_seconds)
+    if not _ollama_model_available(client, model):
+        raise RuntimeError(f"Ollama model is not available: {model}")
     response = client.chat(
         model=model,
         messages=[{"role": "user", "content": build_ollama_prompt(request)}],
         format="json",
-        options={"temperature": temperature},
+        options={
+            "temperature": temperature,
+            "num_ctx": 4096,
+            "num_predict": num_predict,
+        },
+        keep_alive=keep_alive,
     )
     raw = response["message"]["content"]
-    return parse_ollama_analysis_response(raw, request)
+    result = parse_ollama_analysis_response(raw, request)
+    logger.info("Ollama 회의록 분석 성공. model=%s", model)
+    return result
+
+
+def analyze_meeting_with_huggingface(request: AnalyzeRequest) -> MeetingAnalysisResult:
+    token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
+    if not token:
+        raise RuntimeError("HF_TOKEN is not configured.")
+
+    endpoint = os.getenv("HF_MEETING_ANALYSIS_ENDPOINT", HF_CHAT_COMPLETIONS_URL)
+    model = os.getenv("HF_MEETING_ANALYSIS_MODEL", DEFAULT_HF_MEETING_ANALYSIS_MODEL)
+    timeout_seconds = _get_env_float("HF_MEETING_ANALYSIS_TIMEOUT_SECONDS", DEFAULT_HF_MEETING_ANALYSIS_TIMEOUT_SECONDS)
+    max_tokens = int(os.getenv("HF_MEETING_ANALYSIS_MAX_TOKENS", str(DEFAULT_HF_MEETING_ANALYSIS_MAX_TOKENS)))
+    temperature = float(os.getenv("HF_MEETING_ANALYSIS_TEMPERATURE", "0.1"))
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": build_ollama_prompt(request)}],
+        "stream": False,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+    with httpx.Client(timeout=timeout_seconds) as client:
+        response = client.post(endpoint, headers=headers, json=payload)
+        response.raise_for_status()
+        body = response.json()
+
+    raw = body["choices"][0]["message"]["content"]
+    result = parse_ollama_analysis_response(raw, request)
+    logger.info("Hugging Face 회의록 분석 성공. model=%s", model)
+    return result
 
 
 def build_ollama_prompt(request: AnalyzeRequest) -> str:
     participants = ", ".join(resolve_participants(request))
-    text = request.text or request.title
+    text = _limit_text_for_local_model(request.text or request.title)
     return f"""다음은 회의록 원문입니다. 이 내용을 분석해서 아래 JSON 스키마로만 응답하세요. 스키마에 없는 다른 텍스트는 출력하지 마세요.
 
 회의 제목: {request.title}
@@ -229,12 +294,13 @@ JSON 스키마:
   "decisions": ["결정사항 문장", "..."],
   "todos": [
     {{
-      "title": "업무 제목(간단히)",
+      "title": "12~25자 내외의 짧고 명확한 업무명(명사형)",
       "description": "업무 상세 설명",
       "assignee_candidate": "담당자 이름 또는 빈 문자열",
       "due_date": "YYYY-MM-DD 또는 null",
       "priority": "HIGH 또는 MEDIUM 또는 LOW",
-      "category": "FRONTEND 또는 BACKEND 또는 AI 또는 DATABASE 또는 QA 또는 DOCUMENT 또는 PRESENTATION 또는 ETC"
+      "category": "FRONTEND 또는 BACKEND 또는 AI 또는 DATABASE 또는 QA 또는 DOCUMENT 또는 PRESENTATION 또는 ETC",
+      "evidence_text": "이 업무의 근거가 된 회의록 원문 문장/발언 일부"
     }}
   ],
   "risks": ["위험요소 문장", "..."],
@@ -248,7 +314,56 @@ JSON 스키마:
 3. 선택된 참석자 목록에 있다는 이유만으로 아무에게나 업무를 임의 배정하지 않는다.
 4. 회의록에 실제로 등장하지 않는 이름을 만들어내지 않는다.
 5. 특정 인물이나 목록의 첫 번째 참석자에게 fallback으로 몰아서 배정하지 않는다. 한 사람에게 모든 업무를 배정하는 것은 금지된다.
+
+title 규칙 - 반드시 지킬 것:
+1. title은 회의록 원문 발언을 그대로 복사하지 않는다.
+2. "저는", "제가", "~하겠습니다", "~진행하겠습니다", "~맡겠습니다" 같은 발언체 표현을 제거하고 명사형 업무명으로 정리한다.
+3. 길이는 12~25자 내외로 짧게 작성한다.
+4. 예: "저는 회의록 AI 분석을 맡겠습니다" -> "회의록 AI 분석 구현", "임베딩 모델을 바꾸는 방향으로 진행하겠습니다" -> "임베딩 모델 변경"
+
+evidence_text 규칙 - 반드시 지킬 것:
+1. 이 업무가 어떤 발언/문장에서 나왔는지 회의록 원문 그대로(화자 포함) 인용한다.
+   예: "박지수: 저는 회의록 AI 분석을 맡겠습니다."
+2. 회의록 원문에 없는 내용을 지어내지 않는다.
+3. 근거가 될 만한 발언을 찾을 수 없으면 빈 문자열("")로 남긴다.
 """
+
+
+def _get_env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _limit_text_for_local_model(text: str) -> str:
+    max_chars = int(os.getenv("MEETING_ANALYSIS_MAX_CHARS", str(DEFAULT_MEETING_ANALYSIS_MAX_CHARS)))
+    if len(text) <= max_chars:
+        return text
+    head = text[: int(max_chars * 0.7)].rstrip()
+    tail = text[-int(max_chars * 0.3) :].lstrip()
+    return f"{head}\n\n...[회의록 일부 생략: 로컬 모델 분석 속도 최적화]...\n\n{tail}"
+
+
+def _ollama_model_available(client: ollama.Client, model: str) -> bool:
+    response = client.list()
+    names = set(_extract_ollama_model_names(response))
+    if ":" not in model:
+        return any(name == model or name.startswith(f"{model}:") for name in names)
+    return model in names
+
+
+def _extract_ollama_model_names(response) -> List[str]:
+    models = response.get("models", []) if isinstance(response, dict) else getattr(response, "models", [])
+    names: List[str] = []
+    for item in models:
+        if isinstance(item, dict):
+            name = item.get("name") or item.get("model")
+        else:
+            name = getattr(item, "name", None) or getattr(item, "model", None)
+        if name:
+            names.append(str(name))
+    return names
 
 
 def _strip_code_fence(raw: str) -> str:
@@ -259,13 +374,130 @@ def _strip_code_fence(raw: str) -> str:
     return trimmed.strip()
 
 
-def _sanitize_assignee_candidate(candidate: str, source_text: str) -> str:
+def _allowed_assignee_names(participants: List[str]) -> Optional[set[str]]:
+    names = {participant.strip() for participant in participants if participant and participant.strip()}
+    return names or None
+
+
+def _sanitize_assignee_candidate(
+    candidate: str,
+    source_text: str,
+    allowed_names: Optional[set[str]] = None,
+    evidence_text: str = "",
+) -> str:
     """모델이 회의록에 등장하지 않는 이름을 지어내는 것을 막는 안전장치.
-    회의록 원문에 실제로 등장하지 않는 이름은 미배정(빈 문자열)으로 되돌린다."""
+    회의록 원문 또는 선택된 참석자 목록에 없는 이름은 미배정(빈 문자열)으로 되돌린다."""
     name = candidate.strip()
     if not name or name not in source_text:
         return ""
+    if allowed_names is not None and name not in allowed_names:
+        return ""
+    if evidence_text and not _has_assignee_task_evidence(name, evidence_text, source_text):
+        return ""
     return name
+
+
+def _has_assignee_task_evidence(name: str, evidence_text: str, source_text: str) -> bool:
+    speaker_tasks = [(speaker, sentence) for speaker, sentence in extract_speaker_task_candidates(source_text) if speaker == name]
+    if not speaker_tasks:
+        return True
+
+    evidence_tokens = _tokenize_for_overlap(evidence_text)
+    if name in evidence_text:
+        return True
+    for _, sentence in speaker_tasks:
+        sentence_tokens = _tokenize_for_overlap(sentence)
+        if evidence_text.strip() and (evidence_text.strip() in sentence or sentence in evidence_text.strip()):
+            return True
+        if _has_meaningful_token_overlap(evidence_tokens, sentence_tokens):
+            return True
+    return False
+
+
+def _has_meaningful_token_overlap(left_tokens: set[str], right_tokens: set[str]) -> bool:
+    exact_overlap = left_tokens & right_tokens
+    if len(exact_overlap) >= 2:
+        return True
+
+    fuzzy_overlap_count = 0
+    for left in left_tokens:
+        for right in right_tokens:
+            if len(left) >= 2 and len(right) >= 2 and (left in right or right in left):
+                fuzzy_overlap_count += 1
+                break
+    return fuzzy_overlap_count >= 2
+
+
+def _tokenize_for_overlap(value: str) -> set[str]:
+    stopwords = {"저는", "제가", "먼저", "기반", "구현", "하겠습니다", "합니다", "입니다", "것입니다", "결정사항"}
+    tokens = set(re.findall(r"[가-힣A-Za-z0-9]{2,}", value))
+    return {token for token in tokens if token not in stopwords}
+
+
+_TITLE_LEADING_PATTERNS = [re.compile(r"^(저는|제가|우선|먼저)\s+")]
+_TITLE_TRAILING_SUFFIXES = [
+    "진행하겠습니다",
+    "구현하겠습니다",
+    "정리하겠습니다",
+    "작성하겠습니다",
+    "만들겠습니다",
+    "보여주겠습니다",
+    "잡겠습니다",
+    "맡겠습니다",
+    "하겠습니다",
+    "하겠음",
+    "겠습니다",
+    "합니다",
+    "습니다",
+]
+_TITLE_TRAILING_FILLERS = ["방향으로", "쪽으로", "식으로", "예정입니다", "예정"]
+_TITLE_MAX_LEN = 25
+_EVIDENCE_MAX_LEN = 160
+
+
+def clean_todo_title(raw_title: str) -> str:
+    """LLM/규칙 기반 추출이 회의록 발언을 그대로 title로 반환하는 것을 막는 최소 보정.
+    발언체 표현(저는/제가/~하겠습니다 등)을 제거하고 명사형 업무명에 가깝게 다듬는다."""
+    title = raw_title.strip().rstrip(".!?~ ")
+    for pattern in _TITLE_LEADING_PATTERNS:
+        title = pattern.sub("", title).strip()
+    for suffix in _TITLE_TRAILING_SUFFIXES:
+        if title.endswith(suffix):
+            title = title[: -len(suffix)].strip()
+            break
+    for filler in _TITLE_TRAILING_FILLERS:
+        if title.endswith(filler):
+            title = title[: -len(filler)].strip()
+            break
+    if title and title[-1] in "을를":
+        title = title[:-1].strip()
+    title = title.rstrip(".!?~ ")
+    if len(title) > _TITLE_MAX_LEN:
+        title = shorten(title, _TITLE_MAX_LEN)
+    return title or raw_title.strip()
+
+
+def _resolve_evidence_text(raw_evidence: str, title: str, description: str, source_text: str) -> str:
+    """LLM이 준 근거가 회의록 원문에 실제로 있는 인용인지 확인하고, 없거나 비어 있으면
+    화자 발언/문장 추출 결과에서 title/description과 겹치는 근거를 찾아 보정한다."""
+    candidate = raw_evidence.strip()
+    if candidate and candidate in source_text:
+        return shorten(candidate, _EVIDENCE_MAX_LEN)
+    return _infer_evidence_from_source(title, description, source_text)
+
+
+def _infer_evidence_from_source(title: str, description: str, source_text: str) -> str:
+    target_tokens = _tokenize_for_overlap(f"{title} {description}")
+    if not target_tokens:
+        return ""
+    for speaker, sentence in extract_speaker_task_candidates(source_text):
+        if _has_meaningful_token_overlap(target_tokens, _tokenize_for_overlap(sentence)):
+            quote = f"{speaker}: {sentence}" if speaker else sentence
+            return shorten(quote, _EVIDENCE_MAX_LEN)
+    for sentence in split_sentences(source_text):
+        if _has_meaningful_token_overlap(target_tokens, _tokenize_for_overlap(sentence)):
+            return shorten(sentence, _EVIDENCE_MAX_LEN)
+    return ""
 
 
 def parse_ollama_analysis_response(raw: str, request: AnalyzeRequest) -> MeetingAnalysisResult:
@@ -295,11 +527,19 @@ def parse_ollama_analysis_response(raw: str, request: AnalyzeRequest) -> Meeting
             category = "ETC"
         due_date = item.get("due_date")
         due_date = due_date if isinstance(due_date, str) and due_date.strip() else None
-        assignee_candidate = _sanitize_assignee_candidate(str(item.get("assignee_candidate") or ""), source_text)
+        assignee_candidate = _sanitize_assignee_candidate(
+            str(item.get("assignee_candidate") or ""),
+            source_text,
+            _allowed_assignee_names(request.participants),
+            f"{title} {description}",
+        )
+        cleaned_title = clean_todo_title(title) if title else ""
+        raw_evidence = str(item.get("evidence_text") or item.get("source_excerpt") or "")
+        evidence_text = _resolve_evidence_text(raw_evidence, cleaned_title or title, description, source_text)
 
         todos.append(
             MeetingTodo(
-                title=shorten(title or description, 44),
+                title=shorten(cleaned_title or description, 44),
                 description=description or title,
                 assignee_candidate=assignee_candidate,
                 assignee_id=None,
@@ -307,12 +547,14 @@ def parse_ollama_analysis_response(raw: str, request: AnalyzeRequest) -> Meeting
                 priority=priority,
                 category=category,
                 needs_leader_review=True,
+                evidence_text=evidence_text,
             )
         )
 
     decisions = [str(d).strip() for d in (payload.get("decisions") or []) if str(d).strip()]
     risks = [str(r).strip() for r in (payload.get("risks") or []) if str(r).strip()]
     keywords = [str(k).strip() for k in (payload.get("keywords") or []) if str(k).strip()]
+    todos = repair_ollama_todos(todos, request)
 
     return MeetingAnalysisResult(
         summary=summary,
@@ -328,15 +570,71 @@ def parse_ollama_analysis_response(raw: str, request: AnalyzeRequest) -> Meeting
     )
 
 
-def build_todos(raw_text: str, normalized_text: str, meeting_date: str) -> List[MeetingTodo]:
-    candidates = extract_speaker_task_candidates(raw_text)
-    if not candidates:
+def repair_ollama_todos(todos: List[MeetingTodo], request: AnalyzeRequest) -> List[MeetingTodo]:
+    source_text = request.text or request.title
+    speaker_candidates = extract_speaker_task_candidates(source_text)
+    if not speaker_candidates:
+        return todos or build_todos(source_text, normalize_text(source_text), request.meeting_date, request.participants)
+
+    has_placeholder = any(is_schema_placeholder(todo.title) or is_schema_placeholder(todo.description) for todo in todos)
+    all_unassigned = bool(todos) and all(not todo.assignee_candidate for todo in todos)
+    missing_explicit_tasks = len(todos) < len(speaker_candidates)
+    if not todos or has_placeholder or all_unassigned or missing_explicit_tasks:
+        logger.info("Ollama To-Do 결과를 회의록 원문 기반 담당자 추출로 보정합니다.")
+        return build_todos(source_text, normalize_text(source_text), request.meeting_date, request.participants)
+    return fill_missing_assignees_from_speaker_evidence(todos, speaker_candidates, request.participants)
+
+
+def fill_missing_assignees_from_speaker_evidence(
+    todos: List[MeetingTodo],
+    speaker_candidates: List[tuple[str, str]],
+    participants: List[str],
+) -> List[MeetingTodo]:
+    allowed_names = _allowed_assignee_names(participants)
+    repaired: List[MeetingTodo] = []
+    for todo in todos:
+        if todo.assignee_candidate and todo.evidence_text:
+            repaired.append(todo)
+            continue
+
+        evidence_tokens = _tokenize_for_overlap(f"{todo.title} {todo.description}")
+        matched_speaker = ""
+        matched_sentence = ""
+        for speaker, sentence in speaker_candidates:
+            if not todo.assignee_candidate and allowed_names is not None and speaker not in allowed_names:
+                continue
+            if _has_meaningful_token_overlap(evidence_tokens, _tokenize_for_overlap(sentence)):
+                matched_speaker, matched_sentence = speaker, sentence
+                break
+
+        updates = {}
+        if not todo.assignee_candidate and matched_speaker:
+            updates["assignee_candidate"] = matched_speaker
+        if not todo.evidence_text and matched_sentence:
+            updates["evidence_text"] = f"{matched_speaker}: {matched_sentence}" if matched_speaker else matched_sentence
+        repaired.append(todo.model_copy(update=updates) if updates else todo)
+    return repaired
+
+
+def is_schema_placeholder(value: str) -> bool:
+    text = value.strip()
+    return any(token in text for token in ["업무 제목", "간단히", "담당자 이름", "또는 빈 문자열", "..."])
+
+
+def build_todos(raw_text: str, normalized_text: str, meeting_date: str, participants: Optional[List[str]] = None) -> List[MeetingTodo]:
+    speaker_candidates = extract_speaker_task_candidates(raw_text)
+    used_speaker_format = bool(speaker_candidates)
+    is_generic_fallback = False
+    if used_speaker_format:
+        candidates = speaker_candidates
+    else:
         sentences = extract_sentences(
             normalized_text,
             ["담당", "작성", "구현", "정리", "검토", "준비", "연결", "테스트", "제출", "설계"],
             6,
         )
         if not sentences:
+            is_generic_fallback = True
             sentences = [
                 "회의록 AI 분석 API 구현",
                 "분석 결과 화면과 업무 보드 등록 흐름 연결",
@@ -349,16 +647,27 @@ def build_todos(raw_text: str, normalized_text: str, meeting_date: str) -> List[
     except ValueError:
         base_date = date.today()
 
+    allowed_names = _allowed_assignee_names(participants or [])
     todos: List[MeetingTodo] = []
     for index, (assignee, sentence) in enumerate(candidates):
+        display_assignee = assignee
+        if allowed_names is not None and display_assignee not in allowed_names:
+            display_assignee = ""
+        if is_generic_fallback:
+            evidence_text = ""
+        elif used_speaker_format and assignee:
+            evidence_text = shorten(f"{assignee}: {sentence}", _EVIDENCE_MAX_LEN)
+        else:
+            evidence_text = shorten(sentence, _EVIDENCE_MAX_LEN)
         todos.append(
             MeetingTodo(
-                title=shorten(sentence, 44),
+                title=shorten(clean_todo_title(sentence), 44),
                 description=sentence,
-                assignee_candidate=assignee,
+                assignee_candidate=display_assignee,
                 due_date=(base_date + timedelta(days=3 + index)).isoformat(),
                 priority="HIGH" if index < 2 else "MEDIUM",
                 category=infer_category(sentence),
+                evidence_text=evidence_text,
             )
         )
     return todos
@@ -371,6 +680,7 @@ _ASSIGNEE_PATTERNS = [
 
 # "이름: 발언" 형식의 화자 줄(회의록 전사 포맷)을 인식한다.
 _SPEAKER_LINE_PATTERN = re.compile(r"^([가-힣]{2,4})\s*[:：]\s*(.+)$")
+_SPEAKER_SEGMENT_PATTERN = re.compile(r"([가-힣]{2,4})\s*[:：]\s*")
 _TASK_KEYWORDS = ["담당", "작성", "구현", "정리", "검토", "준비", "연결", "테스트", "제출", "설계", "맡", "잡", "만들", "보여주", "추출"]
 _SPEAKER_TASK_LIMIT = 12
 
@@ -389,14 +699,7 @@ def extract_speaker_task_candidates(text: str) -> List[tuple[str, str]]:
     """"이름: 발언" 형식의 회의록 전사에서, 화자가 직접 담당을 언급한 문장만 (화자, 문장) 쌍으로 추출한다.
     화자 줄이 전혀 없는 텍스트(전사 포맷이 아닌 경우)에는 빈 리스트를 반환해 기존 키워드 추출로 대체한다."""
     found: List[tuple[str, str]] = []
-    for line in text.splitlines():
-        trimmed = line.strip()
-        if not trimmed:
-            continue
-        match = _SPEAKER_LINE_PATTERN.match(trimmed)
-        if not match:
-            continue
-        speaker, utterance = match.group(1), match.group(2)
+    for speaker, utterance in iter_speaker_utterances(text):
         for sentence in re.split(r"[.!?。！？]", utterance):
             s = sentence.strip()
             if len(s) < 4:
@@ -407,6 +710,24 @@ def extract_speaker_task_candidates(text: str) -> List[tuple[str, str]]:
             if len(found) >= _SPEAKER_TASK_LIMIT:
                 return found
     return found
+
+
+def iter_speaker_utterances(text: str) -> List[tuple[str, str]]:
+    segments: List[tuple[str, str]] = []
+    for line in text.splitlines():
+        trimmed = line.strip()
+        if not trimmed:
+            continue
+        matches = list(_SPEAKER_SEGMENT_PATTERN.finditer(trimmed))
+        if len(matches) >= 2:
+            for index, match in enumerate(matches):
+                next_start = matches[index + 1].start() if index + 1 < len(matches) else len(trimmed)
+                segments.append((match.group(1), trimmed[match.end() : next_start].strip()))
+            continue
+        match = _SPEAKER_LINE_PATTERN.match(trimmed)
+        if match:
+            segments.append((match.group(1), match.group(2)))
+    return segments
 
 
 def extract_sentences(text: str, keywords: List[str], limit: int) -> List[str]:

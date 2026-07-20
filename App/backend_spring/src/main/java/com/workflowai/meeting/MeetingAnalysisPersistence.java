@@ -70,7 +70,7 @@ public class MeetingAnalysisPersistence {
                 resolveFinalAssignee(todo, meeting.getProjectId(), attendeeUserIds),
                 parseDateOrNull(todo.due_date()),
                 todo.priority(),
-                null
+                todo.evidence_text()
             ));
             if (actionItem != null) {
                 ragIngestService.ingestBestEffort(meeting.getProjectId(), "action_item", actionItem.getId(), buildActionItemIngestContent(actionItem));

@@ -72,6 +72,7 @@ public class FallbackMeetingAnalyzer {
         for (int i = 0; i < candidates.size(); i++) {
             String assignee = candidates.get(i)[0];
             String sentence = candidates.get(i)[1];
+            String evidenceText = assignee != null && !assignee.isBlank() ? assignee + ": " + sentence : sentence;
             todos.add(new MeetingTodo(
                 shorten(sentence, 42),
                 sentence,
@@ -80,7 +81,8 @@ public class FallbackMeetingAnalyzer {
                 LocalDate.parse(date).plusDays(3L + i).toString(),
                 i < 2 ? "HIGH" : "MEDIUM",
                 inferCategory(sentence),
-                true
+                true,
+                evidenceText
             ));
         }
         return todos;
