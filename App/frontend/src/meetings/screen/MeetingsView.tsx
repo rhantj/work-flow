@@ -296,7 +296,9 @@ const buildMeetingFromAnalysisResponse = (
     summary: analysis.summary,
     decisions: analysis.decisions,
     todos: analysis.todos.map(todo => {
-      const assignee = todo.assignee_candidate || "미배정";
+      // 서버가 검증한 assignee_id가 있을 때만 후보 이름을 표시한다. assignee_id가 없으면
+      // assignee_candidate(AI가 언급만 추출한 이름)가 있어도 반드시 "미배정"으로 표시한다.
+      const assignee = todo.assignee_id ? (todo.assignee_candidate || "담당자") : "미배정";
       const due = todo.due_date ? ` (${todo.due_date.slice(5).replace("-", ".")})` : "";
       return `${assignee}: ${todo.title}${due}`;
     }),
@@ -357,6 +359,7 @@ export function MeetingsView() {
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Meeting | null>(null);
+  const [confirmReregister, setConfirmReregister] = useState<(() => void) | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pdfCaptureRef = useRef<HTMLDivElement | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -479,13 +482,20 @@ export function MeetingsView() {
     fetchMeetings(projectId)
       .then(list => {
         const deletedMeetingIds = getDeletedMeetingIds(projectId);
-        const serverMeetings: Meeting[] = list.map(dto => ({
-          id: dto.meetingId,
-          title: dto.title,
-          date: dto.meetingDate ?? "",
-          duration: dto.analysisStatus === "completed" ? "분석 완료" : dto.analysisStatus,
-          status: dto.analysisStatus === "completed" ? "processed" : dto.analysisStatus === "failed" ? "failed" : dto.analysisStatus === "pending" ? "pending" : "processing",
-        }));
+        const serverMeetings: Meeting[] = list.map(dto => {
+          const status = dto.analysisStatus === "completed" ? "processed" : dto.analysisStatus === "failed" ? "failed" : dto.analysisStatus === "pending" ? "pending" : "processing";
+          const base: Meeting = {
+            id: dto.meetingId,
+            title: dto.title,
+            date: dto.meetingDate ?? "",
+            duration: dto.analysisStatus === "completed" ? "분석 완료" : dto.analysisStatus,
+            status,
+          };
+          // 목록 API는 요약만 내려주므로, 이미 상세 분석 결과를 캐시해둔 회의록은 그 결과를 보존한다.
+          // 그렇지 않으면 탭을 옮겼다가 돌아올 때마다 상세 조회를 다시 하게 되어 화면이 늦게 뜬다.
+          const cachedMatch = cached.find(item => item.id === dto.meetingId);
+          return cachedMatch?.summary && status === "processed" ? { ...cachedMatch, ...base } : base;
+        });
         const serverIds = new Set(serverMeetings.map(meeting => meeting.id));
         const merged = [...serverMeetings, ...cached.filter(meeting => !serverIds.has(meeting.id) && !deletedMeetingIds.has(meeting.id))];
         setMeetings(merged);
@@ -884,6 +894,49 @@ export function MeetingsView() {
     }
   };
 
+  // 이미 등록된 업무는 로컬 보드에 중복 카드를 만들지 않는다(서버도 동일 조건이면 재등록을 무시하므로 안전).
+  const performRegisterSelectedTodos = async (todosToRegister: GenTodo[], existingKeys: Set<string>) => {
+    const existingTasks = getStoredTasks();
+    const now = Date.now();
+    setIsRegisteringTasks(true);
+    setRegisterMessage("업무보드에 등록 중입니다...");
+    try {
+      if (todosToRegister.length > 0) {
+        await registerMeetingTasks(projectId, meetingIdentifier, todosToRegister.map(todo => toApiTodo(todo)));
+      }
+
+      const createdTasks: Task[] = todosToRegister
+        .filter(todo => !existingKeys.has(buildTodoRegistrationKey(meetingIdentifier, todo.title, getAssignee(todo), getDueDate(todo))))
+        .map((todo, index) => {
+          const cat = getCat(todo.category);
+          const sourceLabel = todo.source === "MEETING_AI" ? "회의록 AI" : "직접 추가";
+          return {
+            id: `AI-${now}-${String(index + 1).padStart(2, "0")}`,
+            title: todo.title,
+            status: "todo",
+            priority: todo.priority,
+            assignee: getAssignee(todo),
+            dueDate: getDueDate(todo),
+            category: todo.category,
+            position: index,
+            labels: [sourceLabel, cat.label],
+            sourceMeetingTitle: meetingIdentifier,
+          };
+        });
+
+      if (createdTasks.length > 0) {
+        saveStoredTasks([...createdTasks, ...existingTasks]);
+        addActivity(`회의록 AI로 '${meetingIdentifier}'의 업무 ${createdTasks.length}건을 업무보드에 등록했습니다.`, "김민준", "meeting-registered");
+      }
+      setUploadFlow("done");
+    } catch {
+      setRegisterMessage("서버에 업무 등록을 실패했습니다. 다시 시도해주세요.");
+      setTimeout(() => setRegisterMessage(null), 2500);
+    } finally {
+      setIsRegisteringTasks(false);
+    }
+  };
+
   const registerSelectedTodos = async () => {
     if (isRegisteringTasks) return;
     const existingTasks = getStoredTasks();
@@ -891,7 +944,6 @@ export function MeetingsView() {
       existingTasks.map(task => buildTodoRegistrationKey(task.sourceMeetingTitle ?? "", task.title, task.assignee, task.dueDate))
     );
 
-    const now = Date.now();
     const selectedGeneratedTodos = reviewTodos.filter(todo => selTodos.includes(todo.id));
     if (selectedGeneratedTodos.some(todo => !getAssignee(todo))) {
       setRegisterMessage("미배정 업무가 있습니다. 담당자를 먼저 선택한 뒤 등록해주세요.");
@@ -905,40 +957,66 @@ export function MeetingsView() {
     });
 
     if (selectedGeneratedTodos.length > 0 && newTodos.length === 0) {
-      setRegisterMessage("이미 등록된 업무입니다.");
-      setTimeout(() => setRegisterMessage(null), 2500);
+      setConfirmReregister(() => () => {
+        setConfirmReregister(null);
+        void performRegisterSelectedTodos(selectedGeneratedTodos, existingKeys);
+      });
       return;
     }
 
+    await performRegisterSelectedTodos(newTodos, existingKeys);
+  };
+
+  type ParsedMeetingTodo = { assigneeName: string; title: string; dueDate: string; assigneeId: string };
+
+  // 이미 등록된 업무는 로컬 보드에 중복 카드를 만들지 않는다(서버도 동일 조건이면 재등록을 무시하므로 안전).
+  const performRegisterMeetingTodos = async (
+    todosToRegister: ParsedMeetingTodo[],
+    existingKeys: Set<string>,
+    unassignedCount: number
+  ) => {
+    const existingTasks = getStoredTasks();
     setIsRegisteringTasks(true);
     setRegisterMessage("업무보드에 등록 중입니다...");
     try {
-      if (newTodos.length > 0) {
-        await registerMeetingTasks(projectId, meetingIdentifier, newTodos.map(todo => toApiTodo(todo)));
+      if (todosToRegister.length > 0) {
+        await registerMeetingTasks(projectId, meetingIdentifier, todosToRegister.map(todo => ({
+          title: todo.title,
+          description: "",
+          assignee_candidate: todo.assigneeName,
+          assignee_id: todo.assigneeId,
+          due_date: todo.dueDate || null,
+          priority: "MEDIUM",
+          category: "ETC",
+          needs_leader_review: false,
+        })));
       }
 
-      const createdTasks: Task[] = newTodos.map((todo, index) => {
-        const cat = getCat(todo.category);
-        const sourceLabel = todo.source === "MEETING_AI" ? "회의록 AI" : "직접 추가";
-        return {
+      const now = Date.now();
+      const createdTasks: Task[] = todosToRegister
+        .filter(todo => !existingKeys.has(buildTodoRegistrationKey(meetingIdentifier, todo.title, todo.assigneeId, todo.dueDate)))
+        .map((todo, index) => ({
           id: `AI-${now}-${String(index + 1).padStart(2, "0")}`,
           title: todo.title,
           status: "todo",
-          priority: todo.priority,
-          assignee: getAssignee(todo),
-          dueDate: getDueDate(todo),
-          category: todo.category,
+          priority: "medium",
+          assignee: todo.assigneeId,
+          dueDate: todo.dueDate,
+          category: "other",
           position: index,
-          labels: [sourceLabel, cat.label],
+          labels: ["회의록 AI"],
           sourceMeetingTitle: meetingIdentifier,
-        };
-      });
-
+        }));
       if (createdTasks.length > 0) {
         saveStoredTasks([...createdTasks, ...existingTasks]);
         addActivity(`회의록 AI로 '${meetingIdentifier}'의 업무 ${createdTasks.length}건을 업무보드에 등록했습니다.`, "김민준", "meeting-registered");
       }
-      setUploadFlow("done");
+      setRegisterMessage(
+        unassignedCount > 0
+          ? `업무 보드에 등록되었습니다. (미배정 업무 ${unassignedCount}건은 담당자 지정 후 등록해주세요)`
+          : "업무 보드에 등록되었습니다."
+      );
+      setTimeout(() => setRegisterMessage(null), 2500);
     } catch {
       setRegisterMessage("서버에 업무 등록을 실패했습니다. 다시 시도해주세요.");
       setTimeout(() => setRegisterMessage(null), 2500);
@@ -971,56 +1049,19 @@ export function MeetingsView() {
     });
 
     if (newTodos.length === 0) {
-      setRegisterMessage(
-        unassignedCount > 0
-          ? "미배정 업무는 담당자를 먼저 지정해야 등록할 수 있습니다."
-          : "이미 등록된 업무입니다."
-      );
+      if (assignableTodos.length > 0) {
+        setConfirmReregister(() => () => {
+          setConfirmReregister(null);
+          void performRegisterMeetingTodos(assignableTodos, existingKeys, unassignedCount);
+        });
+        return;
+      }
+      setRegisterMessage("미배정 업무는 담당자를 먼저 지정해야 등록할 수 있습니다.");
       setTimeout(() => setRegisterMessage(null), 2500);
       return;
     }
 
-    setIsRegisteringTasks(true);
-    setRegisterMessage("업무보드에 등록 중입니다...");
-    try {
-      await registerMeetingTasks(projectId, meetingIdentifier, newTodos.map(todo => ({
-        title: todo.title,
-        description: "",
-        assignee_candidate: todo.assigneeName,
-        assignee_id: todo.assigneeId,
-        due_date: todo.dueDate || null,
-        priority: "MEDIUM",
-        category: "ETC",
-        needs_leader_review: false,
-      })));
-
-      const now = Date.now();
-      const createdTasks: Task[] = newTodos.map((todo, index) => ({
-        id: `AI-${now}-${String(index + 1).padStart(2, "0")}`,
-        title: todo.title,
-        status: "todo",
-        priority: "medium",
-        assignee: todo.assigneeId,
-        dueDate: todo.dueDate,
-        category: "other",
-        position: index,
-        labels: ["회의록 AI"],
-        sourceMeetingTitle: meetingIdentifier,
-      }));
-      saveStoredTasks([...createdTasks, ...existingTasks]);
-      addActivity(`회의록 AI로 '${meetingIdentifier}'의 업무 ${createdTasks.length}건을 업무보드에 등록했습니다.`, "김민준", "meeting-registered");
-      setRegisterMessage(
-        unassignedCount > 0
-          ? `업무 보드에 등록되었습니다. (미배정 업무 ${unassignedCount}건은 담당자 지정 후 등록해주세요)`
-          : "업무 보드에 등록되었습니다."
-      );
-      setTimeout(() => setRegisterMessage(null), 2500);
-    } catch {
-      setRegisterMessage("서버에 업무 등록을 실패했습니다. 다시 시도해주세요.");
-      setTimeout(() => setRegisterMessage(null), 2500);
-    } finally {
-      setIsRegisteringTasks(false);
-    }
+    await performRegisterMeetingTodos(newTodos, existingKeys, unassignedCount);
   };
 
   const renderRegisteringOverlay = () => isRegisteringTasks ? (
@@ -1087,6 +1128,38 @@ export function MeetingsView() {
             style={{ background: "linear-gradient(135deg,#EF4444,#DC2626)" }}
           >
             회의록 + To-Do 삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const renderReregisterConfirmModal = () => confirmReregister ? (
+    <div className="fixed inset-0 z-[65] flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmReregister(null)} />
+      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-border p-6">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mb-4">
+          <AlertTriangle className="w-6 h-6 text-amber-600" />
+        </div>
+        <h2 className="text-lg font-bold text-foreground">이미 등록된 업무입니다</h2>
+        <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+          선택한 업무가 이미 업무보드에 등록되어 있습니다. 한번 더 등록할까요?
+        </p>
+        <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => setConfirmReregister(null)}
+            className="px-4 py-2 text-sm font-medium border border-border rounded-xl hover:bg-muted transition-colors"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={confirmReregister}
+            className="px-4 py-2 text-sm font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
+            style={{ background: "linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}
+          >
+            한번 더 등록
           </button>
         </div>
       </div>
@@ -1656,6 +1729,7 @@ export function MeetingsView() {
       {renderRegisteringOverlay()}
       {renderDeletingOverlay()}
       {renderDeleteConfirmModal()}
+      {renderReregisterConfirmModal()}
       {/* ── Upload modal ── */}
       {uploadFlow === "modal" && (
         <>
