@@ -13,38 +13,32 @@ import com.workflowai.common.DemoDataService;
 import com.workflowai.user.UserRepository;
 import java.time.LocalDate;
 import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(TaskController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class TaskControllerUpdateTest {
 
-    @Mock
-    private TaskRepository taskRepository;
-
-    @Mock
-    private DemoDataService demoDataService;
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private ActivityService activityService;
-
+    @Autowired
     private MockMvc mockMvc;
 
-    @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders
-            .standaloneSetup(new TaskController(taskRepository, userRepository, demoDataService, activityService))
-            .build();
-    }
+    @MockitoBean
+    private TaskRepository taskRepository;
+
+    @MockitoBean
+    private DemoDataService demoDataService;
+
+    @MockitoBean
+    private UserRepository userRepository;
+
+    @MockitoBean
+    private ActivityService activityService;
 
     private Task existingTask() {
         return new Task(
