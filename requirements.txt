@@ -18,7 +18,7 @@ transformers==4.48.0
 tokenizers>=0.21,<0.22
 faster-whisper==1.2.1
 joblib==1.5.3
-matplotlib==3.10.9
+matplotlib==3.10.0
 
 # LLM (6.6, RAG 챗봇은 LangChain으로 전환됨. 회의록 분석/기여도 보고서는 아직 직접 호출)
 openai==1.59.7
