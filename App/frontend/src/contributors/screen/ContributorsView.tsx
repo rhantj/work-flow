@@ -12,8 +12,6 @@ import {
   Eye,
   EyeOff,
   FileText,
-  GitCommit,
-  GitPullRequest,
   MessageSquare,
   RefreshCw,
   Search,
@@ -27,12 +25,12 @@ import {
   REVIEWER_TEAMS,
 } from "../../global/lib/mock/reviewer";
 import { fetchAttendanceSummary, type MeetingAttendanceSummaryDto } from "../../meetings/libs/utils/meetingAiApi";
-import { fetchContributionReport, type MemberContributionDto } from "../libs/utils/contributorsApi";
+import { fetchContributionReport, fetchContributionScore, type MemberContributionDto, type ContributionMemberScoreDto } from "../libs/utils/contributorsApi";
 import { useAuth } from "../../global/hooks/useAuth";
 
 type Team = (typeof REVIEWER_TEAMS)[number];
 type EvalStatus = Team["evalStatus"];
-type CategoryKey = keyof (typeof CONTRIB_REPORTS)[number]["categories"];
+type CategoryKey = "workload" | "task" | "meeting";
 
 const STATUS_META: Record<EvalStatus, { label: string; color: string; bg: string; border: string }> = {
   pending: { label: "평가 전", color: "#64748B", bg: "#F1F5F9", border: "#CBD5E1" },
@@ -41,11 +39,9 @@ const STATUS_META: Record<EvalStatus, { label: string; color: string; bg: string
 };
 
 const CATEGORY_LABELS: Record<CategoryKey, string> = {
+  workload: "워크로드",
   task: "업무 수행",
   meeting: "회의 참여",
-  docs: "문서 기여",
-  dev: "개발 기여",
-  collab: "협업 활동",
 };
 
 function scoreTone(score: number) {
@@ -79,6 +75,21 @@ export function ContributorsView() {
     () => Object.fromEntries(attendanceSummaries.map((summary) => [String(summary.userId), summary])),
     [attendanceSummaries],
   );
+  // 실제 기여 점수로 목업 score/categories를 보강한다. 실패하면 목업 값을 그대로 쓴다.
+  const [contributionScores, setContributionScores] = useState<ContributionMemberScoreDto[]>([]);
+  useEffect(() => {
+    if (currentProjectId == null) {
+      setContributionScores([]);
+      return;
+    }
+    fetchContributionScore(currentProjectId)
+      .then((result) => setContributionScores(result.members))
+      .catch(() => setContributionScores([]));
+  }, [currentProjectId]);
+  const contributionByMemberId = useMemo(
+    () => Object.fromEntries(contributionScores.map((s) => [s.assigneeId, s])),
+    [contributionScores],
+  );
   const [publicFlags, setPublicFlags] = useState<Record<string, boolean>>(
     Object.fromEntries(CONTRIB_REPORTS.map((report) => [report.memberId, report.isPublic])) as Record<string, boolean>,
   );
@@ -91,10 +102,18 @@ export function ContributorsView() {
     () =>
       CONTRIB_REPORTS.map((report) => {
         const override = reportOverrides[report.memberId];
-        if (!override) return report;
-        return { ...report, aiSummary: override.summary, evidence: override.evidence };
+        const scoreData = contributionByMemberId[report.memberId];
+        return {
+          ...report,
+          aiSummary: override?.summary ?? report.aiSummary,
+          evidence: override?.evidence ?? report.evidence,
+          score: scoreData ? Math.round(scoreData.contributionScore) : report.score,
+          categories: scoreData
+            ? { workload: scoreData.workloadComponent, task: scoreData.taskComponent, meeting: scoreData.meetingComponent }
+            : report.categories,
+        };
       }),
-    [reportOverrides],
+    [reportOverrides, contributionByMemberId],
   );
 
   const handleRefreshReport = async () => {
@@ -256,9 +275,9 @@ export function ContributorsView() {
                     <div>순위</div>
                     <div>이름/역할</div>
                     <div>기여 점수</div>
-                    <div>업무</div>
-                    <div>회의</div>
-                    <div>개발</div>
+                    <div>업무 수행</div>
+                    <div>회의 참여</div>
+                    <div>workload</div>
                     <div>공개</div>
                   </div>
 
@@ -303,21 +322,18 @@ export function ContributorsView() {
                         <div className="text-[10px] text-muted-foreground">{taskRate}%</div>
                       </div>
                       <div className="text-xs text-foreground">
-                        <span className="font-bold">{attendanceByMemberId[report.memberId]?.meetingsAttended ?? report.meetings}</span>
-                        <span className="text-muted-foreground">회</span>
-                        {attendanceByMemberId[report.memberId] && (
-                          <div className="text-[10px] text-muted-foreground">참석률 {attendanceByMemberId[report.memberId].attendanceRate}%</div>
+                        {attendanceByMemberId[report.memberId] ? (
+                          <>
+                            <span className="font-bold">{attendanceByMemberId[report.memberId].meetingsAttended}</span>
+                            <span className="text-muted-foreground">/{attendanceByMemberId[report.memberId].totalMeetings}회</span>
+                            <div className="text-[10px] text-muted-foreground">{attendanceByMemberId[report.memberId].attendanceRate}%</div>
+                          </>
+                        ) : (
+                          <span className="font-bold">{report.meetings}회</span>
                         )}
                       </div>
                       <div className="text-xs text-foreground">
-                        <div className="flex items-center gap-1">
-                          <GitCommit className="w-3 h-3 text-muted-foreground" />
-                          <span className="font-bold">{report.commits}</span>
-                        </div>
-                        <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
-                          <GitPullRequest className="w-3 h-3" />
-                          {report.prs} PR
-                        </div>
+                        <span className="font-bold">{report.categories.workload}</span>
                       </div>
                       <div>
                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${

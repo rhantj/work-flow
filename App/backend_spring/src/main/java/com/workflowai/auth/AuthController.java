@@ -3,10 +3,12 @@ package com.workflowai.auth;
 import com.workflowai.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -35,30 +37,44 @@ public class AuthController {
     private final GoogleOAuthService googleOAuthService;
     private final AuthService authService;
     private final String frontendBaseUrl;
-    private final boolean secureCookies;
+    private final boolean forceSecureCookies;
     private final boolean devLoginEnabled;
 
     public AuthController(
         GoogleOAuthService googleOAuthService,
         AuthService authService,
         @Value("${workflow.frontend.base-url}") String frontendBaseUrl,
+        @Value("${workflow.security.force-secure-cookies:false}") boolean forceSecureCookies,
         @Value("${workflow.demo.dev-login-enabled:true}") boolean devLoginEnabled
     ) {
         this.googleOAuthService = googleOAuthService;
         this.authService = authService;
         this.frontendBaseUrl = frontendBaseUrl;
-        this.secureCookies = frontendBaseUrl.startsWith("https://");
+        this.forceSecureCookies = forceSecureCookies;
         this.devLoginEnabled = devLoginEnabled;
+
+        // 배포 시 Secure 쿠키 설정을 잘못 맞추면 로그인이 조용히 깨지므로, 기동 로그에서 바로 눈에 띄게 남긴다.
+        if (frontendBaseUrl.startsWith("https://") && !forceSecureCookies) {
+            log.warn(
+                "OAuth state cookie security: frontend가 HTTPS({})인데 "
+                    + "workflow.security.force-secure-cookies=false다. 프록시가 사설 대역 IP가 아니면 "
+                    + "request.isSecure()가 false로 판정되어 Secure 쿠키가 붙지 않고 로그인이 깨질 수 있다 — "
+                    + "SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES 또는 WORKFLOW_FORCE_SECURE_COOKIES 설정을 확인할 것.",
+                frontendBaseUrl
+            );
+        } else {
+            log.info("OAuth state cookie security: force-secure-cookies={}", forceSecureCookies);
+        }
     }
 
     @Operation(summary = "Google OAuth 인가 URL로 리다이렉트")
     @GetMapping("/google")
-    public ResponseEntity<Void> redirectToGoogle() {
+    public ResponseEntity<Void> redirectToGoogle(HttpServletRequest request) {
         String state = UUID.randomUUID().toString();
         String authorizationUrl = googleOAuthService.buildAuthorizationUrl(state);
         return ResponseEntity.status(HttpStatus.FOUND)
             .location(URI.create(authorizationUrl))
-            .header(HttpHeaders.SET_COOKIE, stateCookie(state, Duration.ofMinutes(5)).toString())
+            .header(HttpHeaders.SET_COOKIE, stateCookie(state, Duration.ofMinutes(5), request).toString())
             .build();
     }
 
@@ -72,14 +88,15 @@ public class AuthController {
     public ResponseEntity<Void> handleGoogleCallback(
         @RequestParam(required = false) String code,
         @RequestParam(required = false) String state,
-        @CookieValue(name = STATE_COOKIE, required = false) String expectedState
+        @CookieValue(name = STATE_COOKIE, required = false) String expectedState,
+        HttpServletRequest request
     ) {
-        ResponseCookie clearStateCookie = stateCookie("", Duration.ZERO);
+        ResponseCookie clearStateCookie = stateCookie("", Duration.ZERO, request);
 
         if (code == null || code.isBlank()) {
             return redirectToFrontend("/login?error=oauth_failed", clearStateCookie);
         }
-        if (state == null || expectedState == null || !state.equals(expectedState)) {
+        if (!statesMatch(state, expectedState)) {
             log.warn("Google OAuth state 불일치로 콜백 거부");
             return redirectToFrontend("/login?error=oauth_failed", clearStateCookie);
         }
@@ -160,14 +177,36 @@ public class AuthController {
             .build();
     }
 
-    private ResponseCookie stateCookie(String value, Duration maxAge) {
+    private ResponseCookie stateCookie(String value, Duration maxAge, HttpServletRequest request) {
         return ResponseCookie.from(STATE_COOKIE, value)
             .httpOnly(true)
-            .secure(secureCookies)
+            .secure(forceSecureCookies || request.isSecure())
             .sameSite("Lax")
             .path("/api/v1/auth")
             .maxAge(maxAge)
             .build();
+    }
+
+    /** 개발용 로그인 경로에서 state 쿠키를 지울 때 사용 — 요청의 isSecure() 판단이 필요 없다. */
+    private ResponseCookie stateCookie(String value, Duration maxAge) {
+        return ResponseCookie.from(STATE_COOKIE, value)
+            .httpOnly(true)
+            .secure(forceSecureCookies)
+            .sameSite("Lax")
+            .path("/api/v1/auth")
+            .maxAge(maxAge)
+            .build();
+    }
+
+    /** 타이밍 공격 여지를 없애기 위해 상수 시간으로 state 값을 비교한다. */
+    private boolean statesMatch(String state, String expectedState) {
+        if (state == null || expectedState == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+            state.getBytes(StandardCharsets.UTF_8),
+            expectedState.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private String encode(String value) {
