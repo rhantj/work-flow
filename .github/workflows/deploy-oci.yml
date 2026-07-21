@@ -19,11 +19,12 @@ jobs:
           chmod 600 ~/.ssh/oci_deploy_key
           ssh-keyscan -H "${{ secrets.OCI_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Deploy (git pull + docker compose up -d --build)
+      - name: Deploy (git fetch + reset --hard origin/main + docker compose up -d --build)
         run: |
           ssh -i ~/.ssh/oci_deploy_key "${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}" '
             set -e
             cd /home/ubuntu/work-flow
+            echo "$(git rev-parse HEAD)" > /tmp/deploy_previous_commit
             git fetch origin main
             git reset --hard origin/main
             cd App
@@ -31,6 +32,7 @@ jobs:
           '
 
       - name: Health check
+        id: health_check
         run: |
           for i in $(seq 1 20); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ secrets.OCI_DOMAIN }}/api/v1/health" || echo 000)
@@ -43,3 +45,17 @@ jobs:
           done
           echo "health check failed after retries"
           exit 1
+
+      - name: Rollback to previous commit on health check failure
+        if: failure() && steps.health_check.outcome == 'failure'
+        run: |
+          ssh -i ~/.ssh/oci_deploy_key "${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}" '
+            set -e
+            prev=$(cat /tmp/deploy_previous_commit)
+            echo "rolling back to $prev"
+            cd /home/ubuntu/work-flow
+            git reset --hard "$prev"
+            cd App
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+          '
+          echo "rolled back to previous commit — investigate the failed deploy before retrying"
