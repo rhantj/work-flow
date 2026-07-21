@@ -85,3 +85,20 @@ def test_query_endpoint_returns_503_when_huggingface_returns_http_error() -> Non
     app.dependency_overrides.clear()
     assert response.status_code == 503
     assert response.json()["detail"] == {"error": "llm_unavailable"}
+
+
+def test_query_endpoint_returns_503_when_hf_token_missing() -> None:
+    """embed_text/generate_answer가 HF_TOKEN 미설정으로 던지는 RuntimeError도
+    500이 아니라 503(llm_unavailable)로 응답해야 한다 — 설정 오류든 연결 실패든
+    클라이언트 입장에서는 동일하게 '지금은 답변 불가' 상태다."""
+    _override_pool()
+    with patch(
+        "llm_rag_assistant.app.routers.chat_router.answer_question",
+        new=AsyncMock(side_effect=RuntimeError("HF_TOKEN is not configured.")),
+    ):
+        client = TestClient(app)
+        response = client.post("/ai/rag/query", json={"project_id": 1, "question": "질문"})
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 503
+    assert response.json()["detail"] == {"error": "llm_unavailable"}

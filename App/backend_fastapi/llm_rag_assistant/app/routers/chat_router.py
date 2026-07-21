@@ -32,3 +32,7 @@ async def query(request: RagQueryRequest, pool=Depends(get_pool)) -> RagQueryRes
         return await answer_question(pool, request.project_id, request.question)
     except (aiohttp.ClientError, RequestsHTTPError) as exc:
         raise HTTPException(status_code=503, detail={"error": "llm_unavailable"}) from exc
+    except RuntimeError as exc:
+        # HF_TOKEN 미설정 등 embed_text/generate_answer의 설정 오류(RuntimeError)도
+        # LLM 연결 실패와 마찬가지로 클라이언트 입장에선 "지금은 답변 불가"이므로 503으로 응답한다.
+        raise HTTPException(status_code=503, detail={"error": "llm_unavailable"}) from exc

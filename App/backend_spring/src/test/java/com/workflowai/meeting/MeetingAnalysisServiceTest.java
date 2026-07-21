@@ -19,11 +19,17 @@ import com.workflowai.security.UserPrincipal;
 import com.workflowai.task.TaskRepository;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -98,6 +104,29 @@ class MeetingAnalysisServiceTest {
         verify(meetingRepository, atLeastOnce()).save(meetingCaptor.capture());
         assertThat(meetingCaptor.getAllValues().get(0).getAnalysisStatus()).isEqualTo("processing");
         verify(meetingAnalysisRunner).runAnalysis(any(), any(AiAnalyzeRequest.class));
+    }
+
+    @Test
+    void analyzeExtractsPdfTextBeforeDispatchingAnalysisRequest() throws Exception {
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "minutes.pdf",
+            "application/pdf",
+            createPdfBytes("Meeting minutes body: Park Jisu checks retry flow.")
+        );
+
+        service.analyze(
+            "demo-project", file, "PDF 회의록", "2026-07-20", "정기회의", "document", List.of("박지수"), null
+        );
+
+        ArgumentCaptor<AiAnalyzeRequest> requestCaptor = ArgumentCaptor.forClass(AiAnalyzeRequest.class);
+        verify(meetingAnalysisRunner).runAnalysis(any(), requestCaptor.capture());
+        assertThat(requestCaptor.getValue().text()).contains("Meeting minutes body");
+        assertThat(requestCaptor.getValue().text()).doesNotContain("텍스트 추출 예정");
     }
 
     @Test
@@ -388,6 +417,7 @@ class MeetingAnalysisServiceTest {
         assertThat(summary.get(0).attendanceRate()).isEqualTo(100);
     }
 
+<<<<<<< HEAD
     @Test
     void attendanceDetailMarksAttendedAndAbsentMeetingsSortedByDate() {
         mockMember(1L);
@@ -445,5 +475,21 @@ class MeetingAnalysisServiceTest {
         List<MeetingAttendanceDetail> detail = service.attendanceDetail("demo-project", 2L);
 
         assertThat(detail).isEmpty();
+=======
+    private byte[] createPdfBytes(String text) throws Exception {
+        try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
+                content.beginText();
+                content.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                content.newLineAtOffset(50, 700);
+                content.showText(text);
+                content.endText();
+            }
+            document.save(output);
+            return output.toByteArray();
+        }
+>>>>>>> 8324adff4b6299ed5a20be7d0bc051e51e736197
     }
 }

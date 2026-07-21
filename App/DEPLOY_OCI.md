@@ -128,10 +128,12 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ## 8. DB 마이그레이션 적용 (첫 기동 후 1회)
 
 compose는 `backend_spring/src/main/resources/db/init`만 자동 실행한다.
-`docs/db/migrations/001~004`는 **수동으로 적용해야 한다.**
+`docs/db/migrations/001~007`은 **수동으로 적용해야 한다.**
 
 init 스크립트는 `document_chunks.embedding`을 JSONB로 만들고, 마이그레이션 001이 이걸
-`VECTOR(768)`로 바꾼다. 001을 건너뛰면 임베딩 기능이 나중에 깨진다.
+`VECTOR(768)`로, 007이 다시 `VECTOR(1024)`로 바꾼다(RAG 챗봇 임베딩 모델이
+Ollama/nomic-embed-text(768차원)에서 Hugging Face/BAAI/bge-m3(1024차원)로 전환됨에 따른
+스키마 변경). 001과 007을 건너뛰면 임베딩 기능이 나중에 깨진다.
 
 ```bash
 cd work-flow
@@ -143,6 +145,15 @@ done
 
 > 두 디렉터리를 합칠 수 없는 이유: `docker-entrypoint-initdb.d`는 알파벳순으로 실행하는데
 > `001_`이 `01_`보다 앞서서 순서가 뒤집힌다.
+
+**007 적용 후 반드시 재임베딩을 실행할 것.** 007은 컬럼 타입만 바꾸고 기존 임베딩 값은
+NULL로 비운다(차원이 달라 기존 벡터를 그대로 옮길 수 없음) — 재임베딩 없이는
+`document_chunks` 검색이 전부 빈 결과를 반환한다.
+
+```bash
+cd work-flow/App/backend_fastapi
+python -m llm_rag_assistant.scripts.reembed_document_chunks
+```
 
 ## 9. 검증
 
