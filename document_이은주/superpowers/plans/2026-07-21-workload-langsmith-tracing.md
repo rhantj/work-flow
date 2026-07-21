@@ -52,8 +52,8 @@ langsmith==0.10.2
 
 - [ ] **Step 2: 가상환경에 설치**
 
-Run: `"C:/AI-projects/work-flow/.venv/Scripts/pip.exe" install langsmith==0.10.2`
-Expected: `Successfully installed langsmith-0.10.2 ...` (의존 패키지 포함)
+Run: `uv pip install --python "C:/AI-projects/work-flow/.venv/Scripts/python.exe" langsmith==0.10.2`
+Expected: `Installed 6 packages` 목록에 `+ langsmith==0.10.2` 포함 (이 venv는 uv로 관리되어 `pip`/`pip.exe`가 아예 없다 — 실제 실행 중 확인됨. `python -m pip`도 `No module named pip`로 실패하므로 반드시 `uv pip install`을 쓸 것).
 
 - [ ] **Step 3: 실패하는 테스트 작성**
 
