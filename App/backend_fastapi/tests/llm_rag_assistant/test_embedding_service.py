@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from core.config import get_settings
 from llm_rag_assistant.app.services.embedding_service import embed_text
 from llm_rag_assistant.app.services.vector_utils import to_vector_literal
 
@@ -42,3 +43,16 @@ async def test_embed_text_mean_pools_token_level_embeddings(monkeypatch: pytest.
         result = await embed_text("긴 텍스트")
 
     assert result == pytest.approx([1.0, 2.0])
+
+
+@pytest.mark.asyncio
+async def test_embed_text_raises_when_hf_token_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@localhost:5432/workflow")
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    get_settings.cache_clear()
+
+    try:
+        with pytest.raises(RuntimeError, match="HF_TOKEN"):
+            await embed_text("텍스트")
+    finally:
+        get_settings.cache_clear()

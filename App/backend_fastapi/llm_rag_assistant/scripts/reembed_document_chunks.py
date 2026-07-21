@@ -15,12 +15,15 @@ document_chunks 전체 임베딩을 최신 embed_text() 모델(BAAI/bge-m3)로 �
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import asyncpg
 
 from core.db import create_pool
 from llm_rag_assistant.app.services.embedding_service import embed_text
 from llm_rag_assistant.app.services.vector_utils import to_vector_literal
+
+logger = logging.getLogger(__name__)
 
 _SELECT_ALL_SQL = "SELECT id, content FROM document_chunks ORDER BY id"
 _UPDATE_EMBEDDING_SQL = "UPDATE document_chunks SET embedding = $1::vector WHERE id = $2"
@@ -36,6 +39,7 @@ async def reembed_all(pool: asyncpg.Pool) -> int:
         async with pool.acquire() as conn:
             await conn.execute(_UPDATE_EMBEDDING_SQL, to_vector_literal(embedding), row["id"])
         count += 1
+        logger.info("재임베딩 완료: id=%s (%d/%d)", row["id"], count, len(rows))
     return count
 
 

@@ -19,6 +19,9 @@ _HF_TEMPERATURE = 0.2
 async def generate_answer(question: str, sources: list[dict]) -> str:
     settings = get_settings()
 
+    if not settings.hf_token:
+        raise RuntimeError("HF_TOKEN is not configured.")
+
     if not sources:
         context = "(관련 자료 없음)"
     else:

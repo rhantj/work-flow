@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from core.config import get_settings
 from llm_rag_assistant.app.services.generation_service import generate_answer
 
 
@@ -58,3 +59,16 @@ async def test_generate_answer_handles_empty_sources(monkeypatch: pytest.MonkeyP
     assert "근거 없음" in answer
     call_kwargs = mock_client.post.call_args.kwargs
     assert "(관련 자료 없음)" in call_kwargs["json"]["messages"][1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_generate_answer_raises_when_hf_token_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@localhost:5432/workflow")
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    get_settings.cache_clear()
+
+    try:
+        with pytest.raises(RuntimeError, match="HF_TOKEN"):
+            await generate_answer("질문", [])
+    finally:
+        get_settings.cache_clear()
