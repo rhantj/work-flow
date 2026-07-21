@@ -11,6 +11,7 @@ WorkFlow AI - FS-5 업무 편중 점수 (Workload/Overload Score)
 
 import numpy as np
 import pandas as pd
+from langsmith import traceable
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
@@ -181,6 +182,7 @@ def generate_synthetic_tasks(n_members: int = 7, seed: int = RANDOM_SEED) -> pd.
 # ============================================================
 # 2. 피처 엔지니어링 (실제 DB 연결 시 이 함수 입력만 실제 tasks df로 교체)
 # ============================================================
+@traceable(run_type="tool", name="build_features")
 def build_features(
     tasks_df: pd.DataFrame,
     today: pd.Timestamp = None,
@@ -292,6 +294,7 @@ def detect_overload_anomalies_robust(feature_df: pd.DataFrame, z_threshold: floa
     return result.sort_values("overload_score_0_100", ascending=False)
 
 
+@traceable(run_type="tool", name="detect_overload_anomalies_auto")
 def detect_overload_anomalies_auto(feature_df: pd.DataFrame, small_team_threshold: int = 15) -> pd.DataFrame:
     """
     팀 규모에 따라 자동으로 방법을 선택.
