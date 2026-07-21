@@ -6,12 +6,15 @@ import static org.mockito.Mockito.when;
 
 import com.workflowai.activity.ActivityRepository;
 import com.workflowai.common.DemoDataService;
+import com.workflowai.project.Project;
 import com.workflowai.project.ProjectMemberRepository;
+import com.workflowai.project.ProjectRepository;
 import com.workflowai.task.Task;
 import com.workflowai.task.TaskRepository;
 import com.workflowai.user.UserRepository;
 import dashboard.DTO.DashboardTaskDto;
 import dashboard.DTO.DelayRiskDto;
+import dashboard.DTO.ProgressDetailResponse;
 import dashboard.entity.MlPrediction;
 import dashboard.repository.MilestoneRepository;
 import dashboard.repository.MlPredictionRepository;
@@ -19,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -36,11 +40,13 @@ class DashboardServiceTest {
     @Mock private ProjectMemberRepository projectMemberRepository;
     @Mock private DemoDataService demoDataService;
     @Mock private FastApiDashboardClient fastApiDashboardClient;
+    @Mock private ProjectRepository projectRepository;
 
     private DashboardService newService() {
         return new DashboardService(
             taskRepository, milestoneRepository, activityRepository, mlPredictionRepository,
-            userRepository, projectMemberRepository, demoDataService, fastApiDashboardClient
+            userRepository, projectMemberRepository, demoDataService, fastApiDashboardClient,
+            projectRepository
         );
     }
 
@@ -130,5 +136,39 @@ class DashboardServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).createdAt()).isEqualTo("2026-07-01T09:00:00");
         assertThat(result.get(0).updatedAt()).isEqualTo("2026-07-19T15:30:00");
+    }
+
+    @Test
+    void getProgressDetailIncludesProjectDeadlineAndCreatedAt() {
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findByProjectIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(milestoneRepository.findByProjectIdOrderByDueDateAsc(1L)).thenReturn(List.of());
+        when(mlPredictionRepository.findByProjectIdAndTargetTypeAndModelTypeOrderByTargetIdAscCreatedAtDesc(
+            eq(1L), eq("task"), eq("delay_risk")
+        )).thenReturn(List.of());
+        Project project = new Project("스마트 주차 관리 시스템", "team", LocalDate.of(2026, 8, 15), "설명");
+        ReflectionTestUtils.setField(project, "createdAt", LocalDateTime.of(2026, 6, 1, 10, 0));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+
+        ProgressDetailResponse result = newService().getProgressDetail("demo-project");
+
+        assertThat(result.projectDeadline()).isEqualTo("2026-08-15");
+        assertThat(result.projectCreatedAt()).isEqualTo("2026-06-01");
+    }
+
+    @Test
+    void getProgressDetailReturnsNullDatesWhenProjectMissing() {
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findByProjectIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(milestoneRepository.findByProjectIdOrderByDueDateAsc(1L)).thenReturn(List.of());
+        when(mlPredictionRepository.findByProjectIdAndTargetTypeAndModelTypeOrderByTargetIdAscCreatedAtDesc(
+            eq(1L), eq("task"), eq("delay_risk")
+        )).thenReturn(List.of());
+        when(projectRepository.findById(1L)).thenReturn(Optional.empty());
+
+        ProgressDetailResponse result = newService().getProgressDetail("demo-project");
+
+        assertThat(result.projectDeadline()).isNull();
+        assertThat(result.projectCreatedAt()).isNull();
     }
 }

@@ -3,8 +3,10 @@ package com.workflowai.dashboard.service;
 import com.workflowai.common.DemoDataService;
 import com.workflowai.activity.Activity;
 import com.workflowai.activity.ActivityRepository;
+import com.workflowai.project.Project;
 import com.workflowai.project.ProjectMember;
 import com.workflowai.project.ProjectMemberRepository;
+import com.workflowai.project.ProjectRepository;
 import com.workflowai.task.Task;
 import com.workflowai.task.TaskRepository;
 import com.workflowai.user.User;
@@ -52,6 +54,7 @@ public class DashboardService {
     private final ProjectMemberRepository projectMemberRepository;
     private final DemoDataService demoDataService;
     private final FastApiDashboardClient fastApiDashboardClient;
+    private final ProjectRepository projectRepository;
 
     public DashboardService(
         TaskRepository taskRepository,
@@ -61,7 +64,8 @@ public class DashboardService {
         UserRepository userRepository,
         ProjectMemberRepository projectMemberRepository,
         DemoDataService demoDataService,
-        FastApiDashboardClient fastApiDashboardClient
+        FastApiDashboardClient fastApiDashboardClient,
+        ProjectRepository projectRepository
     ) {
         this.taskRepository = taskRepository;
         this.milestoneRepository = milestoneRepository;
@@ -71,6 +75,7 @@ public class DashboardService {
         this.projectMemberRepository = projectMemberRepository;
         this.demoDataService = demoDataService;
         this.fastApiDashboardClient = fastApiDashboardClient;
+        this.projectRepository = projectRepository;
     }
 
     public DashboardSummaryResponse getSummary(String projectIdParam) {
@@ -144,7 +149,16 @@ public class DashboardService {
             .filter(java.util.Objects::nonNull)
             .toList();
 
-        return new ProgressDetailResponse(total, done, progressPercent, milestones, categoryBreakdown, delayRisks, hasPredictions);
+        Project project = projectRepository.findById(projectId).orElse(null);
+        String projectDeadline = project == null || project.getDeadline() == null
+            ? null : project.getDeadline().toString();
+        String projectCreatedAt = project == null || project.getCreatedAt() == null
+            ? null : project.getCreatedAt().toLocalDate().toString();
+
+        return new ProgressDetailResponse(
+            total, done, progressPercent, milestones, categoryBreakdown, delayRisks, hasPredictions,
+            projectDeadline, projectCreatedAt
+        );
     }
 
     /**

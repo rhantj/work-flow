@@ -65,7 +65,7 @@ class DashboardControllerTest {
     @Test
     void getProgressReturnsDataFromService() throws Exception {
         ProgressDetailResponse response = new ProgressDetailResponse(
-            14, 4, 29, List.of(), List.of(), List.of(), false
+            14, 4, 29, List.of(), List.of(), List.of(), false, null, null
         );
         when(dashboardService.getProgressDetail(eq("demo-project"))).thenReturn(response);
 
@@ -97,7 +97,7 @@ class DashboardControllerTest {
     @Test
     void refreshDelayRiskDelegatesToServiceAndReturnsProgress() throws Exception {
         ProgressDetailResponse response = new ProgressDetailResponse(
-            14, 4, 29, List.of(), List.of(), List.of(), true
+            14, 4, 29, List.of(), List.of(), List.of(), true, null, null
         );
         when(dashboardService.refreshDelayRiskAndGetProgress(eq("demo-project"))).thenReturn(response);
 
