@@ -6,6 +6,7 @@ import { TAB_TITLES } from "../../lib/constants/nav";
 import type { Tab } from "../../../board/libs/types/task";
 import { useStoredNotifications, markNotificationsRead } from "../../../board/libs/utils/activityStore";
 import { useAuth } from "../../hooks/useAuth";
+import { usePresence } from "../../hooks/usePresence";
 import type { ProjectRoleKo } from "../../api/authTypes";
 import { useIsMobile } from "../ui/use-mobile";
 
@@ -30,10 +31,8 @@ export function Header({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void }) 
   const isMobile = useIsMobile();
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const { user, currentProject, logout } = useAuth();
-  // 온라인 상태 API/WebSocket이 아직 없어 우선 현재 로그인한 사용자만 표시한다.
-  // 추후 실시간 접속자 목록이 생기면 이 배열만 그 소스로 교체하면 된다.
-  const onlineUsers = user ? [user] : [];
+  const { currentProject, currentProjectId, logout } = useAuth();
+  const presenceUsers = usePresence(currentProjectId);
   const currentProjectName = currentProject?.projectTitle ?? null;
   const role: ProjectRoleKo = currentProject?.role ?? "팀장";
   const allNotifications = useStoredNotifications();
@@ -130,14 +129,26 @@ export function Header({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void }) 
           )}
         </div>
 
-        {/* 현재 접속 중인 사용자 아바타 */}
-        <div className="flex -space-x-2 ml-1">
-          {onlineUsers.map(onlineUser => (
-            <div key={onlineUser.id} title={onlineUser.name} className="w-8 h-8 rounded-full border-2 border-card flex items-center justify-center text-white text-xs font-semibold" style={{ background: "#3B5BDB" }}>
-              {onlineUser.name.slice(0, 1)}
+        {/* 현재 프로젝트 접속 중인 사용자 아바타 (10~30초 간격 폴링) */}
+        {presenceUsers.length > 0 && (
+          <div className="flex items-center gap-1.5 ml-1">
+            <div className="flex -space-x-2">
+              {presenceUsers.slice(0, 6).map(presenceUser => (
+                <div
+                  key={presenceUser.userId}
+                  title={`${presenceUser.name} / ${presenceUser.role}`}
+                  className="w-8 h-8 rounded-full border-2 border-card flex items-center justify-center text-white text-xs font-semibold"
+                  style={{ background: "#3B5BDB" }}
+                >
+                  {presenceUser.name.slice(0, 1)}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap hidden sm:inline">
+              현재 {presenceUsers.length}명 접속 중
+            </span>
+          </div>
+        )}
 
         <button
           onClick={handleLogout}

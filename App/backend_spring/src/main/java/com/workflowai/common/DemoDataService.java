@@ -29,10 +29,13 @@ public class DemoDataService implements ApplicationRunner {
     }
 
     private static final List<DemoMember> DEMO_MEMBERS = List.of(
-        new DemoMember("1", "김민준", ProjectRole.LEADER),
-        new DemoMember("2", "이서연", ProjectRole.MEMBER),
-        new DemoMember("3", "박지수", ProjectRole.MEMBER),
-        new DemoMember("4", "최동혁", ProjectRole.REVIEWER)
+        new DemoMember("1", "허영주", ProjectRole.LEADER),
+        new DemoMember("2", "박상준", ProjectRole.MEMBER),
+        new DemoMember("3", "유소은", ProjectRole.MEMBER),
+        new DemoMember("4", "이은주", ProjectRole.MEMBER),
+        new DemoMember("5", "박지수", ProjectRole.MEMBER),
+        new DemoMember("6", "고무서", ProjectRole.REVIEWER),
+        new DemoMember("7", "홍길동", ProjectRole.MEMBER)
     );
 
     private final ProjectRepository projectRepository;
@@ -66,9 +69,18 @@ public class DemoDataService implements ApplicationRunner {
                 .orElseGet(() -> userRepository.save(
                     new User("demo-user-" + member.mockId() + "@workflow.ai", member.name(), DEMO_USER_PROVIDER, member.mockId())
                 ));
+            if (!user.getName().equals(member.name())) {
+                user.setName(member.name());
+                userRepository.save(user);
+            }
 
-            if (!projectMemberRepository.existsByProjectIdAndUserId(demoProject.getId(), user.getId())) {
-                projectMemberRepository.save(new ProjectMember(demoProject.getId(), user.getId(), member.role()));
+            ProjectMember membership = projectMemberRepository.findByProjectIdAndUserId(demoProject.getId(), user.getId())
+                .orElseGet(() -> projectMemberRepository.save(
+                    new ProjectMember(demoProject.getId(), user.getId(), member.role())
+                ));
+            if (membership.getRole() != member.role()) {
+                membership.setRole(member.role());
+                projectMemberRepository.save(membership);
             }
         }
     }

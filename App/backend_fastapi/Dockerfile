@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
 # requirements 먼저 복사해서 설치 → 코드만 바뀌었을 땐 pip install을 다시 안 하고 캐시를 씀
 COPY App/backend_fastapi/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY App/backend_fastapi/app app
 COPY App/backend_fastapi/core core

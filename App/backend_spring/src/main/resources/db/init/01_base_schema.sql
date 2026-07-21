@@ -26,19 +26,21 @@ $$ LANGUAGE plpgsql;
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE users (
-    id          BIGSERIAL PRIMARY KEY,
-    email       VARCHAR(255) NOT NULL,
-    name        VARCHAR(100) NOT NULL,
-    provider    VARCHAR(20)  NOT NULL,
-    provider_id VARCHAR(255) NOT NULL,
-    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id            BIGSERIAL PRIMARY KEY,
+    email         VARCHAR(255) NOT NULL,
+    name          VARCHAR(100) NOT NULL,
+    provider      VARCHAR(20)  NOT NULL,
+    provider_id   VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255),
+    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_users_email UNIQUE (email),
     CONSTRAINT uq_users_provider UNIQUE (provider, provider_id)
 );
 COMMENT ON TABLE users IS '사용자';
-COMMENT ON COLUMN users.provider IS 'google 등 OAuth 제공자';
-COMMENT ON COLUMN users.provider_id IS 'OAuth sub (불변 식별자)';
+COMMENT ON COLUMN users.provider IS 'google/local/demo 등 계정 출처';
+COMMENT ON COLUMN users.provider_id IS 'OAuth sub 또는 로컬 계정은 email과 동일값 (불변 식별자)';
+COMMENT ON COLUMN users.password_hash IS '로컬(이메일/비밀번호) 회원가입 계정만 사용. BCrypt 해시. Google/데모 계정은 NULL.';
 
 CREATE TRIGGER trg_users_updated_at
     BEFORE UPDATE ON users

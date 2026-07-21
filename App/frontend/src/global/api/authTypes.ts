@@ -23,3 +23,8 @@ export interface AuthTokenResponse {
   expiresIn: number;
   user: UserSummary;
 }
+
+export interface SignupResponse {
+  status: "ACTIVE" | "PENDING_REVIEWER_APPROVAL";
+  tokens: AuthTokenResponse | null;
+}

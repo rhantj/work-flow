@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
+  ArrowLeft,
   ArrowRight,
   ClipboardCheck,
   Crown,
@@ -17,15 +18,7 @@ import type { ProjectRoleKo, ProjectRoleSummary } from "../../global/api/authTyp
 import { createProject } from "../../global/api/projectsApi";
 import { REVIEWER_ACTIVITIES, REVIEWER_TEAMS } from "../../global/lib/mock/reviewer";
 
-const DEMO_PROJECTS: ProjectRoleSummary[] = [
-  { projectId: -101, projectTitle: "스마트 주차 관리 시스템", role: "팀장" },
-  { projectId: -102, projectTitle: "AI 식단 추천 앱", role: "팀원" },
-];
-
-const PROJECT_META: Record<number, { type: string; deadline: string; progress: number }> = {
-  [-101]: { type: "캡스톤디자인", deadline: "D-18", progress: 71 },
-  [-102]: { type: "팀프로젝트", deadline: "D-24", progress: 48 },
-};
+const PROJECT_META: Record<number, { type: string; deadline: string; progress: number }> = {};
 
 const ROLE_META: Record<ProjectRoleKo, { label: string; color: string; bg: string; icon: typeof Crown }> = {
   "팀장": { label: "팀장", color: "#3B5BDB", bg: "rgba(59,91,219,0.1)", icon: Crown },
@@ -44,9 +37,9 @@ const JUDGE_STATUS_META: Record<EvalStatus, { label: string; color: string; bg: 
 
 export function ProjectEntryScreen() {
   const navigate = useNavigate();
-  const { user, projectRoles, currentProject, selectProject, addLocalProjectRole, refreshMe } = useAuth();
+  const { user, projectRoles, currentProject, selectProject, addLocalProjectRole, refreshMe, logout } = useAuth();
   const [inviteCode, setInviteCode] = useState("");
-  const [projectName, setProjectName] = useState("새 캡스톤 프로젝트");
+  const [projectName, setProjectName] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -57,7 +50,12 @@ export function ProjectEntryScreen() {
   const isJudgeHome =
     currentProject?.role === "심사자" ||
     (projectRoles.length > 0 && projectRoles.every((project) => project.role === "심사자"));
-  const projects = projectRoles.length > 0 ? projectRoles : DEMO_PROJECTS;
+  const projects = projectRoles;
+
+  const handleBackToLogin = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   const enterProject = (project: ProjectRoleSummary) => {
     if (project.projectId < 0 && !projectRoles.some((role) => role.projectId === project.projectId)) {
@@ -71,7 +69,11 @@ export function ProjectEntryScreen() {
 
   const handleCreateProject = async () => {
     if (creating) return;
-    const name = projectName.trim() || "새 캡스톤 프로젝트";
+    const name = projectName.trim();
+    if (!name) {
+      setCreateError("프로젝트명을 입력해주세요.");
+      return;
+    }
     setCreating(true);
     setCreateError(null);
     try {
@@ -148,6 +150,7 @@ export function ProjectEntryScreen() {
 
         <div className="flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8 overflow-y-auto">
           <div className="max-w-6xl mx-auto space-y-6">
+            <BackToLoginButton onClick={handleBackToLogin} />
             <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 text-xs font-bold text-violet-700 bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-lg mb-3">
@@ -282,6 +285,7 @@ export function ProjectEntryScreen() {
 
       <div className="flex-1 bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto">
+          <BackToLoginButton onClick={handleBackToLogin} />
           <div className="mb-7">
             <div className="text-xs font-semibold text-blue-600 mb-2">프로젝트 진입</div>
             <h1 className="text-2xl font-bold text-foreground mb-1">
@@ -298,6 +302,15 @@ export function ProjectEntryScreen() {
                 <h2 className="text-sm font-bold text-foreground">내 프로젝트 목록</h2>
                 <span className="text-xs text-muted-foreground">권한이 함께 표시됩니다.</span>
               </div>
+
+              {projects.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-10 text-center">
+                  <p className="text-sm font-semibold text-foreground">아직 참여 중인 프로젝트가 없습니다</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    오른쪽에서 새 프로젝트를 만들거나 초대 코드로 참여해보세요.
+                  </p>
+                </div>
+              )}
 
               {projects.map((project) => {
                 const role = ROLE_META[project.role];
@@ -402,5 +415,18 @@ export function ProjectEntryScreen() {
         </div>
       </div>
     </div>
+  );
+}
+
+function BackToLoginButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-4"
+    >
+      <ArrowLeft className="w-3.5 h-3.5" />
+      로그인 화면으로 돌아가기
+    </button>
   );
 }

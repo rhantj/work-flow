@@ -4,6 +4,7 @@ import com.workflowai.security.JwtService;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
 import io.jsonwebtoken.Claims;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,15 +12,25 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
     private static final String PROVIDER_GOOGLE = "google";
     private static final String PROVIDER_DEMO = "demo";
+    private static final String PROVIDER_LOCAL = "local";
+    private static final String ROLE_TYPE_REVIEWER = "REVIEWER";
+    private static final int MIN_PASSWORD_LENGTH = 8;
 
     private final GoogleOAuthService googleOAuthService;
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthService(GoogleOAuthService googleOAuthService, UserRepository userRepository, JwtService jwtService) {
+    public AuthService(
+        GoogleOAuthService googleOAuthService,
+        UserRepository userRepository,
+        JwtService jwtService,
+        PasswordEncoder passwordEncoder
+    ) {
         this.googleOAuthService = googleOAuthService;
         this.userRepository = userRepository;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -39,6 +50,41 @@ public class AuthService {
     public AuthTokenResponse devLogin(String demoUserId) {
         User user = userRepository.findByProviderAndProviderId(PROVIDER_DEMO, demoUserId)
             .orElseThrow(() -> new IllegalArgumentException("알 수 없는 테스트 계정입니다: " + demoUserId));
+        return issueTokens(user);
+    }
+
+    /** 이메일/비밀번호 회원가입. REVIEWER는 토큰을 발급하지 않고 승인 대기 상태로만 계정을 만든다. */
+    @Transactional
+    public SignupResponse signup(String email, String password, String name, String roleType) {
+        if (email == null || email.isBlank() || name == null || name.isBlank()) {
+            throw new InvalidSignupInputException("이름과 이메일을 입력해주세요.");
+        }
+        if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
+            throw new InvalidSignupInputException("비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 합니다.");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException();
+        }
+
+        String passwordHash = passwordEncoder.encode(password);
+        User user = userRepository.save(new User(email, name, PROVIDER_LOCAL, email, passwordHash));
+
+        if (ROLE_TYPE_REVIEWER.equalsIgnoreCase(roleType)) {
+            return SignupResponse.pendingReviewerApproval();
+        }
+        return SignupResponse.active(issueTokens(user));
+    }
+
+    /** 이메일/비밀번호 로그인. Google 전용 계정(password_hash 없음)은 별도 안내 메시지로 거부한다. */
+    public AuthTokenResponse loginWithPassword(String email, String password) {
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(InvalidCredentialsException::new);
+        if (user.getPasswordHash() == null) {
+            throw new GoogleAccountRequiredException();
+        }
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new InvalidCredentialsException();
+        }
         return issueTokens(user);
     }
 

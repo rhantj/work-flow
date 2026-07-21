@@ -25,6 +25,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -665,6 +668,9 @@ public class MeetingAnalysisService {
         if (name.endsWith(".docx")) {
             return extractDocxText(file);
         }
+        if (name.endsWith(".pdf") || contentType.equals("application/pdf")) {
+            return extractPdfText(file);
+        }
         if (!textLike) {
             return "업로드 파일명: " + file.getOriginalFilename() + ". 바이너리 문서는 FastAPI 문서 파서 또는 STT 단계에서 텍스트 추출 예정.";
         }
@@ -685,6 +691,9 @@ public class MeetingAnalysisService {
             if (fileName.endsWith(".docx")) {
                 return extractDocxTextFromBytes(bytes);
             }
+            if (fileName.endsWith(".pdf")) {
+                return extractPdfTextFromBytes(bytes);
+            }
             if (!textLike) {
                 return null;
             }
@@ -698,6 +707,26 @@ public class MeetingAnalysisService {
         try {
             return extractDocxTextFromBytes(file.getBytes());
         } catch (IOException e) {
+            return "";
+        }
+    }
+
+    private String extractPdfText(MultipartFile file) {
+        try {
+            return extractPdfTextFromBytes(file.getBytes());
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
+    private String extractPdfTextFromBytes(byte[] bytes) {
+        try (PDDocument document = Loader.loadPDF(bytes)) {
+            return new PDFTextStripper()
+                .getText(document)
+                .replaceAll("\\s+\\n", "\n")
+                .replaceAll("\\n\\s+", "\n")
+                .trim();
+        } catch (IOException ignored) {
             return "";
         }
     }
