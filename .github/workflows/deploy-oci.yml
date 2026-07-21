@@ -25,7 +25,7 @@ jobs:
           ssh -i ~/.ssh/oci_deploy_key "${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}" '
             set -e
             cd /home/ubuntu/work-flow
-            echo "$(git rev-parse HEAD)" > /tmp/deploy_previous_commit
+            git tag -f deploy-previous HEAD
             git fetch origin main
             git reset --hard origin/main
             cd App
@@ -54,10 +54,9 @@ jobs:
         run: |
           ssh -i ~/.ssh/oci_deploy_key "${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}" '
             set -e
-            prev=$(cat /tmp/deploy_previous_commit)
-            echo "rolling back to $prev"
             cd /home/ubuntu/work-flow
-            git reset --hard "$prev"
+            echo "rolling back to $(git rev-parse deploy-previous)"
+            git reset --hard deploy-previous
             cd App
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
           '
@@ -76,3 +75,10 @@ jobs:
           done
           echo "rollback did NOT restore a healthy state — manual intervention required immediately"
           exit 1
+
+      - name: Notify Slack on deploy failure
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health_check.outcome == 'failure')
+        run: |
+          curl -s -m 10 -X POST -H 'Content-Type: application/json' \
+            -d "{\"text\": \":rotating_light: OCI 배포 실패 (run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) — rollback outcome: ${{ steps.rollback.outcome }}. 롤백 후에도 비정상이면 즉시 수동 개입 필요.\"}" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"
