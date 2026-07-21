@@ -20,6 +20,7 @@ jobs:
           ssh-keyscan -H "${{ secrets.OCI_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Deploy (git fetch + reset --hard origin/main + docker compose up -d --build)
+        id: deploy
         run: |
           ssh -i ~/.ssh/oci_deploy_key "${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}" '
             set -e
@@ -33,9 +34,10 @@ jobs:
 
       - name: Health check
         id: health_check
+        if: steps.deploy.outcome == 'success'
         run: |
           for i in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ secrets.OCI_DOMAIN }}/api/v1/health" || echo 000)
+            code=$(curl -s -m 10 -o /dev/null -w '%{http_code}' "https://${{ secrets.OCI_DOMAIN }}/api/v1/health" || echo 000)
             if [ "$code" = "200" ]; then
               echo "healthy (attempt $i)"
               exit 0
@@ -46,9 +48,9 @@ jobs:
           echo "health check failed after retries"
           exit 1
 
-      - name: Rollback to previous commit on health check failure
+      - name: Rollback to previous commit on deploy or health check failure
         id: rollback
-        if: failure() && steps.health_check.outcome == 'failure'
+        if: always() && (steps.deploy.outcome == 'failure' || steps.health_check.outcome == 'failure')
         run: |
           ssh -i ~/.ssh/oci_deploy_key "${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}" '
             set -e
@@ -61,10 +63,10 @@ jobs:
           '
 
       - name: Verify rollback health
-        if: steps.rollback.outcome == 'success'
+        if: always() && steps.rollback.outcome == 'success'
         run: |
           for i in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ secrets.OCI_DOMAIN }}/api/v1/health" || echo 000)
+            code=$(curl -s -m 10 -o /dev/null -w '%{http_code}' "https://${{ secrets.OCI_DOMAIN }}/api/v1/health" || echo 000)
             if [ "$code" = "200" ]; then
               echo "rollback restored healthy state (attempt $i)"
               exit 0
