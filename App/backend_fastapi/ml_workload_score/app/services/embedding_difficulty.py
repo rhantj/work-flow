@@ -6,6 +6,7 @@ import os
 
 import ollama
 from dotenv import dotenv_values
+from langsmith import traceable
 from sqlalchemy import text
 
 from ml_workload_score.app.services.workload_db import get_engine
@@ -30,12 +31,14 @@ EMBEDDING_DIFFICULTY_WEIGHT = 0.3
 _anchor_cache: dict[str, list[float]] = {}
 
 
+@traceable(run_type="llm", name="ollama_embed")
 async def _embed(text_value: str) -> list[float]:
     client = ollama.AsyncClient(host=OLLAMA_HOST)
     response = await client.embeddings(model=EMBEDDING_MODEL, prompt=text_value)
     return response["embedding"]
 
 
+@traceable(run_type="chain", name="get_anchor_embeddings")
 async def get_anchor_embeddings() -> tuple[list[float], list[float]]:
     """HARD/EASY 앵커 임베딩을 프로세스당 한 번만 계산해 캐싱한다."""
     if "hard" not in _anchor_cache:
@@ -91,6 +94,7 @@ def _query_similarity_adjustments(
             engine.dispose()
 
 
+@traceable(run_type="chain", name="compute_embedding_adjustments")
 async def compute_embedding_adjustments(task_ids: list[int], project_id: int) -> dict[int, float]:
     """
     document_chunks에 이미 임베딩된 task만 대상으로 난이도 보정치를 계산한다.
