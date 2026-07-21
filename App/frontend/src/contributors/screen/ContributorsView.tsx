@@ -272,13 +272,13 @@ export function ContributorsView() {
               <div className="overflow-x-auto">
                 <div className="min-w-[760px]">
                   <div className="grid grid-cols-[76px_1fr_98px_90px_90px_84px_86px] px-5 py-2.5 bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground">
-                    <div>순위</div>
+                    <div className="text-center">순위</div>
                     <div>이름/역할</div>
-                    <div>기여 점수</div>
-                    <div>업무 수행</div>
-                    <div>회의 참여</div>
-                    <div>업무 편중도</div>
-                    <div>공개</div>
+                    <div className="text-center">기여 점수</div>
+                    <div className="text-center">업무 수행</div>
+                    <div className="text-center">회의 참여</div>
+                    <div className="text-center">업무 편중도</div>
+                    <div className="text-center">공개</div>
                   </div>
 
                   <div className="divide-y divide-border">
@@ -295,7 +295,7 @@ export function ContributorsView() {
                             isSelected ? "bg-blue-50" : "hover:bg-muted/40"
                           }`}
                         >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-foreground bg-muted">
                           {index + 1}
                         </span>
@@ -312,16 +312,16 @@ export function ContributorsView() {
                           <div className="text-[11px] text-muted-foreground">{report.role}</div>
                         </div>
                       </div>
-                      <div>
+                      <div className="text-center">
                         <div className="text-lg font-bold" style={{ color: tone.color }}>{report.score}</div>
                         <div className="text-[10px] font-semibold" style={{ color: tone.color }}>{tone.label}</div>
                       </div>
-                      <div className="text-xs text-foreground">
+                      <div className="text-xs text-foreground text-center">
                         <span className="font-bold">{report.todoDone}</span>
                         <span className="text-muted-foreground">/{report.todoTotal}</span>
-                        <div className="text-[10px] text-muted-foreground">수행율 {taskRate}%</div>
+                        <div className="text-[10px] text-muted-foreground">{taskRate}%</div>
                       </div>
-                      <div className="text-xs text-foreground">
+                      <div className="text-xs text-foreground text-center">
                         {attendanceByMemberId[report.memberId] ? (
                           <>
                             <span className="font-bold">{attendanceByMemberId[report.memberId].meetingsAttended}</span>
@@ -332,10 +332,10 @@ export function ContributorsView() {
                           <span className="font-bold">{report.meetings}회</span>
                         )}
                       </div>
-                      <div className="text-xs text-foreground">
+                      <div className="text-xs text-foreground text-center">
                         <span className="font-bold">{report.categories.workload}</span>
                       </div>
-                      <div>
+                      <div className="text-center">
                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${
                           publicFlags[report.memberId]
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
