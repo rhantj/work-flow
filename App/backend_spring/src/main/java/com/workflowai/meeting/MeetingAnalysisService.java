@@ -28,6 +28,8 @@ import java.util.zip.ZipInputStream;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class MeetingAnalysisService {
+    private static final Logger log = LoggerFactory.getLogger(MeetingAnalysisService.class);
+
     private final MeetingAnalysisRunner meetingAnalysisRunner;
     private final DemoDataService demoDataService;
     private final MeetingRepository meetingRepository;
@@ -699,6 +703,7 @@ public class MeetingAnalysisService {
             }
             return new String(bytes, StandardCharsets.UTF_8);
         } catch (IOException | IllegalArgumentException e) {
+            log.warn("회의록 재분석용 파일 텍스트 추출 실패: meetingId={}, filePath={}", meeting.getId(), filePath, e);
             return "";
         }
     }
