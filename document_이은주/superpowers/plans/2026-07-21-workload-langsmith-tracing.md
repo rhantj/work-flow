@@ -116,7 +116,7 @@ def test_setup_langsmith_respects_custom_project_name(monkeypatch):
 
 - [ ] **Step 4: 테스트 실패 확인 (모듈이 아직 없음)**
 
-Run: `cd App/backend_fastapi && "../../.venv/Scripts/pytest.exe" tests/ml_workload_score/test_tracing.py -v`
+Run: `cd App/backend_fastapi && "C:/AI-projects/work-flow/.venv/Scripts/pytest.exe" tests/ml_workload_score/test_tracing.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'ml_workload_score.app.services.tracing'`
 
 - [ ] **Step 5: `tracing.py` 구현**
@@ -164,7 +164,7 @@ def setup_langsmith(project_name: str = "workflow-workload-score") -> bool:
 
 - [ ] **Step 6: 테스트 통과 확인**
 
-Run: `cd App/backend_fastapi && "../../.venv/Scripts/pytest.exe" tests/ml_workload_score/test_tracing.py -v`
+Run: `cd App/backend_fastapi && "C:/AI-projects/work-flow/.venv/Scripts/pytest.exe" tests/ml_workload_score/test_tracing.py -v`
 Expected: `3 passed`
 
 - [ ] **Step 7: 커밋**
@@ -244,7 +244,7 @@ async def test_compute_embedding_adjustments_empty_task_ids_short_circuits():
 
 - [ ] **Step 2: 테스트 실패 확인**
 
-Run: `cd App/backend_fastapi && "../../.venv/Scripts/pytest.exe" tests/ml_workload_score/test_embedding_difficulty_tracing.py -v`
+Run: `cd App/backend_fastapi && "C:/AI-projects/work-flow/.venv/Scripts/pytest.exe" tests/ml_workload_score/test_embedding_difficulty_tracing.py -v`
 Expected: 앞의 두 테스트는 `@traceable` 없이도 이미 async/동작이 맞아서 사실 통과할 수 있음 — 그 경우 Step 3에서 데코레이터 추가 후에도 계속 통과하는지가 실제 회귀 확인 포인트. `test_compute_embedding_adjustments_empty_task_ids_short_circuits`도 기존 코드로 이미 통과함. (이 태스크는 "동작 불변 보장"이 목적이라 테스트가 데코레이터 적용 전후 모두 통과하는 게 정상 — Step 4에서 반드시 재실행해 회귀 없음을 재확인한다.)
 
 - [ ] **Step 3: `embedding_difficulty.py`에 `@traceable` 추가**
@@ -336,7 +336,7 @@ async def compute_embedding_adjustments(task_ids: list[int], project_id: int) ->
 Run:
 ```bash
 cd App/backend_fastapi
-"../../.venv/Scripts/pytest.exe" tests/ml_workload_score/test_embedding_difficulty_tracing.py tests/ml_workload_score/test_workload_model_embedding.py tests/ml_workload_score/test_workload_service.py -v
+"C:/AI-projects/work-flow/.venv/Scripts/pytest.exe" tests/ml_workload_score/test_embedding_difficulty_tracing.py tests/ml_workload_score/test_workload_model_embedding.py tests/ml_workload_score/test_workload_service.py -v
 ```
 Expected: 전부 `passed` (기존 `test_workload_model_embedding.py`/`test_workload_service.py`가 `@traceable` 추가 후에도 수정 없이 그대로 통과해야 함).
 
@@ -382,7 +382,7 @@ def test_detect_overload_anomalies_auto_name_preserved_after_traceable():
 
 - [ ] **Step 2: 테스트 실행 (아직은 통과함 - 데코레이터 적용 전이라 `__name__`이 원래부터 맞음)**
 
-Run: `cd App/backend_fastapi && "../../.venv/Scripts/pytest.exe" tests/ml_workload_score/test_workload_model_tracing.py -v`
+Run: `cd App/backend_fastapi && "C:/AI-projects/work-flow/.venv/Scripts/pytest.exe" tests/ml_workload_score/test_workload_model_tracing.py -v`
 Expected: `2 passed` (데코레이터 적용 전에도 통과 — 이 테스트의 진짜 목적은 Step 4에서 데코레이터 적용 후에도 여전히 통과하는지 확인하는 것).
 
 - [ ] **Step 3: `workload_model.py`에 `@traceable` 추가**
@@ -445,7 +445,7 @@ def detect_overload_anomalies_auto(feature_df: pd.DataFrame, small_team_threshol
 Run:
 ```bash
 cd App/backend_fastapi
-"../../.venv/Scripts/pytest.exe" tests/ml_workload_score/test_workload_model_tracing.py tests/ml_workload_score/test_workload_model_embedding.py -v
+"C:/AI-projects/work-flow/.venv/Scripts/pytest.exe" tests/ml_workload_score/test_workload_model_tracing.py tests/ml_workload_score/test_workload_model_embedding.py -v
 ```
 Expected: 전부 `passed`.
 
@@ -481,7 +481,7 @@ def test_get_workload_score_name_preserved_after_traceable():
 
 - [ ] **Step 2: 테스트 실행 (통과함 - 데코레이터 적용 전이라 원래부터 맞음, Step 5에서 진짜 검증)**
 
-Run: `cd App/backend_fastapi && "../../.venv/Scripts/pytest.exe" tests/ml_workload_score/test_workload_service.py -v`
+Run: `cd App/backend_fastapi && "C:/AI-projects/work-flow/.venv/Scripts/pytest.exe" tests/ml_workload_score/test_workload_service.py -v`
 Expected: 전부 `passed` (기존 3개 + 신규 1개 = 4 passed).
 
 - [ ] **Step 3: `workload_service.py`에 `@traceable` 추가**
@@ -587,7 +587,7 @@ router = APIRouter(prefix="/ai/score", tags=["workload"])
 Run:
 ```bash
 cd App/backend_fastapi
-"../../.venv/Scripts/pytest.exe" tests/ml_workload_score/ -v
+"C:/AI-projects/work-flow/.venv/Scripts/pytest.exe" tests/ml_workload_score/ -v
 ```
 Expected: 디렉터리 내 전체 테스트(`test_tracing.py`, `test_embedding_difficulty_tracing.py`, `test_workload_model_tracing.py`, `test_workload_model_embedding.py`, `test_workload_service.py`, `test_workload_router.py`) 전부 `passed`. 이 리포지토리엔 `LANGSMITH_API_KEY`가 CI/테스트 환경변수로 주입되지 않으므로 `setup_langsmith()`는 매 테스트 실행 시 `False`를 반환하며 `@traceable`은 no-op으로 동작 — 기존 회귀 테스트 결과가 조금도 달라지지 않아야 한다.
 
@@ -617,7 +617,7 @@ LANGSMITH_PROJECT=workflow-workload-score
 
 ```bash
 cd App/backend_fastapi
-"../../.venv/Scripts/uvicorn.exe" app.main:app --reload
+"C:/AI-projects/work-flow/.venv/Scripts/uvicorn.exe" app.main:app --reload
 ```
 
 다른 터미널에서:
