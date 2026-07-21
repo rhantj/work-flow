@@ -13,6 +13,4 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     Optional<Project> findFirstByTitle(String title);
 
     Optional<Project> findByInviteCode(String inviteCode);
-
-    boolean existsByInviteCode(String inviteCode);
 }

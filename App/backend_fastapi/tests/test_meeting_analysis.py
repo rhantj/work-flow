@@ -398,6 +398,20 @@ def test_analyze_json_auto_skips_huggingface_when_token_is_missing(monkeypatch):
     mock_ollama.assert_called_once()
 
 
+def test_analyze_upload_invalid_pdf_returns_422_instead_of_empty_analysis(monkeypatch):
+    monkeypatch.setenv("MEETING_ANALYSIS_PROVIDER", "rule")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/meetings/analyze",
+        data={"title": "깨진 PDF 회의록"},
+        files={"file": ("broken.pdf", b"not a real pdf", "application/pdf")},
+    )
+
+    assert response.status_code == 422
+    assert "PDF" in response.json()["detail"]
+
+
 def test_analyze_json_uses_ollama_result_when_available(monkeypatch):
     monkeypatch.setenv("MEETING_ANALYSIS_PROVIDER", "ollama")
     fake_result = analyze_meeting(

@@ -16,7 +16,7 @@ import httpx
 import ollama
 import pdfplumber
 from docx import Document
-from fastapi import FastAPI, File, Form, Response, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -216,6 +216,10 @@ _VALID_CATEGORIES = {
     "PRESENTATION",
     "ETC",
 }
+
+
+class DocumentTextExtractionError(ValueError):
+    pass
 
 
 def analyze_meeting_with_ollama(request: AnalyzeRequest) -> MeetingAnalysisResult:
@@ -554,21 +558,29 @@ def extract_uploaded_text(raw: bytes, file_name: Optional[str] = None) -> str:
     """FastAPI 직접 업로드 경로에서도 문서 본문을 실제로 읽는다.
     Spring 경유 분석은 보통 analyze-json을 쓰지만, /analyze를 직접 호출하는 Swagger 테스트도 같은 품질이어야 한다."""
     name = (file_name or "").lower()
-    if name.endswith(".pdf"):
-        return extract_pdf_text(raw)
-    if name.endswith(".docx"):
-        return extract_docx_text(raw)
-    return raw.decode("utf-8", errors="ignore").strip()
+    try:
+        if name.endswith(".pdf"):
+            return extract_pdf_text(raw)
+        if name.endswith(".docx"):
+            return extract_docx_text(raw)
+        return raw.decode("utf-8", errors="ignore").strip()
+    except DocumentTextExtractionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 def extract_pdf_text(raw: bytes) -> str:
     try:
         with pdfplumber.open(BytesIO(raw)) as pdf:
             pages = [page.extract_text() or "" for page in pdf.pages]
-        return "\n".join(page.strip() for page in pages if page.strip()).strip()
-    except Exception:
+        text = "\n".join(page.strip() for page in pages if page.strip()).strip()
+        if not text:
+            raise DocumentTextExtractionError("PDF에서 분석할 텍스트를 추출하지 못했습니다.")
+        return text
+    except DocumentTextExtractionError:
+        raise
+    except Exception as exc:
         logger.exception("PDF 텍스트 추출 실패")
-        return ""
+        raise DocumentTextExtractionError("PDF 텍스트 추출에 실패했습니다.") from exc
 
 
 def extract_docx_text(raw: bytes) -> str:
@@ -581,10 +593,15 @@ def extract_docx_text(raw: bytes) -> str:
                 row_text = " ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
                 if row_text:
                     chunks.append(row_text)
-        return "\n".join(chunks).strip()
-    except Exception:
+        text = "\n".join(chunks).strip()
+        if not text:
+            raise DocumentTextExtractionError("DOCX에서 분석할 텍스트를 추출하지 못했습니다.")
+        return text
+    except DocumentTextExtractionError:
+        raise
+    except Exception as exc:
         logger.exception("DOCX 텍스트 추출 실패")
-        return ""
+        raise DocumentTextExtractionError("DOCX 텍스트 추출에 실패했습니다.") from exc
 
 
 _TITLE_LEADING_PATTERNS = [

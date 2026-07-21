@@ -18,6 +18,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.TransactionException;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionOperations;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectServiceTest {
@@ -31,7 +36,19 @@ class ProjectServiceTest {
 
     @BeforeEach
     void setUp() {
-        projectService = new ProjectService(projectRepository, projectMemberRepository, userRepository, taskRepository);
+        TransactionOperations transactionOperations = new TransactionOperations() {
+            @Override
+            public <T> T execute(TransactionCallback<T> action) throws TransactionException {
+                return action.doInTransaction(null);
+            }
+        };
+        projectService = new ProjectService(
+            projectRepository,
+            projectMemberRepository,
+            userRepository,
+            taskRepository,
+            transactionOperations
+        );
     }
 
     private CreateProjectRequest validRequest() {
@@ -44,12 +61,9 @@ class ProjectServiceTest {
 
     @Test
     void create_savesProjectAndRegistersCreatorAsLeader() {
-        when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
-            Project p = invocation.getArgument(0);
-            return p;
-        });
+        when(projectRepository.saveAndFlush(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(taskRepository.findByProjectIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
-        when(projectMemberRepository.findAllByProjectId(any())).thenReturn(List.of());
+        when(projectMemberRepository.countByProjectId(any())).thenReturn(0L);
 
         ProjectResponse response = projectService.create(1L, validRequest());
 
@@ -66,9 +80,9 @@ class ProjectServiceTest {
         CreateProjectRequest request = new CreateProjectRequest(
             "제목", "캡스톤디자인", null, null, null, null, null, null, null, null
         );
-        when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(projectRepository.saveAndFlush(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(taskRepository.findByProjectIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
-        when(projectMemberRepository.findAllByProjectId(any())).thenReturn(List.of());
+        when(projectMemberRepository.countByProjectId(any())).thenReturn(0L);
 
         ProjectResponse response = projectService.create(1L, request);
 
@@ -101,12 +115,9 @@ class ProjectServiceTest {
     @Test
     void find_computesMemberCountAndTaskProgressFromRealData() {
         Project project = new Project("제목", "캡스톤디자인", "설명");
+        ReflectionTestUtils.setField(project, "id", 10L);
         when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
-        when(projectMemberRepository.findAllByProjectId(any()))
-            .thenReturn(List.of(
-                new ProjectMember(10L, 1L, ProjectRole.LEADER),
-                new ProjectMember(10L, 2L, ProjectRole.MEMBER)
-            ));
+        when(projectMemberRepository.countByProjectId(10L)).thenReturn(2L);
         Task done = new Task(10L, "a", "frontend", "완료", 1L, null, "medium", null, "MANUAL", null, 1L, 0.0);
         Task notDone = new Task(10L, "b", "frontend", "할 일", 1L, null, "medium", null, "MANUAL", null, 1L, 1.0);
         when(taskRepository.findByProjectIdOrderByCreatedAtDesc(any())).thenReturn(List.of(done, notDone));
@@ -120,8 +131,9 @@ class ProjectServiceTest {
     @Test
     void find_noTasks_progressIsZero() {
         Project project = new Project("제목", "캡스톤디자인", "설명");
+        ReflectionTestUtils.setField(project, "id", 10L);
         when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
-        when(projectMemberRepository.findAllByProjectId(any())).thenReturn(List.of());
+        when(projectMemberRepository.countByProjectId(10L)).thenReturn(0L);
         when(taskRepository.findByProjectIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
 
         ProjectResponse response = projectService.find(10L);
@@ -135,7 +147,7 @@ class ProjectServiceTest {
         when(projectRepository.findByInviteCode("AB12CD34")).thenReturn(Optional.of(project));
         when(projectMemberRepository.existsByProjectIdAndUserId(any(), any())).thenReturn(false);
         when(taskRepository.findByProjectIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
-        when(projectMemberRepository.findAllByProjectId(any())).thenReturn(List.of());
+        when(projectMemberRepository.countByProjectId(any())).thenReturn(0L);
 
         projectService.joinByCode(5L, "ab12cd34");
 
@@ -154,15 +166,16 @@ class ProjectServiceTest {
     }
 
     @Test
-    void create_retriesInviteCodeWhenCollisionOccurs() {
-        when(projectRepository.existsByInviteCode(any())).thenReturn(true, false);
-        when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    void create_retriesWhenInviteCodeSaveCollisionOccurs() {
+        when(projectRepository.saveAndFlush(any(Project.class)))
+            .thenThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint \"uq_projects_invite_code\""))
+            .thenAnswer(invocation -> invocation.getArgument(0));
         when(taskRepository.findByProjectIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
-        when(projectMemberRepository.findAllByProjectId(any())).thenReturn(List.of());
+        when(projectMemberRepository.countByProjectId(any())).thenReturn(0L);
 
         ProjectResponse response = projectService.create(1L, validRequest());
 
         assertThat(response.inviteCode()).isNotBlank();
-        verify(projectRepository, org.mockito.Mockito.times(2)).existsByInviteCode(any());
+        verify(projectRepository, org.mockito.Mockito.times(2)).saveAndFlush(any(Project.class));
     }
 }

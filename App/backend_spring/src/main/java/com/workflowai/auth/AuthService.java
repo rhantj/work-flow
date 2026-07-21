@@ -4,8 +4,11 @@ import com.workflowai.security.JwtService;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
 import io.jsonwebtoken.Claims;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +17,15 @@ public class AuthService {
     private static final String PROVIDER_GOOGLE = "google";
     private static final String PROVIDER_DEMO = "demo";
     private static final String PROVIDER_LOCAL = "local";
+    private static final String ROLE_TYPE_MEMBER = "MEMBER";
     private static final String ROLE_TYPE_REVIEWER = "REVIEWER";
     private static final String REVIEWER_STATUS_PENDING = "PENDING";
     private static final int MIN_PASSWORD_LENGTH = 8;
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+        "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Set<String> ALLOWED_ROLE_TYPES = Set.of(ROLE_TYPE_MEMBER, ROLE_TYPE_REVIEWER);
 
     private final GoogleOAuthService googleOAuthService;
     private final UserRepository userRepository;
@@ -58,19 +67,25 @@ public class AuthService {
     /** 이메일/비밀번호 회원가입. REVIEWER는 토큰을 발급하지 않고 승인 대기 상태로만 계정을 만든다. */
     @Transactional
     public SignupResponse signup(String email, String password, String name, String roleType) {
-        if (email == null || email.isBlank() || name == null || name.isBlank()) {
+        String normalizedEmail = normalizeEmail(email);
+        String normalizedName = normalizeName(name);
+        String normalizedRoleType = normalizeRoleType(roleType);
+        if (normalizedName.isBlank()) {
             throw new InvalidSignupInputException("이름과 이메일을 입력해주세요.");
+        }
+        if (!EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
+            throw new InvalidSignupInputException("올바른 이메일 형식으로 입력해주세요.");
         }
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
             throw new InvalidSignupInputException("비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 합니다.");
         }
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmail(normalizedEmail)) {
             throw new EmailAlreadyExistsException();
         }
 
         String passwordHash = passwordEncoder.encode(password);
-        boolean isReviewerApplication = ROLE_TYPE_REVIEWER.equalsIgnoreCase(roleType);
-        User newUser = new User(email, name, PROVIDER_LOCAL, email, passwordHash);
+        boolean isReviewerApplication = ROLE_TYPE_REVIEWER.equals(normalizedRoleType);
+        User newUser = new User(normalizedEmail, normalizedName, PROVIDER_LOCAL, normalizedEmail, passwordHash);
         if (isReviewerApplication) {
             newUser.setReviewerStatus(REVIEWER_STATUS_PENDING);
         }
@@ -78,7 +93,7 @@ public class AuthService {
         try {
             user = userRepository.saveAndFlush(newUser);
         } catch (DataIntegrityViolationException e) {
-            if (userRepository.existsByEmail(email)) {
+            if (userRepository.existsByEmail(normalizedEmail)) {
                 throw new EmailAlreadyExistsException();
             }
             throw e;
@@ -95,7 +110,8 @@ public class AuthService {
      * 아직 승인되지 않은 REVIEWER 신청 계정(reviewer_status=PENDING)은 로그인 자체를 막는다.
      */
     public AuthTokenResponse loginWithPassword(String email, String password) {
-        User user = userRepository.findByEmail(email)
+        String normalizedEmail = normalizeEmail(email);
+        User user = userRepository.findByEmail(normalizedEmail)
             .orElseThrow(InvalidCredentialsException::new);
         if (user.getPasswordHash() == null) {
             throw new GoogleAccountRequiredException();
@@ -122,5 +138,23 @@ public class AuthService {
         String refreshToken = jwtService.issueRefreshToken(user);
         UserSummary summary = new UserSummary(user.getId(), user.getEmail(), user.getName());
         return new AuthTokenResponse(accessToken, refreshToken, jwtService.accessTokenTtlSeconds(), summary);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeName(String name) {
+        return name == null ? "" : name.trim();
+    }
+
+    private String normalizeRoleType(String roleType) {
+        String normalized = roleType == null || roleType.isBlank()
+            ? ROLE_TYPE_MEMBER
+            : roleType.trim().toUpperCase(Locale.ROOT);
+        if (!ALLOWED_ROLE_TYPES.contains(normalized)) {
+            throw new InvalidSignupInputException("가입 유형은 MEMBER 또는 REVIEWER만 선택할 수 있습니다.");
+        }
+        return normalized;
     }
 }

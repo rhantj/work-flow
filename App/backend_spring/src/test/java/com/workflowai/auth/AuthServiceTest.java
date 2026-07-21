@@ -43,13 +43,15 @@ class AuthServiceTest {
         when(jwtService.issueRefreshToken(any())).thenReturn("refresh-token");
         when(jwtService.accessTokenTtlSeconds()).thenReturn(1800L);
 
-        SignupResponse response = authService.signup("new@example.com", "12345678", "홍길동", "MEMBER");
+        SignupResponse response = authService.signup(" New@Example.COM ", "12345678", " 홍길동 ", "MEMBER");
 
         ArgumentCaptor<User> savedUser = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(savedUser.capture());
         assertThat(savedUser.getValue().getPasswordHash()).isNotEqualTo("12345678");
         assertThat(passwordEncoder.matches("12345678", savedUser.getValue().getPasswordHash())).isTrue();
         assertThat(savedUser.getValue().getProvider()).isEqualTo("local");
+        assertThat(savedUser.getValue().getEmail()).isEqualTo("new@example.com");
+        assertThat(savedUser.getValue().getName()).isEqualTo("홍길동");
 
         assertThat(response.status()).isEqualTo("ACTIVE");
         assertThat(response.tokens()).isNotNull();
@@ -118,6 +120,32 @@ class AuthServiceTest {
     void signup_shortPassword_throws() {
         assertThatThrownBy(() -> authService.signup("short@example.com", "1234", "이름", "MEMBER"))
             .isInstanceOf(InvalidSignupInputException.class);
+    }
+
+    @Test
+    void signup_invalidEmail_throws() {
+        assertThatThrownBy(() -> authService.signup("not-an-email", "12345678", "이름", "MEMBER"))
+            .isInstanceOf(InvalidSignupInputException.class);
+    }
+
+    @Test
+    void signup_invalidRoleType_throws() {
+        assertThatThrownBy(() -> authService.signup("role@example.com", "12345678", "이름", "ADMIN"))
+            .isInstanceOf(InvalidSignupInputException.class);
+    }
+
+    @Test
+    void loginWithPassword_normalizesEmail() {
+        String hash = passwordEncoder.encode("12345678");
+        User user = new User("local@example.com", "홍길동", "local", "local@example.com", hash);
+        when(userRepository.findByEmail("local@example.com")).thenReturn(Optional.of(user));
+        when(jwtService.issueAccessToken(user)).thenReturn("access-token");
+        when(jwtService.issueRefreshToken(user)).thenReturn("refresh-token");
+        when(jwtService.accessTokenTtlSeconds()).thenReturn(1800L);
+
+        AuthTokenResponse tokens = authService.loginWithPassword(" Local@Example.COM ", "12345678");
+
+        assertThat(tokens.accessToken()).isEqualTo("access-token");
     }
 
     @Test

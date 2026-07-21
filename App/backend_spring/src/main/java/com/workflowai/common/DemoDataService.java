@@ -11,6 +11,8 @@ import java.util.List;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class DemoDataService implements ApplicationRunner {
+    private static final Logger log = LoggerFactory.getLogger(DemoDataService.class);
     private static final String DEMO_PROJECT_TITLE = "데모 프로젝트";
     private static final String DEMO_PROJECT_ID_PARAM = "demo-project";
     private static final String DEMO_USER_PROVIDER = "demo";
@@ -70,18 +73,13 @@ public class DemoDataService implements ApplicationRunner {
                     new User("demo-user-" + member.mockId() + "@workflow.ai", member.name(), DEMO_USER_PROVIDER, member.mockId())
                 ));
             if (!user.getName().equals(member.name())) {
-                user.setName(member.name());
-                userRepository.save(user);
+                log.info("기존 데모 사용자 이름은 보존합니다. providerId={}, existing={}, roster={}", member.mockId(), user.getName(), member.name());
             }
 
-            ProjectMember membership = projectMemberRepository.findByProjectIdAndUserId(demoProject.getId(), user.getId())
+            projectMemberRepository.findByProjectIdAndUserId(demoProject.getId(), user.getId())
                 .orElseGet(() -> projectMemberRepository.save(
                     new ProjectMember(demoProject.getId(), user.getId(), member.role())
                 ));
-            if (membership.getRole() != member.role()) {
-                membership.setRole(member.role());
-                projectMemberRepository.save(membership);
-            }
         }
     }
 

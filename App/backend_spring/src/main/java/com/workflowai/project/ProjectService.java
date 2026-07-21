@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 @Service
 public class ProjectService {
@@ -25,20 +26,22 @@ public class ProjectService {
     private final ProjectMemberRepository projectMemberRepository;
     private final UserRepository userRepository;
     private final TaskRepository taskRepository;
+    private final TransactionOperations transactionOperations;
 
     public ProjectService(
         ProjectRepository projectRepository,
         ProjectMemberRepository projectMemberRepository,
         UserRepository userRepository,
-        TaskRepository taskRepository
+        TaskRepository taskRepository,
+        TransactionOperations transactionOperations
     ) {
         this.projectRepository = projectRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.userRepository = userRepository;
         this.taskRepository = taskRepository;
+        this.transactionOperations = transactionOperations;
     }
 
-    @Transactional
     public ProjectResponse create(Long creatorUserId, CreateProjectRequest request) {
         if (request.title() == null || request.title().isBlank()) {
             throw new IllegalArgumentException("프로젝트명은 필수입니다.");
@@ -50,32 +53,40 @@ public class ProjectService {
             throw new IllegalArgumentException("예상 참여 인원 수는 1명 이상이어야 합니다.");
         }
 
-        Project project = projectRepository.save(new Project(
-            request.title(),
-            request.type(),
-            request.description(),
-            request.startDate(),
-            request.deadline(),
-            request.midCheckDate(),
-            request.memberLimit(),
-            request.deliverables(),
-            request.techStack(),
-            request.goals(),
-            generateUniqueInviteCode(),
-            creatorUserId
-        ));
-        projectMemberRepository.save(new ProjectMember(project.getId(), creatorUserId, ProjectRole.LEADER));
+        Project project = saveProjectWithInviteCodeRetry(creatorUserId, request);
         return toResponse(project);
     }
 
-    private String generateUniqueInviteCode() {
+    private Project saveProjectWithInviteCodeRetry(Long creatorUserId, CreateProjectRequest request) {
+        DataIntegrityViolationException lastCollision = null;
         for (int attempt = 0; attempt < INVITE_CODE_MAX_ATTEMPTS; attempt++) {
-            String code = generateInviteCode();
-            if (!projectRepository.existsByInviteCode(code)) {
-                return code;
+            try {
+                return transactionOperations.execute(status -> {
+                    Project project = projectRepository.saveAndFlush(new Project(
+                        request.title(),
+                        request.type(),
+                        request.description(),
+                        request.startDate(),
+                        request.deadline(),
+                        request.midCheckDate(),
+                        request.memberLimit(),
+                        request.deliverables(),
+                        request.techStack(),
+                        request.goals(),
+                        generateInviteCode(),
+                        creatorUserId
+                    ));
+                    projectMemberRepository.save(new ProjectMember(project.getId(), creatorUserId, ProjectRole.LEADER));
+                    return project;
+                });
+            } catch (DataIntegrityViolationException e) {
+                if (!isInviteCodeConflict(e)) {
+                    throw e;
+                }
+                lastCollision = e;
             }
         }
-        throw new DataIntegrityViolationException("프로젝트 초대 코드 생성에 실패했습니다.");
+        throw new DataIntegrityViolationException("프로젝트 초대 코드 생성에 실패했습니다.", lastCollision);
     }
 
     private String generateInviteCode() {
@@ -98,7 +109,20 @@ public class ProjectService {
     }
 
     public List<ProjectResponse> findAllForUser(Long userId) {
-        return projectRepository.findAllByMemberUserId(userId).stream().map(this::toResponse).toList();
+        List<Project> projects = projectRepository.findAllByMemberUserId(userId);
+        if (projects.isEmpty()) {
+            return List.of();
+        }
+        List<Long> projectIds = projects.stream().map(Project::getId).toList();
+        Map<Long, Integer> memberCounts = memberCountMap(projectIds);
+        Map<Long, Integer> progressByProjectId = taskProgressMap(projectIds);
+        return projects.stream()
+            .map(project -> toResponse(
+                project,
+                memberCounts.getOrDefault(project.getId(), 0),
+                progressByProjectId.getOrDefault(project.getId(), 0)
+            ))
+            .toList();
     }
 
     public ProjectResponse find(Long projectId) {
@@ -193,8 +217,12 @@ public class ProjectService {
     }
 
     private ProjectResponse toResponse(Project project) {
-        int memberCount = projectMemberRepository.findAllByProjectId(project.getId()).size();
+        int memberCount = Math.toIntExact(projectMemberRepository.countByProjectId(project.getId()));
         int taskProgress = computeTaskProgress(project.getId());
+        return toResponse(project, memberCount, taskProgress);
+    }
+
+    private ProjectResponse toResponse(Project project, int memberCount, int taskProgress) {
         return new ProjectResponse(
             project.getId(),
             project.getTitle(),
@@ -222,5 +250,30 @@ public class ProjectService {
         }
         long done = tasks.stream().filter(task -> TASK_STATUS_DONE.equals(task.getStatus())).count();
         return Math.round(done * 100f / tasks.size());
+    }
+
+    private Map<Long, Integer> memberCountMap(List<Long> projectIds) {
+        return projectMemberRepository.countMembersByProjectIds(projectIds).stream()
+            .collect(Collectors.toMap(
+                ProjectMemberRepository.ProjectMemberCountView::getProjectId,
+                row -> Math.toIntExact(row.getMemberCount())
+            ));
+    }
+
+    private Map<Long, Integer> taskProgressMap(List<Long> projectIds) {
+        return taskRepository.summarizeProgressByProjectIds(projectIds, TASK_STATUS_DONE).stream()
+            .collect(Collectors.toMap(
+                TaskRepository.TaskProgressView::getProjectId,
+                row -> {
+                    long total = row.getTotalCount() == null ? 0L : row.getTotalCount();
+                    long done = row.getDoneCount() == null ? 0L : row.getDoneCount();
+                    return total == 0L ? 0 : Math.round(done * 100f / total);
+                }
+            ));
+    }
+
+    private boolean isInviteCodeConflict(DataIntegrityViolationException e) {
+        String message = e.getMostSpecificCause() == null ? e.getMessage() : e.getMostSpecificCause().getMessage();
+        return message != null && (message.contains("uq_projects_invite_code") || message.contains("invite_code"));
     }
 }

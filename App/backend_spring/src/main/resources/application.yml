@@ -39,8 +39,8 @@ spring:
       hibernate:
         format_sql: true
   flyway:
-    enabled: ${SPRING_FLYWAY_ENABLED:true}
-    baseline-on-migrate: true
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
+    baseline-on-migrate: ${SPRING_FLYWAY_BASELINE_ON_MIGRATE:false}
     locations: classpath:db/migration
 
 workflow:

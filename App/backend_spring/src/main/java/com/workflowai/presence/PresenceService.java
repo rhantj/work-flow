@@ -18,7 +18,7 @@ public class PresenceService {
     private final Map<Long, Map<String, Instant>> lastSeenByUserIdAndSessionId = new ConcurrentHashMap<>();
 
     /** 테스트 로그인 시도. 다른 곳에서 이미 접속 중(TTL 이내)이면 false를 반환하고 상태를 바꾸지 않는다. */
-    public boolean tryAcquire(Long userId, String sessionId) {
+    public synchronized boolean tryAcquire(Long userId, String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
             return false;
         }
@@ -34,7 +34,7 @@ public class PresenceService {
     }
 
     /** 로그인 유지(heartbeat). 세션이 만료되어 있었더라도 다시 활성화한다. */
-    public void touch(Long userId, String sessionId) {
+    public synchronized void touch(Long userId, String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
             return;
         }
@@ -44,7 +44,7 @@ public class PresenceService {
     }
 
     /** 로그아웃 시 현재 테스트 세션의 접속 상태만 제거한다. */
-    public void release(Long userId, String sessionId) {
+    public synchronized void release(Long userId, String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
             return;
         }
@@ -58,7 +58,7 @@ public class PresenceService {
         }
     }
 
-    public boolean isActive(Long userId) {
+    public synchronized boolean isActive(Long userId) {
         Map<String, Instant> sessions = lastSeenByUserIdAndSessionId.get(userId);
         if (sessions == null) {
             return false;
@@ -73,7 +73,7 @@ public class PresenceService {
     }
 
     /** 주어진 후보 유저 중 현재 활성 상태인 유저 id만 반환한다. */
-    public List<Long> activeUserIds(List<Long> candidateUserIds) {
+    public synchronized List<Long> activeUserIds(List<Long> candidateUserIds) {
         return candidateUserIds.stream().filter(this::isActive).toList();
     }
 

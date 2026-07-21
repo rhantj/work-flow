@@ -677,7 +677,7 @@ public class MeetingAnalysisService {
         try {
             return new String(file.getBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            return "";
+            throw new IllegalArgumentException("회의록 파일을 읽을 수 없습니다.");
         }
     }
 
@@ -698,7 +698,7 @@ public class MeetingAnalysisService {
                 return null;
             }
             return new String(bytes, StandardCharsets.UTF_8);
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             return "";
         }
     }
@@ -707,7 +707,7 @@ public class MeetingAnalysisService {
         try {
             return extractDocxTextFromBytes(file.getBytes());
         } catch (IOException e) {
-            return "";
+            throw new IllegalArgumentException("DOCX 회의록을 읽을 수 없습니다.");
         }
     }
 
@@ -715,19 +715,23 @@ public class MeetingAnalysisService {
         try {
             return extractPdfTextFromBytes(file.getBytes());
         } catch (IOException e) {
-            return "";
+            throw new IllegalArgumentException("PDF 회의록을 읽을 수 없습니다.");
         }
     }
 
     private String extractPdfTextFromBytes(byte[] bytes) {
         try (PDDocument document = Loader.loadPDF(bytes)) {
-            return new PDFTextStripper()
+            String text = new PDFTextStripper()
                 .getText(document)
                 .replaceAll("\\s+\\n", "\n")
                 .replaceAll("\\n\\s+", "\n")
                 .trim();
+            if (text.isBlank()) {
+                throw new IllegalArgumentException("PDF에서 분석할 텍스트를 추출하지 못했습니다.");
+            }
+            return text;
         } catch (IOException ignored) {
-            return "";
+            throw new IllegalArgumentException("PDF 텍스트 추출에 실패했습니다.");
         }
     }
 
@@ -737,7 +741,7 @@ public class MeetingAnalysisService {
             while ((entry = zip.getNextEntry()) != null) {
                 if (!"word/document.xml".equals(entry.getName())) continue;
                 String xml = new String(zip.readAllBytes(), StandardCharsets.UTF_8);
-                return xml
+                String text = xml
                     .replaceAll("<w:p[^>]*>", "\n")
                     .replaceAll("<[^>]+>", " ")
                     .replace("&lt;", "<")
@@ -747,11 +751,15 @@ public class MeetingAnalysisService {
                     .replace("&apos;", "'")
                     .replaceAll("\\s+", " ")
                     .trim();
+                if (text.isBlank()) {
+                    throw new IllegalArgumentException("DOCX에서 분석할 텍스트를 추출하지 못했습니다.");
+                }
+                return text;
             }
         } catch (IOException ignored) {
-            return "";
+            throw new IllegalArgumentException("DOCX 텍스트 추출에 실패했습니다.");
         }
-        return "";
+        throw new IllegalArgumentException("DOCX 본문을 찾을 수 없습니다.");
     }
 
     private String defaultString(String value, String defaultValue) {

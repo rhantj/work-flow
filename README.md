@@ -43,6 +43,15 @@ VITE_ENABLE_DEMO_AUTH=true
 
 테스트 계정 비밀번호 `1111`은 중간보고/시연 전용이며, 운영 배포 환경에서는 위 값을 켜지 않습니다.
 
+## DB 마이그레이션
+
+기본 설정에서는 기존 운영 DB에 Flyway baseline을 자동 적용하지 않습니다. 배포 DB 스키마는 팀에서 검토한 뒤 아래 둘 중 하나로 반영합니다.
+
+- 권장: `App/backend_spring/src/main/resources/db/init/04_add_password_auth.sql`, `05_add_reviewer_approval_status.sql`, `06_add_project_onboarding_fields.sql`을 운영 DB에 수동 적용
+- Flyway 사용 시: 스키마 상태를 먼저 확인한 뒤 `SPRING_FLYWAY_ENABLED=true`, 필요할 때만 `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`를 명시
+
+`SPRING_FLYWAY_ENABLED`와 `SPRING_FLYWAY_BASELINE_ON_MIGRATE`는 모두 기본값이 `false`입니다.
+
 ## 기술 스택
 
 | 구성 | 기술 |
