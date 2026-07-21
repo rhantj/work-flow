@@ -72,7 +72,7 @@ export interface CategoryProgressDto {
 
 export type DelayRiskResult = "정상" | "주의" | "위험";
 
-export interface TaskDelayRiskDto {
+export interface DelayRiskDto {
   taskId: string;
   taskTitle: string;
   assigneeName: string | null;
@@ -89,6 +89,6 @@ export interface ProgressDetailResponse {
   progressPercent: number;
   milestones: MilestoneProgressDto[];
   categoryBreakdown: CategoryProgressDto[];
-  delayRisks: TaskDelayRiskDto[];
+  delayRisks: DelayRiskDto[];
   hasPredictions: boolean;
 }
