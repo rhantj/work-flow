@@ -105,14 +105,22 @@ def load_task_comments_for_project(project_id: int, engine: Engine | None = None
     return df
 
 
-# delay_service.py의 num_events_before_cutoff/activity_count_recent_window 계산용 —
-# activities.target_id는 폴리모픽(FK 제약 없음)이라 type='업무 변경'으로 반드시 필터링해서
-# 업무가 아닌 다른 대상(회의록/GitHub 등)의 활동이 같은 id로 섞여 들어오지 않게 한다.
+# delay_service.py의 num_events_before_cutoff/activity_count_recent_window 계산용.
+#
+# (주의) activities.target_id는 폴리모픽(FK 제약 없음)이라, 원래는 type='업무 변경'으로
+# 필터링해서 업무가 아닌 다른 대상(회의록/GitHub 등)의 활동이 같은 id로 섞여 들어오지
+# 않게 하려 했다. 하지만 activities.type에 실제로 어떤 값이 들어갈지 아직 팀 내에서
+# 확정되지 않았으므로, 여기서 특정 문자열('업무 변경')을 전제하지 않는다 — 값이
+# 확정되기 전까지는 project_id + target_id(=task_id)만으로 집계한다(mock_issue_dataset.py의
+# 가짜 활동 생성도 애초에 type 구분 없이 "이 업무에 연결된 활동"만 세므로 이 근사가
+# 학습 때 가정과 일치한다). type 값이 정해지면 WHERE 절에 다시 필터를 추가할 것 — 그
+# 전까지는 target_id가 다른 엔티티(회의록 등)와 우연히 같은 값을 가지면 활동이 섞여
+# 들어올 수 있다는 한계가 있다.
 _TASK_ACTIVITIES_QUERY = text(
     """
     SELECT target_id AS task_id, created_at
     FROM public.activities
-    WHERE project_id = :project_id AND type = '업무 변경'
+    WHERE project_id = :project_id
     """
 )
 
