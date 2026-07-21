@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,8 @@ public class TaskResultController {
     private static final int MAX_URL_LENGTH = 2000;
     private static final int MAX_TITLE_LENGTH = 200;
     private static final int MAX_FILE_NAME_LENGTH = 255;
+    private static final int MAX_CONTENT_LENGTH = 2000;
+    private static final Pattern URL_SCHEME_PATTERN = Pattern.compile("(?i)^https?://.+");
 
     private final TaskResultRepository taskResultRepository;
     private final TaskResultLinkRepository taskResultLinkRepository;
@@ -69,6 +72,20 @@ public class TaskResultController {
 
     private boolean isAssignee(Task task, Long userId) {
         return userId != null && task.getAssigneeId() != null && task.getAssigneeId().equals(userId);
+    }
+
+    /** '/', '\', '..' 등 경로 조작에 쓰일 수 있는 문자를 제거해 Storage 경로 조작을 막는다. */
+    private String sanitizeForStoragePath(String name) {
+        String base = name.replace('\\', '/');
+        int lastSlash = base.lastIndexOf('/');
+        if (lastSlash >= 0) {
+            base = base.substring(lastSlash + 1);
+        }
+        base = base.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (base.isBlank() || base.chars().allMatch(c -> c == '.')) {
+            base = "file";
+        }
+        return base;
     }
 
     private List<TaskResultLinkDto> links(Long taskId) {
@@ -108,6 +125,12 @@ public class TaskResultController {
         @Parameter(description = "업무 ID") @PathVariable Long taskId,
         @RequestBody TaskResultSaveRequest request
     ) {
+        if (request.content() == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.fail("CONTENT_REQUIRED", "작업 내용은 필수입니다."));
+        }
+        if (request.content().length() > MAX_CONTENT_LENGTH) {
+            return ResponseEntity.badRequest().body(ApiResponse.fail("CONTENT_TOO_LONG", "작업 내용은 " + MAX_CONTENT_LENGTH + "자를 초과할 수 없습니다."));
+        }
         Task task = resolveTaskOrNull(projectId, taskId);
         if (task == null) {
             return ResponseEntity.status(404).body(ApiResponse.fail("TASK_NOT_FOUND", "업무를 찾을 수 없습니다."));
@@ -135,6 +158,9 @@ public class TaskResultController {
     ) {
         if (request.url() == null || request.url().isBlank()) {
             return ResponseEntity.badRequest().body(ApiResponse.fail("URL_REQUIRED", "URL은 필수입니다."));
+        }
+        if (!URL_SCHEME_PATTERN.matcher(request.url()).matches()) {
+            return ResponseEntity.badRequest().body(ApiResponse.fail("URL_INVALID_SCHEME", "URL은 http:// 또는 https://로 시작해야 합니다."));
         }
         if (request.url().length() > MAX_URL_LENGTH) {
             return ResponseEntity.badRequest().body(ApiResponse.fail("URL_TOO_LONG", "URL은 " + MAX_URL_LENGTH + "자를 초과할 수 없습니다."));
@@ -203,7 +229,7 @@ public class TaskResultController {
         if (!isAssignee(task, uploaderId)) {
             return ResponseEntity.status(403).body(ApiResponse.fail("FORBIDDEN_NOT_ASSIGNEE", "담당자만 파일을 업로드할 수 있습니다."));
         }
-        String storagePath = "tasks/" + taskId + "/" + UUID.randomUUID() + "-" + originalName;
+        String storagePath = "tasks/" + taskId + "/" + UUID.randomUUID() + "-" + sanitizeForStoragePath(originalName);
         try (InputStream in = file.getInputStream()) {
             storageClient.upload(storagePath, in, file.getSize(), file.getContentType());
         } catch (IOException | RuntimeException e) {
@@ -246,13 +272,15 @@ public class TaskResultController {
         if (taskResultFile == null || !taskResultFile.getTaskId().equals(taskId)) {
             return ResponseEntity.status(404).body(ApiResponse.fail("FILE_NOT_FOUND", "파일을 찾을 수 없습니다."));
         }
+        taskResultFileRepository.delete(taskResultFile);
         try {
             storageClient.delete(taskResultFile.getStoragePath());
         } catch (RuntimeException e) {
-            log.error("Supabase Storage 삭제 실패: fileId={}, path={}", fileId, taskResultFile.getStoragePath(), e);
-            return ResponseEntity.status(502).body(ApiResponse.fail("STORAGE_DELETE_FAILED", "파일 삭제에 실패했습니다."));
+            log.error(
+                "메타데이터 삭제 후 Storage 객체 정리 실패(고아 객체로 남을 수 있음): fileId={}, path={}",
+                fileId, taskResultFile.getStoragePath(), e
+            );
         }
-        taskResultFileRepository.delete(taskResultFile);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 

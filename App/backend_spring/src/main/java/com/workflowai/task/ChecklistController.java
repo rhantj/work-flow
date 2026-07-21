@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -109,14 +111,20 @@ public class ChecklistController {
         if (task == null) {
             return ResponseEntity.status(404).body(ApiResponse.fail("TASK_NOT_FOUND", "업무를 찾을 수 없습니다."));
         }
-        List<String> titles = checklistGenerator.generate(task);
+        List<Checklist> existing = checklistRepository.findByTaskIdOrderByCreatedAtAsc(taskId);
+        Set<String> existingTitles = existing.stream().map(Checklist::getTitle).collect(Collectors.toSet());
+        List<String> titles = checklistGenerator.generate(task).stream()
+            .filter(title -> !existingTitles.contains(title))
+            .toList();
         List<Checklist> saved = titles.stream()
             .map(title -> checklistRepository.save(new Checklist(taskId, title)))
             .toList();
-        activityService.record(
-            task.getProjectId(), currentActorId(), "CHECKLIST_CREATED", taskId,
-            "체크리스트 " + saved.size() + "개를 자동 생성했습니다."
-        );
+        if (!saved.isEmpty()) {
+            activityService.record(
+                task.getProjectId(), currentActorId(), "CHECKLIST_CREATED", taskId,
+                "체크리스트 " + saved.size() + "개를 자동 생성했습니다."
+            );
+        }
         List<ChecklistItemDto> dtos = saved.stream().map(ChecklistItemDto::from).toList();
         return ResponseEntity.ok(ApiResponse.ok(dtos));
     }

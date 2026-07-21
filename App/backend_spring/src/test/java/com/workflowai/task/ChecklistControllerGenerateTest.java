@@ -1,7 +1,9 @@
 package com.workflowai.task;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -68,6 +70,25 @@ class ChecklistControllerGenerateTest {
             .andExpect(jsonPath("$.data[1].title").value("단위 테스트 작성"));
 
         verify(activityService).record(eq(1L), any(), eq("CHECKLIST_CREATED"), eq(42L), eq("체크리스트 2개를 자동 생성했습니다."));
+    }
+
+    @Test
+    void skipsTitlesThatAlreadyExistOnRepeatedGeneration() throws Exception {
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findById(42L)).thenReturn(Optional.of(existingTask()));
+        when(demoDataService.resolveUserId("1")).thenReturn(1L);
+        when(checklistGenerator.generate(any(Task.class)))
+            .thenReturn(List.of("API 명세 확정", "단위 테스트 작성"));
+        when(checklistRepository.findByTaskIdOrderByCreatedAtAsc(42L))
+            .thenReturn(List.of(new Checklist(42L, "API 명세 확정")));
+        when(checklistRepository.save(any(Checklist.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/tasks/42/checklists/generate"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].title").value("단위 테스트 작성"));
+
+        verify(checklistRepository, never()).save(argThat(c -> c.getTitle().equals("API 명세 확정")));
     }
 
     @Test

@@ -1,9 +1,11 @@
 package com.workflowai.task;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -125,6 +128,35 @@ class TaskResultControllerTest {
     }
 
     @Test
+    void saveResultRejectsNullContent() throws Exception {
+        authenticateAs(5L);
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+
+        mockMvc.perform(put("/api/v1/projects/demo-project/tasks/42/result")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("CONTENT_REQUIRED"));
+
+        verify(taskResultRepository, never()).save(any());
+    }
+
+    @Test
+    void saveResultRejectsContentOverMaxLength() throws Exception {
+        authenticateAs(5L);
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        String hugeContent = "a".repeat(2001);
+
+        mockMvc.perform(put("/api/v1/projects/demo-project/tasks/42/result")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"content\":\"" + hugeContent + "\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("CONTENT_TOO_LONG"));
+
+        verify(taskResultRepository, never()).save(any());
+    }
+
+    @Test
     void nonAssigneeCannotSaveContent() throws Exception {
         authenticateAs(9L);
         when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
@@ -176,6 +208,22 @@ class TaskResultControllerTest {
     }
 
     @Test
+    void addLinkRejectsNonHttpScheme() throws Exception {
+        authenticateAs(5L);
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/tasks/42/result/links")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"url":"javascript:alert(1)","title":"악성 링크"}
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("URL_INVALID_SCHEME"));
+
+        verify(taskResultLinkRepository, never()).save(any());
+    }
+
+    @Test
     void addLinkRejectsUrlOverMaxLength() throws Exception {
         authenticateAs(5L);
         when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
@@ -219,6 +267,26 @@ class TaskResultControllerTest {
     }
 
     @Test
+    void uploadFileSanitizesPathTraversalInOriginalFileName() throws Exception {
+        authenticateAs(5L);
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findById(42L)).thenReturn(Optional.of(taskWithAssignee(5L)));
+        when(taskResultFileRepository.save(any(TaskResultFile.class))).thenAnswer(inv -> inv.getArgument(0));
+        MockMultipartFile file = new MockMultipartFile(
+            "file", "../../etc/passwd", "text/plain", "hello".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/v1/projects/demo-project/tasks/42/result/files")
+                .file(file))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<String> pathCaptor = ArgumentCaptor.forClass(String.class);
+        verify(storageClient).upload(pathCaptor.capture(), any(), anyLong(), eq("text/plain"));
+        String storagePath = pathCaptor.getValue();
+        assertThat(storagePath).doesNotContain("..").startsWith("tasks/42/");
+    }
+
+    @Test
     void nonAssigneeCannotUploadFile() throws Exception {
         authenticateAs(9L);
         when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
@@ -247,6 +315,39 @@ class TaskResultControllerTest {
             .andExpect(jsonPath("$.error.code").value("FILE_SAVE_FAILED"));
 
         verify(storageClient).delete(anyString());
+    }
+
+    @Test
+    void assigneeCanDeleteFile() throws Exception {
+        authenticateAs(5L);
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findById(42L)).thenReturn(Optional.of(taskWithAssignee(5L)));
+        TaskResultFile file = new TaskResultFile(42L, "meeting_result.pdf", "tasks/42/uuid-meeting_result.pdf", 2048, "application/pdf", 5L);
+        when(taskResultFileRepository.findById(9L)).thenReturn(Optional.of(file));
+
+        mockMvc.perform(delete("/api/v1/projects/demo-project/tasks/42/result/files/9"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true));
+
+        verify(taskResultFileRepository).delete(file);
+        verify(storageClient).delete("tasks/42/uuid-meeting_result.pdf");
+    }
+
+    @Test
+    void deleteFileStillSucceedsWhenStorageCleanupFailsAfterMetadataDeleted() throws Exception {
+        authenticateAs(5L);
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findById(42L)).thenReturn(Optional.of(taskWithAssignee(5L)));
+        TaskResultFile file = new TaskResultFile(42L, "meeting_result.pdf", "tasks/42/uuid-meeting_result.pdf", 2048, "application/pdf", 5L);
+        when(taskResultFileRepository.findById(9L)).thenReturn(Optional.of(file));
+        doThrow(new RuntimeException("storage down"))
+            .when(storageClient).delete("tasks/42/uuid-meeting_result.pdf");
+
+        mockMvc.perform(delete("/api/v1/projects/demo-project/tasks/42/result/files/9"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true));
+
+        verify(taskResultFileRepository).delete(file);
     }
 
     @Test
