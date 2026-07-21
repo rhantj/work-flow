@@ -21,6 +21,9 @@ export function MemberDrilldownPanel({ mode, memberName, memberTasks, projectId,
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
+    // 이 패널은 항상 모달 배경(오버레이) 클릭으로만 닫히므로, 열려 있는 동안 다른
+    // 멤버/모드로 props가 바뀌는 경우가 없어 stale-response 경합이 발생하지 않는다.
+    // 패널이 비모달로 바뀌거나 패널 내 이전/다음 탐색 기능이 추가되면 ignore 플래그가 필요하다.
     if (mode !== "meetings") return;
     setStatus("loading");
     fetchAttendanceDetail(String(projectId), userId)

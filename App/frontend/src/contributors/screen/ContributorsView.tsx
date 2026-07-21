@@ -344,7 +344,7 @@ export function ContributorsView() {
                       >
                         <span className="font-bold">{report.todoDone}</span>
                         <span className="text-muted-foreground">/{report.todoTotal}</span>
-                        <div className="text-[10px] text-muted-foreground">{taskRate}%</div>
+                        <span className="block text-[10px] text-muted-foreground">{taskRate}%</span>
                       </button>
                       <button
                         type="button"
@@ -359,7 +359,7 @@ export function ContributorsView() {
                           <>
                             <span className="font-bold">{attendanceByMemberId[report.memberId].meetingsAttended}</span>
                             <span className="text-muted-foreground">/{attendanceByMemberId[report.memberId].totalMeetings}회</span>
-                            <div className="text-[10px] text-muted-foreground">{attendanceByMemberId[report.memberId].attendanceRate}%</div>
+                            <span className="block text-[10px] text-muted-foreground">{attendanceByMemberId[report.memberId].attendanceRate}%</span>
                           </>
                         ) : (
                           <span className="font-bold">{report.meetings}회</span>
