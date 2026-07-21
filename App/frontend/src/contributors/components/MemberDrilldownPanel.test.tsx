@@ -59,4 +59,55 @@ describe("MemberDrilldownPanel", () => {
     expect(screen.getByText("12.11 스프린트 리뷰")).toBeInTheDocument();
     expect(fetchAttendanceDetail).toHaveBeenCalledWith("1", 1);
   });
+
+  it("shows loading state while fetching attendance detail", () => {
+    vi.mocked(fetchAttendanceDetail).mockReturnValue(new Promise(() => {}));
+
+    render(
+      <MemberDrilldownPanel
+        mode="meetings"
+        memberName="김민준"
+        memberTasks={[]}
+        projectId={1}
+        userId={1}
+        onClose={() => {}}
+      />
+    );
+
+    expect(screen.getByText("불러오는 중...")).toBeInTheDocument();
+  });
+
+  it("shows error state when attendance detail fetch fails", async () => {
+    vi.mocked(fetchAttendanceDetail).mockRejectedValue(new Error("network error"));
+
+    render(
+      <MemberDrilldownPanel
+        mode="meetings"
+        memberName="김민준"
+        memberTasks={[]}
+        projectId={1}
+        userId={1}
+        onClose={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText("회의 참여 내역을 불러오지 못했습니다.")).toBeInTheDocument());
+  });
+
+  it("shows empty state when attendance detail is empty", async () => {
+    vi.mocked(fetchAttendanceDetail).mockResolvedValue([]);
+
+    render(
+      <MemberDrilldownPanel
+        mode="meetings"
+        memberName="김민준"
+        memberTasks={[]}
+        projectId={1}
+        userId={1}
+        onClose={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText("등록된 회의가 없습니다.")).toBeInTheDocument());
+  });
 });
