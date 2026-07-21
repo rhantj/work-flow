@@ -22,6 +22,7 @@ joblib==1.5.3
 # LLM (6.6, LangChain은 미사용으로 보류)
 openai==1.59.7
 ollama==0.6.2
+langsmith==0.10.2
 
 # File Processing (6.7, FFmpeg는 pip 패키지가 아닌 OS 바이너리라 제외)
 pdfplumber==0.11.4
