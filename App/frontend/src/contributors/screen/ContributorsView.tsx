@@ -109,7 +109,7 @@ export function ContributorsView() {
           evidence: override?.evidence ?? report.evidence,
           score: scoreData ? Math.round(scoreData.contributionScore) : report.score,
           categories: scoreData
-            ? { workload: scoreData.workloadComponent, task: scoreData.taskComponent, meeting: scoreData.meetingComponent }
+            ? { task: scoreData.taskComponent, meeting: scoreData.meetingComponent, workload: scoreData.workloadComponent }
             : report.categories,
         };
       }),
