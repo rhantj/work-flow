@@ -185,7 +185,7 @@ export function ContributorsView() {
               <div>
                 <h1 className="text-xl font-bold text-foreground leading-tight">기여도 분석</h1>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  업무, 회의록, GitHub, 산출물 데이터를 기반으로 개인별 기여도를 검토합니다.
+                  업무, 회의록, 산출물 데이터를 기반으로 개인별 기여도를 검토합니다.
                 </p>
               </div>
             </div>
