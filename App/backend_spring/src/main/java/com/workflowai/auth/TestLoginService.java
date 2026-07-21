@@ -51,6 +51,9 @@ public class TestLoginService {
             throw new TestAccountAlreadyActiveException();
         }
 
+        // devLogin은 시딩된 계정이 없을 때만 IllegalArgumentException을 던진다(AuthService 참고).
+        // 그 외 런타임 예외(DB 연결 오류 등)는 장애 원인이 가려지지 않도록 그대로 전파한다 — 대신
+        // presence는 여기서 반드시 반납해 로그인 실패로 접속 슬롯이 영구 점유되지 않게 한다.
         try {
             AuthTokenResponse tokens = authService.devLogin(demoUserId);
             return new AuthTokenResponse(
@@ -60,9 +63,12 @@ public class TestLoginService {
                 tokens.user(),
                 sessionId
             );
-        } catch (RuntimeException e) {
+        } catch (IllegalArgumentException e) {
             presenceService.release(userId, sessionId);
             throw new InvalidTestCredentialsException();
+        } catch (RuntimeException e) {
+            presenceService.release(userId, sessionId);
+            throw e;
         }
     }
 }

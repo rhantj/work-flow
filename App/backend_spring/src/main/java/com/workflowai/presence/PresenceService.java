@@ -8,8 +8,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 
 /**
- * 중간보고/시연용 접속 상태 레지스트리. 단일 인스턴스 서버 메모리 기반이며,
- * heartbeat가 TTL 안에 오지 않으면 자동 만료된다(비정상 종료 대비 - 완벽한 세션 정리는 아님).
+ * 중간보고/시연용 접속 상태 레지스트리.
+ *
+ * <p><b>단일 인스턴스 전용 — 의도된 설계 제약이다.</b> 이 서비스는 JVM 힙의 {@link ConcurrentHashMap}에만
+ * 상태를 두므로, 백엔드를 2개 이상 인스턴스로 수평 확장(로드밸런서 뒤 다중 파드/컨테이너 등)하면
+ * 동시 로그인 제한이 인스턴스별로 따로 동작해 무력화된다. 현재 배포 구성(docker-compose 단일
+ * backend-spring 컨테이너)에서는 문제가 없으나, 향후 다중 인스턴스로 확장할 경우 Redis 등 공유
+ * 저장소 기반으로 반드시 재구현해야 한다.
+ *
+ * <p>heartbeat가 TTL 안에 오지 않으면 자동 만료된다(비정상 종료 대비 - 완벽한 세션 정리는 아님).
  */
 @Component
 public class PresenceService {

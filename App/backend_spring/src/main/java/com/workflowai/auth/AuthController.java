@@ -169,7 +169,7 @@ public class AuthController {
             + "내부적으로 기존 데모 계정(dev-login) 시딩을 재사용하며, 같은 계정이 이미 접속 중(heartbeat TTL 이내)이면 409를 반환한다."
     )
     @PostMapping("/test-login")
-    public ResponseEntity<ApiResponse<AuthTokenResponse>> testLogin(@RequestBody TestLoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> testLogin(@Valid @RequestBody TestLoginRequest request) {
         if (!devLoginEnabled) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.fail("DEV_LOGIN_DISABLED", "개발용 로그인이 비활성화되어 있습니다."));
