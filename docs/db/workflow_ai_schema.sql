@@ -2,11 +2,14 @@
 -- WorkFlow AI - Database Schema (PostgreSQL DDL)
 -- 출처: Supabase 프로젝트 "work-flow" (ref: zzfcnbbzmbxzxptxghhq) 실제 스키마
 --       (supabase db dump --schema public, 2026-07-22 기준)
--- 스코프: 실사용 스키마 전체 (26개 테이블)
+-- 스코프: 실사용 스키마 전체 (27개 테이블)
 -- 용도: 실제 서비스 스택(PostgreSQL/Supabase)에 직접 실행 가능한 DDL
 -- 요구 버전: PostgreSQL 13+ (실 운영: PostgreSQL 17)
 -- 주의: document_chunks.embedding은 pgvector VECTOR(1024) 사용 중 (BAAI/bge-m3 기반
---       쿼리 노이즈 강건성 파인튜닝 모델 차원). CREATE EXTENSION vector 필요.
+--       쿼리 노이즈 강건성 파인튜닝 모델 차원). 아래 CREATE EXTENSION vector 구문 포함.
+-- 주의: 이 파일은 "빈 DB에 처음 실행하는" 스냅샷 DDL이다. 이미 데이터가 있는 기존 DB에
+--       마이그레이션으로 그대로 적용하지 말 것 — NOT NULL 컬럼 추가, VECTOR 차원 변경 등은
+--       기존 행/인덱스와 충돌해 실패하거나 데이터를 깨뜨릴 수 있다.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -149,8 +152,9 @@ CREATE TABLE tasks (
     CONSTRAINT fk_tasks_project       FOREIGN KEY (project_id)        REFERENCES projects(id)  ON DELETE CASCADE,
     CONSTRAINT fk_tasks_assignee      FOREIGN KEY (assignee_id)       REFERENCES users(id)     ON DELETE SET NULL,
     CONSTRAINT fk_tasks_milestone     FOREIGN KEY (milestone_id)      REFERENCES milestones(id) ON DELETE SET NULL,
-    CONSTRAINT fk_tasks_created_by    FOREIGN KEY (created_by)        REFERENCES users(id),
-    CONSTRAINT fk_tasks_source_meeting FOREIGN KEY (source_meeting_id) REFERENCES meetings(id)
+    CONSTRAINT fk_tasks_created_by    FOREIGN KEY (created_by)        REFERENCES users(id)
+    -- fk_tasks_source_meeting은 meetings 테이블 생성 이후 §3에서 ALTER TABLE로 추가한다
+    --  (meetings가 아래(§3)에 정의되므로 순방향 참조를 피하기 위함)
 );
 COMMENT ON TABLE tasks IS '업무 보드 항목';
 COMMENT ON COLUMN tasks.category IS '기획/프론트엔드/백엔드/AI-ML 등 18종';
@@ -257,6 +261,10 @@ COMMENT ON COLUMN meetings.file_type IS 'document/audio/video';
 COMMENT ON COLUMN meetings.analysis_status IS '비동기 분석 상태';
 
 CREATE INDEX idx_meetings_project_id ON meetings (project_id);
+
+-- tasks.source_meeting_id는 meetings보다 먼저(§2) 정의되므로 순방향 참조를 피해 여기서 추가한다
+ALTER TABLE tasks
+    ADD CONSTRAINT fk_tasks_source_meeting FOREIGN KEY (source_meeting_id) REFERENCES meetings(id);
 
 CREATE TABLE meeting_attendees (
     id         BIGSERIAL PRIMARY KEY,
@@ -365,7 +373,9 @@ CREATE TABLE workload_scores (
 COMMENT ON TABLE workload_scores IS 'FS-5 업무 편중 점수 스냅샷 (재계산마다 새 row, contribution_reports와 동일한 이력 저장 방식)';
 COMMENT ON COLUMN workload_scores.anomaly_type IS '정상/과부하 의심/저활동 의심/이상 패턴(방향 불명확) 중 하나';
 
--- document_chunks.embedding: pgvector VECTOR(1024). 최초 설치 시 CREATE EXTENSION vector 필요.
+-- document_chunks.embedding: pgvector VECTOR(1024)
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE document_chunks (
     id          BIGSERIAL PRIMARY KEY,
     project_id  BIGINT NOT NULL,
