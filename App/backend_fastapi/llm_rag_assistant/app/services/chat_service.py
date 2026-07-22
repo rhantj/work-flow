@@ -14,15 +14,30 @@ _SNIPPET_MAX_LEN = 200
 # assignee_id 필터 검색으로 전환한다.
 # 부분 문자열로 비교하면 "문제 ", "과제 ", "안내 " 같은 무관한 단어에 "제 "가 포함돼 오탐한다
 # (예: "이 문제 알려줘"가 개인화 질문으로 잘못 분류됨) - 공백으로 나눈 토큰 단위로 정확히
-# 일치할 때만 개인화 의도로 판단한다. 토큰 끝에 붙는 문장부호(?,!,~ 등)는 비교 전에 제거한다
-# (그렇지 않으면 "내가?"처럼 조사 뒤에 문장부호가 붙은 흔한 표현을 놓친다).
+# 일치할 때만 개인화 의도로 판단한다. 토큰 양끝에 붙는 문장부호/괄호/따옴표는 비교 전에 제거한다
+# (그렇지 않으면 "내가?", "(제가", "제가:"처럼 조사 뒤에 부호가 붙은 흔한 표현을 놓친다).
 _PERSONAL_INTENT_TOKENS = {"내가", "제가", "나는", "저는", "나의", "저의", "나한테", "저한테", "내", "제"}
-_TRAILING_PUNCTUATION_PATTERN = re.compile(r"[,.?!~…\"'“”‘’]+$")
+_LEADING_PUNCTUATION_PATTERN = re.compile(r"^[\"'“‘\(\[{]+")
+_TRAILING_PUNCTUATION_PATTERN = re.compile(r"[,.?!~:;…\"'”’\)\]}]+$")
+
+# "내업무", "제할일"처럼 조사/공백 없이 붙여 쓴 압축형은 위 토큰 정확 일치로 못 잡는다.
+# "내"/"제"를 그냥 접두사로 허용하면 "내용", "내년", "제안", "제출" 같은 무관 단어까지 오탐하므로,
+# 담당 업무를 가리키는 명사가 바로 뒤에 붙을 때만(=단어 시작 위치) 개인화 의도로 인정한다.
+_COMPACT_PERSONAL_TASK_PATTERN = re.compile(
+    r"(?:^|[\s\"'“‘\(\[{])(?:내|제)(?=업무|담당|할\s?일|일감|태스크|꺼|것)"
+)
+
+
+def _normalize_token(token: str) -> str:
+    token = _LEADING_PUNCTUATION_PATTERN.sub("", token)
+    return _TRAILING_PUNCTUATION_PATTERN.sub("", token)
 
 
 def _is_personal_intent(question: str) -> bool:
-    tokens = {_TRAILING_PUNCTUATION_PATTERN.sub("", token) for token in question.split()}
-    return bool(_PERSONAL_INTENT_TOKENS & tokens)
+    tokens = {_normalize_token(token) for token in question.split()}
+    if _PERSONAL_INTENT_TOKENS & tokens:
+        return True
+    return bool(_COMPACT_PERSONAL_TASK_PATTERN.search(question))
 
 
 async def answer_question(pool, project_id: int, question: str, user_id: int | None = None) -> RagQueryResponse:
