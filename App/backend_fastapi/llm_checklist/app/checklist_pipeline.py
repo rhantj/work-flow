@@ -75,3 +75,45 @@ def generate_checklist_minimal_fallback(request: ChecklistGenerateRequest) -> Ch
     if not items:
         items = [ChecklistItemSuggestion(title="작업 진행", reason="기본 단계")]
     return ChecklistGenerateResponse(items=items[:MAX_ITEMS], engine="rule-based")
+
+
+import logging
+import os
+
+import ollama
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_CHECKLIST_MODEL = "qwen2.5:1.5b"
+DEFAULT_CHECKLIST_TIMEOUT_SECONDS = 20.0
+DEFAULT_CHECKLIST_NUM_PREDICT = 400
+
+
+def generate_checklist_with_ollama(request: ChecklistGenerateRequest) -> ChecklistGenerateResponse:
+    host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    model = os.getenv("CHECKLIST_MODEL", DEFAULT_CHECKLIST_MODEL)
+    timeout_seconds = float(os.getenv("CHECKLIST_TIMEOUT_SECONDS", str(DEFAULT_CHECKLIST_TIMEOUT_SECONDS)))
+    temperature = float(os.getenv("CHECKLIST_TEMPERATURE", "0.2"))
+    num_predict = int(os.getenv("CHECKLIST_NUM_PREDICT", str(DEFAULT_CHECKLIST_NUM_PREDICT)))
+
+    client = ollama.Client(host=host, timeout=timeout_seconds)
+    response = client.chat(
+        model=model,
+        messages=[{"role": "user", "content": build_checklist_prompt(request)}],
+        format="json",
+        options={"temperature": temperature, "num_ctx": 4096, "num_predict": num_predict},
+        keep_alive=os.getenv("CHECKLIST_KEEP_ALIVE", "5m"),
+    )
+    items = parse_checklist_response(response["message"]["content"])
+    logger.info("Ollama 체크리스트 생성 성공. model=%s, items=%d", model, len(items))
+    return ChecklistGenerateResponse(items=items, engine="ollama")
+
+
+def generate_checklist(request: ChecklistGenerateRequest) -> ChecklistGenerateResponse:
+    provider = os.getenv("CHECKLIST_PROVIDER", "ollama").lower()
+    if provider == "ollama":
+        try:
+            return generate_checklist_with_ollama(request)
+        except Exception:
+            logger.exception("Ollama 체크리스트 생성 실패, 최소 폴백으로 대체합니다.")
+    return generate_checklist_minimal_fallback(request)
