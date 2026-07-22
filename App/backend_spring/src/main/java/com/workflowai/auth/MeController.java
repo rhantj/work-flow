@@ -11,13 +11,17 @@ import com.workflowai.user.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.imageio.ImageIO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -85,7 +89,7 @@ public class MeController {
     )
     @PatchMapping
     @Transactional
-    public ApiResponse<UserSummary> updateMe(@RequestBody UpdateMeRequest request) {
+    public ApiResponse<UserSummary> updateMe(@Valid @RequestBody UpdateMeRequest request) {
         User user = userRepository.findById(CurrentUser.id())
             .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
@@ -125,6 +129,12 @@ public class MeController {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.fail("FILE_TOO_LARGE", "파일 용량은 최대 10MB까지 업로드할 수 있습니다."));
         }
+        // Content-Type 헤더는 클라이언트가 임의로 지정할 수 있으므로, 실제 바이트가 디코딩 가능한
+        // 이미지인지 검증한다 — /uploads/**는 인증 없이 공개되므로 위장 파일이 그대로 서빙되는 것을 막는다.
+        if (!isDecodableImage(file)) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.fail("INVALID_FILE_TYPE", "PNG 또는 JPG 파일만 업로드할 수 있습니다."));
+        }
 
         User user = userRepository.findById(CurrentUser.id())
             .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
@@ -157,18 +167,42 @@ public class MeController {
         return ApiResponse.ok(List.of());
     }
 
-    /** 사용자당 파일 하나만 유지한다: avatars/{userId}.{ext}에 저장하고, 확장자가 바뀌었을 수 있으니 이전 파일은 지운다. */
+    /** Content-Type 헤더가 아니라 실제 픽셀 데이터로 디코딩 가능한지 확인한다 (헤더 위장 방지). */
+    private boolean isDecodableImage(MultipartFile file) {
+        try (InputStream in = file.getInputStream()) {
+            return ImageIO.read(in) != null;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * 사용자당 파일 하나만 유지한다: avatars/{userId}.{ext}에 저장한다.
+     * 임시 파일에 먼저 쓰고 성공했을 때만 원자적으로 교체하며, 확장자가 바뀌어 남는 이전 파일은
+     * 새 파일 저장이 완전히 끝난 뒤에만 지운다 — 저장 도중 실패해도 기존 사진이 유실되지 않게 한다.
+     */
     private String storeAvatar(Long userId, MultipartFile file) throws IOException {
         Path dir = Path.of(uploadsDir, "avatars").toAbsolutePath().normalize();
         Files.createDirectories(dir);
 
-        for (String ext : List.of("png", "jpg", "jpeg")) {
-            Files.deleteIfExists(dir.resolve(userId + "." + ext));
-        }
-
         String extension = file.getContentType().equals("image/png") ? "png" : "jpg";
         String fileName = userId + "." + extension;
-        file.transferTo(dir.resolve(fileName));
+        Path target = dir.resolve(fileName);
+
+        Path tmp = dir.resolve("upload-" + userId + "-" + System.nanoTime() + ".tmp");
+        try {
+            file.transferTo(tmp);
+            Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(tmp);
+        }
+
+        for (String ext : List.of("png", "jpg", "jpeg")) {
+            if (!ext.equals(extension)) {
+                Files.deleteIfExists(dir.resolve(userId + "." + ext));
+            }
+        }
+
         return "avatars/" + fileName;
     }
 }
