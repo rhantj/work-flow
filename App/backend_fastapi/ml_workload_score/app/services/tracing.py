@@ -24,6 +24,11 @@ def setup_langsmith(project_name: str = "workflow-workload-score") -> bool:
     api_key = env.get("LANGSMITH_API_KEY")
 
     if not api_key:
+        # docker-compose가 LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}로 프로세스에
+        # 이미 "true"를 주입해 놓은 상태에서 API 키만 빠진 경우, 여기서 지워주지 않으면
+        # 반환값(False)과 실제 프로세스 상태(LANGSMITH_TRACING=true)가 어긋나 langsmith
+        # SDK가 트레이싱을 시도하다 인증 실패로 조용히 실패하는 혼선이 생길 수 있다.
+        os.environ.pop("LANGSMITH_TRACING", None)
         logger.warning(
             "LANGSMITH_API_KEY 미설정 - 워크로드 스코어 트레이싱 비활성화 상태로 진행"
         )
