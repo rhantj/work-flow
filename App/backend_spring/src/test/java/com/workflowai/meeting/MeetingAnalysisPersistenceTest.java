@@ -23,6 +23,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingAnalysisPersistenceTest {
@@ -126,6 +128,61 @@ class MeetingAnalysisPersistenceTest {
         ArgumentCaptor<Meeting> meetingCaptor = ArgumentCaptor.forClass(Meeting.class);
         verify(meetingRepository).save(meetingCaptor.capture());
         assertThat(meetingCaptor.getValue().getAnalysisStatus()).isEqualTo("completed");
+    }
+
+    @Test
+    void notificationIsDeferredUntilAfterCommitWhenTransactionSynchronizationIsActive() {
+        // @Transactional 호출 경로를 흉내내기 위해 트랜잭션 동기화를 직접 활성화한다.
+        MeetingAnalysisPersistence persistence = newPersistence();
+        Meeting meeting = new Meeting(1L, "정기회의", "document", null, "processing", LocalDate.now(), "정기회의", "a.txt", 10L, null);
+        when(meetingRepository.findById(5L)).thenReturn(Optional.of(meeting));
+        when(meetingAttendeeRepository.findByMeetingId(5L)).thenReturn(List.of());
+        when(meetingAnalysisRepository.save(any(MeetingAnalysis.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MeetingAnalysisResult result = new MeetingAnalysisResult(
+            "요약", List.of(), List.of(), List.of(), List.of(),
+            new MeetingMeta("정기회의", "2026-07-15", List.of())
+        );
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            persistence.saveAnalysisSuccess(5L, result, "FASTAPI");
+
+            verify(notificationService, never()).notify(any(), any(), any(), any(), any(), any());
+
+            List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+            assertThat(synchronizations).hasSize(1);
+            synchronizations.forEach(TransactionSynchronization::afterCommit);
+
+            verify(notificationService).notify(10L, "MEETING_ANALYSIS_COMPLETED", "회의 분석이 완료되었습니다.",
+                "'정기회의' 회의록 분석이 완료되었습니다.", "meeting", 5L);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void notificationIsNeverSentWhenTransactionRollsBackWithoutCommit() {
+        // afterCommit 콜백이 한 번도 호출되지 않는 롤백 상황을 흉내낸다.
+        MeetingAnalysisPersistence persistence = newPersistence();
+        Meeting meeting = new Meeting(1L, "정기회의", "document", null, "processing", LocalDate.now(), "정기회의", "a.txt", 10L, null);
+        when(meetingRepository.findById(5L)).thenReturn(Optional.of(meeting));
+        when(meetingAttendeeRepository.findByMeetingId(5L)).thenReturn(List.of());
+        when(meetingAnalysisRepository.save(any(MeetingAnalysis.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MeetingAnalysisResult result = new MeetingAnalysisResult(
+            "요약", List.of(), List.of(), List.of(), List.of(),
+            new MeetingMeta("정기회의", "2026-07-15", List.of())
+        );
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            persistence.saveAnalysisSuccess(5L, result, "FASTAPI");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+
+        verify(notificationService, never()).notify(any(), any(), any(), any(), any(), any());
     }
 
     @Test
