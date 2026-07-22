@@ -36,10 +36,14 @@ public class AuthService {
      * 이메일/비밀번호로 회원가입한다. 이미 가입된 이메일이면 예외를 던진다.
      * findByEmail 사전 체크만으로는 동시 요청 경쟁을 완전히 막지 못한다 — 두 요청이 모두 사전 체크를
      * 통과한 뒤 저장을 시도하면 DB의 email UNIQUE 제약에서 하나가 걸리는데, saveAndFlush로 즉시
-     * 반영해 그 경우도 이 메서드 안에서 잡아 동일한 예외로 통일한다(그렇지 않으면 커밋 시점에야
-     * 예외가 나서 여기서 잡히지 않고 500으로 노출된다).
+     * 반영해 그 경우도 이 메서드 안에서 잡아 동일한 예외로 통일한다.
+     * 이 메서드에는 의도적으로 @Transactional을 붙이지 않는다 — 붙이면 saveAndFlush()가 그
+     * 트랜잭션에 참여하게 되어, DataIntegrityViolationException을 여기서 잡아도 스프링이 이미
+     * 트랜잭션을 rollback-only로 표시해버린다. 그러면 이 메서드가 예외 없이 반환되더라도, 실제
+     * 커밋 시점에 rollback-only 상태가 감지되어 UnexpectedRollbackException이 던져진다.
+     * @Transactional 없이 두면 saveAndFlush()가 자기 완결적인 트랜잭션으로 실행되어 그 안에서
+     * 실패가 바로 확정되므로, 여기서 잡아 변환한 예외가 그대로 호출자에게 전달된다.
      */
-    @Transactional
     public AuthTokenResponse signup(SignupRequest request) {
         if (userRepository.findByEmail(request.email()).isPresent()) {
             throw new IllegalStateException("이미 가입된 이메일입니다.");

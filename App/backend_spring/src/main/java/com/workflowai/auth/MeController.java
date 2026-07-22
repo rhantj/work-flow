@@ -115,8 +115,13 @@ public class MeController {
         summary = "프로필 사진 업로드",
         description = "PNG/JPG만 허용하며 최대 10MB까지 업로드할 수 있다. 기존 사진이 있으면 교체된다."
     )
+    // 의도적으로 @Transactional을 붙이지 않는다 — 이 메서드에 붙이면 saveAndFlush()가 그 트랜잭션에
+    // 참여(participate)하게 되어, saveAndFlush 이후 메서드가 정상 반환되더라도 실제 커밋은 메서드가
+    // 끝난 뒤 트랜잭션 경계에서 일어난다. 그러면 "DB 반영 확인 후 이전 파일 삭제"가 실제로는 커밋
+    // 전에 실행되는 셈이라, 이후 커밋이 실패하면 DB는 이전 경로로 롤백되는데 그 파일은 이미
+    // 지워진 상태가 된다. @Transactional 없이 두면 saveAndFlush() 자체가 자기 완결적인 트랜잭션으로
+    // 실행되어, 이 메서드 안에서 예외 없이 반환됐다는 것 = 실제로 커밋까지 끝났다는 뜻이 된다.
     @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Transactional
     public ResponseEntity<ApiResponse<UserSummary>> uploadAvatar(
         @Parameter(description = "프로필 사진 파일 (PNG/JPG, 최대 10MB)") @RequestPart("file") MultipartFile file
     ) {

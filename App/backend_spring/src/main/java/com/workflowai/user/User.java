@@ -37,8 +37,12 @@ public class User {
     @Column(length = 100)
     private String affiliation;
 
+    // 컬럼명이 Java 필드명과 다른 이유: 예전에는 이 컬럼이 "field"(VARCHAR)였는데, 다중 태그로
+    // 바꾸며 제자리에서 JSONB로 타입을 바꾸면 공유 DB에서 구버전 백엔드가 기동 불가해지는 파괴적
+    // 변경이 되어, 대신 새 컬럼 field_tags를 추가하는 방식으로 옮겼다(docs/db/migrations/010 참고).
+    // 기존 field 컬럼은 미사용 상태로 남아있다.
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
+    @Column(name = "field_tags", nullable = false)
     private List<String> field = new ArrayList<>();
 
     @Column(name = "github_username", length = 100)
