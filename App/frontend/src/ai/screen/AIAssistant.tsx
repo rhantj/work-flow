@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, X, Send } from "lucide-react";
 import { buildChatInit, QUICK_QUESTIONS } from "../libs/mock/chat";
 import { useRagQuery } from "../libs/hooks/useRagQuery";
@@ -7,31 +7,58 @@ import type { ChatMsg } from "../libs/types/chat";
 
 const NO_PROJECT_MESSAGE = "아직 연결된 프로젝트가 없습니다. 프로젝트를 만들고 회의록을 업로드한 뒤 다시 질문해주세요.";
 
-const CHAT_SESSION_KEY = "ai-assistant-chat-session";
+const CHAT_SESSION_KEY_PREFIX = "ai-assistant-chat-session";
 const CHAT_SESSION_TTL_MS = 5 * 60 * 1000;
 
 type ChatSession = { messages: ChatMsg[]; savedAt: number };
 
-function loadSavedMessages(): ChatMsg[] | null {
-  const raw = sessionStorage.getItem(CHAT_SESSION_KEY);
+function buildSessionKey(userId: number | undefined, projectId: number | null): string {
+  return `${CHAT_SESSION_KEY_PREFIX}:${userId ?? "anon"}:${projectId ?? "none"}`;
+}
+
+function isChatMsg(value: unknown): value is ChatMsg {
+  if (typeof value !== "object" || value === null) return false;
+  const msg = value as Record<string, unknown>;
+  if (msg.role !== "user" && msg.role !== "assistant") return false;
+  if (typeof msg.content !== "string") return false;
+  if (msg.sources !== undefined && !Array.isArray(msg.sources)) return false;
+  return true;
+}
+
+function isChatSession(value: unknown): value is ChatSession {
+  if (typeof value !== "object" || value === null) return false;
+  const session = value as Record<string, unknown>;
+  if (typeof session.savedAt !== "number") return false;
+  return Array.isArray(session.messages) && session.messages.every(isChatMsg);
+}
+
+function loadSavedMessages(key: string): ChatMsg[] | null {
+  const raw = sessionStorage.getItem(key);
   if (!raw) return null;
   try {
-    const session = JSON.parse(raw) as ChatSession;
-    if (Date.now() - session.savedAt > CHAT_SESSION_TTL_MS) {
-      sessionStorage.removeItem(CHAT_SESSION_KEY);
+    const parsed: unknown = JSON.parse(raw);
+    if (!isChatSession(parsed) || Date.now() - parsed.savedAt > CHAT_SESSION_TTL_MS) {
+      sessionStorage.removeItem(key);
       return null;
     }
-    return session.messages;
+    return parsed.messages;
   } catch {
-    sessionStorage.removeItem(CHAT_SESSION_KEY);
+    sessionStorage.removeItem(key);
     return null;
   }
 }
 
+function saveSession(key: string, messages: ChatMsg[]): void {
+  const session: ChatSession = { messages, savedAt: Date.now() };
+  sessionStorage.setItem(key, JSON.stringify(session));
+}
+
 export function AIAssistant({ onClose }: { onClose: () => void }) {
   const { user, currentProjectId } = useAuth();
+  const sessionKey = useMemo(() => buildSessionKey(user?.id, currentProjectId), [user?.id, currentProjectId]);
+  const sessionKeyRef = useRef(sessionKey);
   const [messages, setMessages] = useState<ChatMsg[]>(
-    () => loadSavedMessages() ?? buildChatInit(user?.name ?? "회원")
+    () => loadSavedMessages(sessionKey) ?? buildChatInit(user?.name ?? "회원")
   );
   const [input, setInput] = useState("");
   const { status, answer, error, ask } = useRagQuery();
@@ -42,10 +69,18 @@ export function AIAssistant({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
+  // 대화 도중 사용자·프로젝트가 바뀌면(계정 전환, 프로젝트 전환) 이전 세션을 그 키로 저장하고
+  // 새 키에 해당하는 대화로 교체해 다른 사용자/프로젝트의 대화가 섞이지 않게 한다.
+  useEffect(() => {
+    if (sessionKeyRef.current === sessionKey) return;
+    saveSession(sessionKeyRef.current, messagesRef.current);
+    sessionKeyRef.current = sessionKey;
+    setMessages(loadSavedMessages(sessionKey) ?? buildChatInit(user?.name ?? "회원"));
+  }, [sessionKey, user?.name]);
+
   useEffect(() => {
     return () => {
-      const session: ChatSession = { messages: messagesRef.current, savedAt: Date.now() };
-      sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(session));
+      saveSession(sessionKeyRef.current, messagesRef.current);
     };
   }, []);
 
