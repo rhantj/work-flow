@@ -86,14 +86,24 @@ export function ContributorsView() {
   const [drilldown, setDrilldown] = useState<{ mode: "tasks" | "meetings" | "workload"; memberId: string } | null>(null);
   // 실제 기여 점수로 목업 score/categories를 보강한다. 실패하면 목업 값을 그대로 쓴다.
   const [contributionScores, setContributionScores] = useState<ContributionMemberScoreDto[]>([]);
+  // anomaly_type(과부하/저활동 의심) 판정에 실제로 쓰인 팀 평균 완료율 — 편중도 근거
+  // 패널이 "팀 평균보다 높음/낮음" 문구의 실측 근거로 함께 보여준다.
+  const [teamMeanCompletion, setTeamMeanCompletion] = useState<number | null>(null);
   useEffect(() => {
     if (currentProjectId == null) {
       setContributionScores([]);
+      setTeamMeanCompletion(null);
       return;
     }
     fetchContributionScore(currentProjectId)
-      .then((result) => setContributionScores(result.members))
-      .catch(() => setContributionScores([]));
+      .then((result) => {
+        setContributionScores(result.members);
+        setTeamMeanCompletion(result.teamMeanCompletion);
+      })
+      .catch(() => {
+        setContributionScores([]);
+        setTeamMeanCompletion(null);
+      });
   }, [currentProjectId]);
   const contributionByMemberId = useMemo(
     () => Object.fromEntries(contributionScores.map((s) => [s.assigneeId, s])),
@@ -496,6 +506,7 @@ export function ContributorsView() {
           userId={Number(drilldown.memberId)}
           onClose={() => setDrilldown(null)}
           workloadEvidence={contributionByMemberId[drilldown.memberId]}
+          teamMeanCompletion={teamMeanCompletion}
         />
       )}
     </div>
