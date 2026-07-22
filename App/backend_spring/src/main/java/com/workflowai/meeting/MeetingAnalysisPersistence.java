@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class MeetingAnalysisPersistence {
@@ -145,10 +147,26 @@ public class MeetingAnalysisPersistence {
     }
 
     /**
-     * 알림 발송은 분석 결과 저장의 부가 기능이라, 실패해도 @Transactional 메서드 전체를
-     * 롤백시키면 안 된다 — 예외를 잡아 로그만 남기고 삼킨다.
+     * 알림 발송은 분석 결과 저장의 부가 기능이라 실패해도 안 되고, 트랜잭션이 실제로
+     * 커밋되기 전에는(즉 분석 결과가 확정되기 전에는) 나가면 안 된다.
+     * 트랜잭션 동기화가 걸려 있으면(정상적인 @Transactional 호출 경로) afterCommit
+     * 콜백으로 미뤄서 커밋 이후에만 보내고, 동기화가 없는 컨텍스트(단위 테스트 등
+     * 트랜잭션 프록시 밖에서 직접 호출되는 경우)에서는 즉시 best-effort로 보낸다.
      */
     private void notifyBestEffort(Long userId, String type, String title, String content, Long meetingId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sendNotificationSafely(userId, type, title, content, meetingId);
+                }
+            });
+            return;
+        }
+        sendNotificationSafely(userId, type, title, content, meetingId);
+    }
+
+    private void sendNotificationSafely(Long userId, String type, String title, String content, Long meetingId) {
         try {
             notificationService.notify(userId, type, title, content, "meeting", meetingId);
         } catch (Exception e) {
