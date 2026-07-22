@@ -131,3 +131,30 @@ async def test_search_skips_reservation_when_no_meeting_chunks_exist_at_all() ->
 
     assert len(conn.calls) == 2
     assert result == general_rows
+
+
+@pytest.mark.asyncio
+async def test_search_filters_by_assignee_id_when_provided() -> None:
+    assignee_rows = [{"source_type": "task", "source_id": 1, "content": "내 업무", "similarity": 0.9}]
+    conn = _FakeConn(assignee_rows)
+    pool = _FakePool(conn)
+
+    result = await search_similar_chunks(pool, project_id=1, query_embedding=[0.1], top_k=5, assignee_id=42)
+
+    assert result == assignee_rows
+    query, args = conn.calls[0]
+    assert "assignee_id" in query
+    assert args == ("[0.10000000]", 1, 42, 5)
+
+
+@pytest.mark.asyncio
+async def test_search_falls_back_to_general_search_when_assignee_has_no_chunks() -> None:
+    general_rows = [{"source_type": "task", "source_id": 2, "content": "다른 사람 업무", "similarity": 0.7}]
+    # 호출 순서: assignee 필터 검색(빈 결과) -> 일반 검색 -> meeting 미포함이라 예약 검색(빈 결과)
+    conn = _FakeSequenceConn([[], general_rows, []])
+    pool = _FakeSequencePool(conn)
+
+    result = await search_similar_chunks(pool, project_id=1, query_embedding=[0.1], top_k=5, assignee_id=42)
+
+    assert len(conn.calls) == 3
+    assert result == general_rows

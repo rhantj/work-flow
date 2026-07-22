@@ -7,10 +7,20 @@ from llm_rag_assistant.app.services.retrieval_service import search_similar_chun
 
 _SNIPPET_MAX_LEN = 200
 
+# "내 할 일 알려줘" 류 개인화 질문 판별용. 순수 벡터 유사도만으로는 "내"가 누구인지 구분할
+# 수 없어 (일반 문구라 특정 담당자 청크와 유사도가 두드러지지 않음) 키워드로 의도를 감지해
+# assignee_id 필터 검색으로 전환한다.
+_PERSONAL_INTENT_KEYWORDS = ["내가", "제가", "나의", "저의", "나한테", "저한테", "내 ", "제 "]
 
-async def answer_question(pool, project_id: int, question: str) -> RagQueryResponse:
+
+def _is_personal_intent(question: str) -> bool:
+    return any(keyword in question for keyword in _PERSONAL_INTENT_KEYWORDS)
+
+
+async def answer_question(pool, project_id: int, question: str, user_id: int | None = None) -> RagQueryResponse:
     query_embedding = await embed_text(question)
-    rows = await search_similar_chunks(pool, project_id, query_embedding, top_k=5)
+    assignee_id = user_id if user_id is not None and _is_personal_intent(question) else None
+    rows = await search_similar_chunks(pool, project_id, query_embedding, top_k=5, assignee_id=assignee_id)
     answer = await generate_answer(question, rows)
 
     sources = [

@@ -10,6 +10,7 @@ class RagIngestRequest(BaseModel):
     source_type: Literal["meeting", "task", "action_item"]
     source_id: int
     content: str
+    assignee_id: int | None = None
 
 
 class RagIngestResponse(BaseModel):
@@ -20,6 +21,7 @@ class RagIngestResponse(BaseModel):
 class RagQueryRequest(BaseModel):
     project_id: int
     question: str
+    user_id: int | None = None
 
 
 class RagSource(BaseModel):

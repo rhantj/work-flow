@@ -19,9 +19,14 @@ public class RagIngestService {
 
     @Async("ragIngestExecutor")
     public void ingestBestEffort(Long projectId, String sourceType, Long sourceId, String content) {
+        ingestBestEffort(projectId, sourceType, sourceId, content, null);
+    }
+
+    @Async("ragIngestExecutor")
+    public void ingestBestEffort(Long projectId, String sourceType, Long sourceId, String content, Long assigneeId) {
         if (projectId == null || sourceId == null || content == null || content.isBlank()) return;
         try {
-            fastApiRagClient.ingest(new RagIngestRequest(projectId, sourceType, sourceId, content));
+            fastApiRagClient.ingest(new RagIngestRequest(projectId, sourceType, sourceId, content, assigneeId));
         } catch (Exception e) {
             log.warn("RAG ingest 실패 (무시): sourceType={}, sourceId={}", sourceType, sourceId, e);
         }

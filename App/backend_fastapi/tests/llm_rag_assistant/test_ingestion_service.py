@@ -56,6 +56,24 @@ async def test_ingest_content_chunks_embeds_and_inserts_each_chunk() -> None:
     assert args[2] == 42
     assert args[3] == "회의록 내용"
     assert args[4] == "[0.10000000,0.20000000]"
+    assert args[5] is None
+
+
+@pytest.mark.asyncio
+async def test_ingest_content_stores_assignee_id_when_given() -> None:
+    conn = _FakeConn()
+    pool = _FakePool(conn)
+
+    with patch(
+        "llm_rag_assistant.app.services.ingestion_service.embed_text",
+        new=AsyncMock(return_value=[0.1]),
+    ):
+        await ingest_content(
+            pool, project_id=1, source_type="task", source_id=7, content="업무 내용", assignee_id=42
+        )
+
+    _, args = conn.calls[0]
+    assert args[5] == 42
 
 
 @pytest.mark.asyncio

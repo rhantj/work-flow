@@ -6,14 +6,14 @@ from llm_rag_assistant.app.services.embedding_service import embed_text
 from llm_rag_assistant.app.services.vector_utils import to_vector_literal
 
 _INSERT_CHUNK_SQL = """
-INSERT INTO document_chunks (project_id, source_type, source_id, content, embedding)
-VALUES ($1, $2, $3, $4, $5::vector)
+INSERT INTO document_chunks (project_id, source_type, source_id, content, embedding, assignee_id)
+VALUES ($1, $2, $3, $4, $5::vector, $6)
 RETURNING id
 """
 
 
 async def ingest_content(
-    pool, project_id: int, source_type: str, source_id: int, content: str
+    pool, project_id: int, source_type: str, source_id: int, content: str, assignee_id: int | None = None
 ) -> RagIngestResponse:
     chunks = chunk_text(content)
     if not chunks:
@@ -30,6 +30,7 @@ async def ingest_content(
                 source_id,
                 chunk,
                 to_vector_literal(embedding),
+                assignee_id,
             )
             chunk_ids.append(row["id"])
 
