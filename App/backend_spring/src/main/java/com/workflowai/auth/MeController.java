@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -91,7 +92,14 @@ public class MeController {
     )
     @PatchMapping
     @Transactional
-    public ApiResponse<UserSummary> updateMe(@Valid @RequestBody UpdateMeRequest request) {
+    public ResponseEntity<ApiResponse<UserSummary>> updateMe(@Valid @RequestBody UpdateMeRequest request) {
+        // 개별 태그의 공백/길이는 @Valid(UpdateMeRequest)가 걸러내지만, 중복 태그는 Bean Validation
+        // 표준 제약만으로 표현하기 번거로워 여기서 직접 확인한다.
+        if (request.field() != null && new HashSet<>(request.field()).size() != request.field().size()) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.fail("VALIDATION_FAILED", "분야 태그가 중복되었습니다."));
+        }
+
         User user = userRepository.findById(CurrentUser.id())
             .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
 
@@ -108,7 +116,7 @@ public class MeController {
             user.setGithubUsername(request.githubUsername());
         }
 
-        return ApiResponse.ok(UserSummary.from(user));
+        return ResponseEntity.ok(ApiResponse.ok(UserSummary.from(user)));
     }
 
     @Operation(
