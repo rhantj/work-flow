@@ -19,6 +19,7 @@ async def test_embed_text_loads_configured_model_and_encodes_text(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@localhost:5432/workflow")
     monkeypatch.setenv("HF_EMBEDDING_MODEL", "rhantj/bge-m3-workflow-query-robust")
+    monkeypatch.setenv("HF_EMBEDDING_MODEL_REVISION", "dc328732ab2c3330d38305199e26b2d060586af3")
     monkeypatch.setenv("HF_TOKEN", "hf_test_token")
     get_settings.cache_clear()
     _get_model.cache_clear()
@@ -36,7 +37,11 @@ async def test_embed_text_loads_configured_model_and_encodes_text(
             result = await embed_text("회의록 요약 텍스트")
 
         assert result == pytest.approx([0.1, 0.2, 0.3])
-        mock_cls.assert_called_once_with("rhantj/bge-m3-workflow-query-robust", token="hf_test_token")
+        mock_cls.assert_called_once_with(
+            "rhantj/bge-m3-workflow-query-robust",
+            revision="dc328732ab2c3330d38305199e26b2d060586af3",
+            token="hf_test_token",
+        )
         mock_model.encode.assert_called_once_with("회의록 요약 텍스트")
     finally:
         get_settings.cache_clear()
@@ -52,6 +57,7 @@ async def test_embed_text_uses_anonymous_access_when_hf_token_missing(
     token=False로 명시적 익명 접근을 강제해야 한다."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@localhost:5432/workflow")
     monkeypatch.setenv("HF_EMBEDDING_MODEL", "rhantj/bge-m3-workflow-query-robust")
+    monkeypatch.setenv("HF_EMBEDDING_MODEL_REVISION", "dc328732ab2c3330d38305199e26b2d060586af3")
     monkeypatch.delenv("HF_TOKEN", raising=False)
     get_settings.cache_clear()
     _get_model.cache_clear()
@@ -65,7 +71,11 @@ async def test_embed_text_uses_anonymous_access_when_hf_token_missing(
         ) as mock_cls:
             await preload_embedding_model()
 
-        mock_cls.assert_called_once_with("rhantj/bge-m3-workflow-query-robust", token=False)
+        mock_cls.assert_called_once_with(
+            "rhantj/bge-m3-workflow-query-robust",
+            revision="dc328732ab2c3330d38305199e26b2d060586af3",
+            token=False,
+        )
     finally:
         get_settings.cache_clear()
         _get_model.cache_clear()

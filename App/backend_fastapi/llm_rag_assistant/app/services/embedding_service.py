@@ -14,7 +14,11 @@ def _get_model() -> SentenceTransformer:
     # token=None은 huggingface_hub가 로컬에 캐시된 로그인 토큰을 암묵적으로 사용하게 만든다
     # (만료/무효 토큰이 있으면 공개 저장소도 401로 실패함). hf_token 미설정 시 명시적으로
     # 토큰 없이 익명 접근하도록 False를 넘긴다.
-    return SentenceTransformer(settings.hf_embedding_model, token=settings.hf_token or False)
+    return SentenceTransformer(
+        settings.hf_embedding_model,
+        revision=settings.hf_embedding_model_revision,
+        token=settings.hf_token or False,
+    )
 
 
 def _encode(text: str) -> list[float]:
