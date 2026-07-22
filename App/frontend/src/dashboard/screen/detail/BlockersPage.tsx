@@ -1,28 +1,50 @@
 import { useNavigate } from "react-router";
 import { AlertCircle, AlertTriangle, Calendar, CheckCheck, Clock, Layers, MessageSquare, Plus, Sparkles } from "lucide-react";
-import { AIBox } from "../../../ai/components/AIBox";
+import { AiInsightBox } from "../../../ai/components/AiInsightBox";
 import { openAIAssistant } from "../../../ai/libs/utils/openAIAssistant";
+import { useAiInsight } from "../../../ai/libs/hooks/useAiInsight";
 import { BackBtn } from "../../../global/component/BackBtn";
 import { DetailStatCard } from "../../../global/component/DetailStatCard";
-import { PriorityBadge } from "../../../board/components/PriorityBadge";
 import { useAuth } from "../../../global/hooks/useAuth";
 import { useDashboardProgress } from "../../libs/hooks/useDashboardProgress";
 import { useDashboardTasks } from "../../libs/hooks/useDashboardTasks";
+import { updateTaskPosition } from "../../../board/libs/utils/taskApi";
+import type { DashboardTaskDto } from "../../libs/types/dashboard";
+import type { Priority } from "../../../board/libs/types/task";
 import {
   daysSince,
   daysUntilDue,
   formatDashboardDueDate,
+  isDangerDelayRisk,
   isDelayRisk,
   normalizePriority,
   normalizeTaskStatus,
-  sourceLabel,
   taskAssignee,
 } from "../../libs/utils/dashboardTaskUtils";
 
+const BLOCKER_PRIORITY_LABEL: Record<Priority, { label: string; cls: string }> = {
+  high: { label: "심각도 높음", cls: "bg-red-50 text-red-600" },
+  medium: { label: "중간", cls: "bg-amber-50 text-amber-600" },
+  low: { label: "낮음", cls: "bg-slate-100 text-slate-500" },
+};
+
+function BlockerAiSuggestion({ task, projectId, ready }: { task: DashboardTaskDto; projectId: number | null | undefined; ready: boolean }) {
+  const prompt = `블로커 업무 '${task.title}'(설명: ${task.description || "등록된 설명 없음"})에 대해 먼저 처리할 일과, 해결 방법을 추천해줘. 출력은 3문장 이내로 해.`;
+  const { text, loading, error } = useAiInsight(projectId, prompt, ready);
+  return (
+    <div className="rounded-lg p-3 flex items-start gap-2.5 border" style={{ background: "rgba(112,72,232,0.05)", borderColor: "rgba(112,72,232,0.2)" }}>
+      <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#7048E8" }} />
+      <p className="text-xs leading-relaxed" style={{ color: "#5B3DC8" }}>
+        {loading ? "AI가 해결 방법을 분석하고 있습니다..." : !error && text ? text : "AI 해결 방법을 불러오지 못했습니다."}
+      </p>
+    </div>
+  );
+}
+
 export function BlockersPage() {
-  const { currentProjectId } = useAuth();
-  const { data: tasks, loading, error } = useDashboardTasks(currentProjectId);
-  const { data: progress } = useDashboardProgress(currentProjectId);
+  const { user, currentProjectId } = useAuth();
+  const { data: tasks, loading, error, refetch } = useDashboardTasks(currentProjectId);
+  const { data: progress, loading: progressLoading } = useDashboardProgress(currentProjectId);
   const navigate = useNavigate();
   const onBack = () => navigate("/dashboard");
   const blockedTasks = tasks.filter(task => normalizeTaskStatus(task.status) === "blocked");
@@ -36,7 +58,27 @@ export function BlockersPage() {
   const averageDelayDays = overdueRiskDelayDays.length === 0
     ? 0
     : Math.round(overdueRiskDelayDays.reduce((sum, days) => sum + days, 0) / overdueRiskDelayDays.length);
-  const blockerQuestion = `현재 블로커 ${blockedTasks.length}개의 해결 방법을 추천해줘. 높은 우선순위 블로커는 ${highPriorityCount}개이고, 마감일을 넘긴 지연 주의·위험 업무의 평균 지연은 ${averageDelayDays}일이야. 우선순위와 구체적인 해결 순서를 제안해줘.`;
+
+  const dangerRiskTaskIds = new Set((progress?.delayRisks ?? []).filter(risk => isDangerDelayRisk(risk.result)).map(risk => risk.taskId));
+  const longestStalledDangerTask = tasks
+    .filter(task => dangerRiskTaskIds.has(task.id))
+    .reduce<{ title: string; days: number } | null>((longest, task) => {
+      const days = daysSince(task.updatedAt) ?? 0;
+      return !longest || days > longest.days ? { title: task.title, days } : longest;
+    }, null);
+  const aiInsightReady = !loading && !progressLoading;
+  const aiInsightPrompt = longestStalledDangerTask
+    ? `사용자의 지연 위험도 '위험' 업무 중, 가장 현재 상태 체류시간이 긴 업무인 '${longestStalledDangerTask.title}'에 대해 먼저 처리할 일과 다음 액션을 알려줘.`
+    : "";
+  const aiInsightFallback = longestStalledDangerTask
+    ? `${user?.name ?? "담당자"}님의 ${longestStalledDangerTask.title}이 지연 위험입니다.`
+    : "현재 지연 위험('위험') 업무가 없습니다.";
+
+  const resolveBlocker = async (taskId: string, position: number) => {
+    if (currentProjectId == null) return;
+    await updateTaskPosition(taskId, "done", position, currentProjectId);
+    refetch();
+  };
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-4" style={{ fontFamily: "'Inter','Noto Sans KR',sans-serif" }}>
@@ -44,7 +86,7 @@ export function BlockersPage() {
         <div>
           <BackBtn onBack={onBack} />
           <h1 className="text-xl font-bold text-foreground">블로커 관리</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">업무 상태가 블로커인 항목을 확인합니다.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">막힌 업무를 파악하고 해결 담당자와 기한을 지정해 위험을 제거합니다.</p>
         </div>
         <button onClick={() => navigate("/board?openAdd=1")} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
           <Plus className="w-3.5 h-3.5" /> 업무 추가
@@ -55,21 +97,24 @@ export function BlockersPage() {
 
       <div className="grid grid-cols-4 gap-3">
         <DetailStatCard label="현재 블로커" value={loading ? "..." : blockedTasks.length} sub="해결 대기" color="#EF4444" icon={AlertTriangle} />
-        <DetailStatCard label="높은 우선순위" value={loading ? "..." : highPriorityCount} sub="즉시 조치 필요" color="#EF4444" icon={AlertCircle} />
-        <DetailStatCard label="평균 지연" value={loading ? "..." : `${averageDelayDays}일`} sub={overdueRiskDelayDays.length === 0 ? "지연 대상 없음" : `주의·위험 ${overdueRiskDelayDays.length}건 기준`} color="#F97316" icon={Clock} />
+        <DetailStatCard label="심각도 높음" value={loading ? "..." : highPriorityCount} sub="즉시 조치 필요" color="#EF4444" icon={AlertCircle} />
+        <DetailStatCard label="평균 지연" value={loading ? "..." : `${averageDelayDays}일`} sub={overdueRiskDelayDays.length === 0 ? "지연 대상 없음" : `주의·위험 ${overdueRiskDelayDays.length}건 기준`} color="#F59E0B" icon={Clock} iconBorder />
         <DetailStatCard label="AI 위험 감지" value={loading ? "..." : riskPredictions.length} sub="전체 업무 예측 결과" color="#7048E8" icon={Layers} />
       </div>
 
-      <AIBox
-        text="블로커의 우선순위와 상태 체류시간을 바탕으로 해결 순서와 다음 액션을 추천받을 수 있습니다."
-        onAsk={() => openAIAssistant(blockerQuestion)}
-        actionLabel="AI 해결 방법 추천"
+      <AiInsightBox
+        projectId={currentProjectId}
+        prompt={aiInsightPrompt}
+        ready={aiInsightReady && longestStalledDangerTask != null}
+        fallbackText={aiInsightFallback}
+        formatAnswer={answer => `${aiInsightFallback} ${answer}`}
       />
 
       <div className="space-y-4">
         {blockedTasks.map((task, index) => {
           const assignee = taskAssignee(task, index);
           const priority = normalizePriority(task.priority);
+          const priorityTag = BLOCKER_PRIORITY_LABEL[priority];
           const statusDays = daysSince(task.updatedAt) ?? 0;
           const isRisk = riskTaskIds.has(task.id);
           return (
@@ -81,7 +126,7 @@ export function BlockersPage() {
                   </div>
                   <div>
                     <div className="flex items-center flex-wrap gap-1.5 mb-1">
-                      <PriorityBadge priority={priority} />
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${priorityTag.cls}`}>{priorityTag.label}</span>
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{task.category ?? "미분류"}</span>
                       <span className="text-[10px] font-mono text-muted-foreground">{task.id}</span>
                       {isRisk && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">지연 위험</span>}
@@ -100,7 +145,7 @@ export function BlockersPage() {
                   <p className="text-sm text-foreground leading-relaxed">{task.description || "등록된 설명이 없습니다. 업무 보드에서 상세 내용을 추가하세요."}</p>
                 </div>
 
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <div className="text-[10px] text-muted-foreground mb-1.5">담당자</div>
                     <div className="flex items-center gap-1.5">
@@ -109,29 +154,20 @@ export function BlockersPage() {
                     </div>
                   </div>
                   <div>
+                    <div className="text-[10px] text-muted-foreground mb-1.5">발생일</div>
+                    <span className="text-xs text-foreground">{formatDashboardDueDate(task.createdAt)}</span>
+                  </div>
+                  <div>
                     <div className="text-[10px] text-muted-foreground mb-1.5">마감일</div>
                     <span className="text-xs text-foreground">{formatDashboardDueDate(task.dueDate)}</span>
                   </div>
-                  <div>
-                    <div className="text-[10px] text-muted-foreground mb-1.5">출처</div>
-                    <span className="text-xs text-foreground">{sourceLabel(task.sourceType)}</span>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-muted-foreground mb-1.5">우선순위</div>
-                    <PriorityBadge priority={priority} />
-                  </div>
                 </div>
 
-                {isRisk && (
-                  <div className="rounded-lg p-3 flex items-start gap-2.5 border" style={{ background: "rgba(112,72,232,0.05)", borderColor: "rgba(112,72,232,0.2)" }}>
-                    <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#7048E8" }} />
-                    <p className="text-xs leading-relaxed" style={{ color: "#5B3DC8" }}>AI 지연 위험 분석에 포함된 업무입니다. 진행률 상세에서 최신 예측 결과를 확인하세요.</p>
-                  </div>
-                )}
+                <BlockerAiSuggestion task={task} projectId={currentProjectId} ready={aiInsightReady} />
 
                 <div className="flex items-center flex-wrap gap-2 pt-1 border-t border-border">
-                  <button onClick={() => navigate("/board")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg bg-red-500 hover:bg-red-600 transition-colors">
-                    <CheckCheck className="w-3.5 h-3.5" /> 보드에서 해결 처리
+                  <button onClick={() => resolveBlocker(task.id, task.position)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg bg-red-500 hover:bg-red-600 transition-colors">
+                    <CheckCheck className="w-3.5 h-3.5" /> 해결 완료
                   </button>
                   <button onClick={() => navigate("/board")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
                     <Calendar className="w-3.5 h-3.5" /> 마감 조정

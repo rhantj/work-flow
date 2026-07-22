@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { AlertCircle, AlertTriangle, Calendar, CheckCircle2, Clock, MessageSquare, Plus, RefreshCw, Sparkles } from "lucide-react";
-import { AIBox } from "../../../ai/components/AIBox";
+import { AlertTriangle, Calendar, CheckCircle2, Clock, MessageSquare, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { AiInsightBox } from "../../../ai/components/AiInsightBox";
 import { openAIAssistant } from "../../../ai/libs/utils/openAIAssistant";
 import { BackBtn } from "../../../global/component/BackBtn";
 import { DetailStatCard } from "../../../global/component/DetailStatCard";
 import { useAuth } from "../../../global/hooks/useAuth";
 import { useDashboardProgress } from "../../libs/hooks/useDashboardProgress";
 import { useDashboardTasks } from "../../libs/hooks/useDashboardTasks";
+import { updateTaskPosition } from "../../../board/libs/utils/taskApi";
+import type { DashboardTaskDto } from "../../libs/types/dashboard";
+import { TaskDueDatePopup } from "../../components/TaskDueDatePopup";
 import {
   daysSince,
   formatDashboardDueDate,
@@ -19,12 +23,19 @@ import {
   taskAssignee,
 } from "../../libs/utils/dashboardTaskUtils";
 
+const LEGEND = [
+  { label: "지연 위험", color: "#EF4444" },
+  { label: "업데이트 필요 (3일↑)", color: "#F59E0B" },
+  { label: "정상 진행", color: "#3B5BDB" },
+];
+
 export function InProgressPage() {
   const { currentProjectId } = useAuth();
   const { data: tasks, loading, error, refetch } = useDashboardTasks(currentProjectId);
   const { data: progress } = useDashboardProgress(currentProjectId);
   const navigate = useNavigate();
   const onBack = () => navigate("/dashboard");
+  const [dueDateTarget, setDueDateTarget] = useState<DashboardTaskDto | null>(null);
   const inProgressTasks = tasks.filter(task => normalizeTaskStatus(task.status) === "inprogress");
   const updateNeededCount = inProgressTasks.filter(task => (daysSince(task.updatedAt) ?? 0) >= 3).length;
   const riskPredictions = progress?.delayRisks.filter(risk => isDelayRisk(risk.result)) ?? [];
@@ -32,7 +43,13 @@ export function InProgressPage() {
   const riskTaskIds = new Set(riskPredictions.map(risk => risk.taskId));
   const dangerCount = inProgressTasks.filter(task => dangerTaskIds.has(task.id)).length;
   const projectDDay = formatDDay(progress?.projectDeadline);
-  const monitoringQuestion = `진행 중 업무 ${inProgressTasks.length}개를 점검해줘. 3일 이상 업데이트가 없는 업무는 ${updateNeededCount}개, 지연 위험 업무는 ${dangerCount}개, 프로젝트 마감은 ${projectDDay}야. 지금 확인할 업무와 권장 조치를 우선순위대로 알려줘.`;
+  const monitoringQuestion = `진행 중 업무 ${inProgressTasks.length}개를 점검해줘. 3일 이상 업데이트가 없는 업무는 ${updateNeededCount}개, 지연 위험 업무는 ${dangerCount}개, 프로젝트 마감은 ${projectDDay}야. 지금 확인할 업무와 권장 조치를 우선순위대로 알려줘. 출력은 3문장 이내로 해.`;
+
+  const changeStatus = async (taskId: string, position: number, status: "done" | "blocked") => {
+    if (currentProjectId == null) return;
+    await updateTaskPosition(taskId, status, position, currentProjectId);
+    refetch();
+  };
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-4" style={{ fontFamily: "'Inter','Noto Sans KR',sans-serif" }}>
@@ -40,7 +57,7 @@ export function InProgressPage() {
         <div>
           <BackBtn onBack={onBack} />
           <h1 className="text-xl font-bold text-foreground">진행 중 업무 모니터링</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">업무 상태가 진행 중인 항목만 표시합니다.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">현재 진행 중인 업무 상태를 파악하고 지연 가능성을 조기에 감지합니다.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => refetch()} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
@@ -56,16 +73,26 @@ export function InProgressPage() {
 
       <div className="grid grid-cols-4 gap-3">
         <DetailStatCard label="진행 중" value={loading ? "..." : inProgressTasks.length} sub="활성 업무" color="#3B5BDB" icon={Clock} />
-        <DetailStatCard label="업데이트 필요" value={loading ? "..." : updateNeededCount} sub="3일 이상 상태 유지" color="#F59E0B" icon={RefreshCw} />
-        <DetailStatCard label="지연 위험" value={loading ? "..." : dangerCount} sub="AI 예측 '위험'" color="#EF4444" icon={AlertCircle} />
+        <DetailStatCard label="업데이트 필요" value={loading ? "..." : updateNeededCount} sub="3일 이상 미업데이트" color="#F59E0B" icon={RefreshCw} />
+        <DetailStatCard label="지연 위험" value={loading ? "..." : dangerCount} sub="고위험 업무" color="#EF4444" icon={AlertTriangle} />
         <DetailStatCard label="D-Day" value={loading ? "..." : projectDDay} sub={formatDashboardDueDate(progress?.projectDeadline)} color="#7048E8" icon={Calendar} />
       </div>
 
-      <AIBox
-        text="오래 업데이트되지 않았거나 지연 위험이 높은 진행 중 업무의 점검 순서를 추천받을 수 있습니다."
-        onAsk={() => openAIAssistant(monitoringQuestion)}
-        actionLabel="AI 진행 점검"
+      <AiInsightBox
+        projectId={currentProjectId}
+        prompt={monitoringQuestion}
+        ready={!loading}
+        fallbackText="오래 업데이트되지 않았거나 지연 위험이 높은 진행 중 업무의 점검 순서를 추천받을 수 있습니다."
       />
+
+      <div className="flex items-center gap-4 px-1">
+        {LEGEND.map(item => (
+          <div key={item.label} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: item.color }} />
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
 
       <div className="space-y-3">
         {inProgressTasks.map((task, index) => {
@@ -74,8 +101,8 @@ export function InProgressPage() {
           const isRisk = riskTaskIds.has(task.id);
           const isDanger = dangerTaskIds.has(task.id);
           const isUpdateNeeded = statusDays >= 3;
-          const borderColor = isDanger ? "#EF4444" : isUpdateNeeded ? "#F59E0B" : "#DFE1E6";
-          const bgColor = isDanger ? "rgba(239,68,68,0.03)" : isUpdateNeeded ? "rgba(245,158,11,0.03)" : "white";
+          const borderColor = isDanger ? "#EF4444" : isUpdateNeeded ? "#F59E0B" : "#3B5BDB";
+          const bgColor = isDanger ? "rgba(239,68,68,0.03)" : isUpdateNeeded ? "rgba(245,158,11,0.03)" : "rgba(59,91,219,0.03)";
 
           return (
             <div key={task.id} className="rounded-xl shadow-sm overflow-hidden border" style={{ borderColor, borderLeftWidth: 4, background: bgColor }}>
@@ -88,15 +115,16 @@ export function InProgressPage() {
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                         <span className="font-mono text-[10px] text-muted-foreground">{task.id}</span>
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{task.category ?? "미분류"}</span>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{task.category ?? "미분류"}</span>
                         <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{sourceLabel(task.sourceType)}</span>
-                        {isRisk && <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${isDanger ? "bg-red-100 text-red-700 border-red-200" : "bg-orange-100 text-orange-700 border-orange-200"}`}>AI 지연 {isDanger ? "위험" : "주의"}</span>}
+                        {isRisk && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">AI 지연 위험</span>}
                       </div>
                       <div className="text-sm font-semibold text-foreground">{task.title}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">{member.name}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">업데이트 {formatRelativeDate(task.updatedAt)}</span>
                     <span className="text-xs font-semibold bg-muted px-2 py-1 rounded-lg text-foreground">
                       마감 {formatDashboardDueDate(task.dueDate)}
                     </span>
@@ -125,17 +153,20 @@ export function InProgressPage() {
                 </div>
 
                 <div className="flex items-center flex-wrap gap-2 pt-3 border-t border-border">
-                  <button onClick={() => navigate("/board")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 보드에서 완료 처리
+                  <button onClick={() => changeStatus(task.id, task.position, "done")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 완료 처리
                   </button>
-                  <button onClick={() => navigate("/board")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
+                  <button onClick={() => changeStatus(task.id, task.position, "blocked")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
                     <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> 블로커 전환
+                  </button>
+                  <button onClick={() => setDueDateTarget(task)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
+                    <Calendar className="w-3.5 h-3.5" /> 마감 조정
                   </button>
                   <button onClick={() => navigate("/board")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
                     <MessageSquare className="w-3.5 h-3.5" /> 댓글
                   </button>
                   <button onClick={() => openAIAssistant(`진행 중 업무 '${task.title}'을 점검해줘. 마지막 업데이트는 ${formatRelativeDate(task.updatedAt)}이고 ${statusDays}일째 현재 상태이며, 마감일은 ${formatDashboardDueDate(task.dueDate)}, 지연 예측은 ${isDanger ? "위험" : isRisk ? "주의" : "정상"}이야. 다음 액션을 추천해줘.`)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg ml-auto transition-opacity hover:opacity-80" style={{ background: "rgba(112,72,232,0.12)", color: "#7048E8" }}>
-                    <Sparkles className="w-3.5 h-3.5" /> AI 진행 점검
+                    <Sparkles className="w-3.5 h-3.5" /> AI에게 질문
                   </button>
                 </div>
               </div>
@@ -148,6 +179,15 @@ export function InProgressPage() {
           </div>
         )}
       </div>
+
+      {dueDateTarget && currentProjectId != null && (
+        <TaskDueDatePopup
+          task={dueDateTarget}
+          projectId={currentProjectId}
+          onClose={() => setDueDateTarget(null)}
+          onChanged={() => { setDueDateTarget(null); refetch(); }}
+        />
+      )}
     </div>
   );
 }
