@@ -28,7 +28,7 @@ export function BoardView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selId, setSelId] = useState<string | null>(null);
+  const [selId, setSelId] = useState<string | null>(() => searchParams.get("taskId"));
   const [showModal, setShowModal] = useState(false);
   const [modalStatus, setModalStatus] = useState<TaskStatus>("todo");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -88,10 +88,11 @@ export function BoardView() {
   };
 
   useEffect(() => {
-    if (searchParams.get("openAdd") === "1") {
-      openModal("todo");
+    if (searchParams.get("openAdd") === "1" || searchParams.get("taskId")) {
+      if (searchParams.get("openAdd") === "1") openModal("todo");
       const next = new URLSearchParams(searchParams);
       next.delete("openAdd");
+      next.delete("taskId");
       setSearchParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

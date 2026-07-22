@@ -7,6 +7,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "users")
@@ -27,6 +31,22 @@ public class User {
     @Column(name = "provider_id", nullable = false, length = 255)
     private String providerId;
 
+    @Column(name = "password_hash", length = 255)
+    private String passwordHash;
+
+    @Column(length = 100)
+    private String affiliation;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false)
+    private List<String> field = new ArrayList<>();
+
+    @Column(name = "github_username", length = 100)
+    private String githubUsername;
+
+    @Column(name = "profile_image_path", length = 255)
+    private String profileImagePath;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -36,11 +56,12 @@ public class User {
     protected User() {
     }
 
-    public User(String email, String name, String provider, String providerId) {
+    public User(String email, String name, String provider, String providerId, String passwordHash) {
         this.email = email;
         this.name = name;
         this.provider = provider;
         this.providerId = providerId;
+        this.passwordHash = passwordHash;
     }
 
     @jakarta.persistence.PrePersist
@@ -77,6 +98,46 @@ public class User {
 
     public String getProviderId() {
         return providerId;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public String getAffiliation() {
+        return affiliation;
+    }
+
+    public void setAffiliation(String affiliation) {
+        this.affiliation = affiliation;
+    }
+
+    public List<String> getField() {
+        return field;
+    }
+
+    public void setField(List<String> field) {
+        this.field = field;
+    }
+
+    public String getGithubUsername() {
+        return githubUsername;
+    }
+
+    public void setGithubUsername(String githubUsername) {
+        this.githubUsername = githubUsername;
+    }
+
+    public String getProfileImagePath() {
+        return profileImagePath;
+    }
+
+    public void setProfileImagePath(String profileImagePath) {
+        this.profileImagePath = profileImagePath;
     }
 
     public LocalDateTime getCreatedAt() {

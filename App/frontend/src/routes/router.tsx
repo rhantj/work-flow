@@ -20,6 +20,7 @@ import { MeetingsView } from "../meetings/screen/MeetingsView";
 import { DeliverablesView } from "../deliverables/screen/DeliverablesView";
 import { ContributorsView } from "../contributors/screen/ContributorsView";
 import { MyPageRoute } from "../mypage/screen/MyPageRoute";
+import { MyPageEditRoute } from "../mypage/screen/MyPageEditRoute";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginScreen /> },
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
             ],
           },
           { path: "mypage", element: <MyPageRoute /> },
+          { path: "mypage/edit", element: <MyPageEditRoute /> },
         ],
       },
     ],

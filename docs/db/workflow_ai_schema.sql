@@ -26,19 +26,29 @@ $$ LANGUAGE plpgsql;
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE users (
-    id          BIGSERIAL PRIMARY KEY,
-    email       VARCHAR(255) NOT NULL,
-    name        VARCHAR(100) NOT NULL,
-    provider    VARCHAR(20)  NOT NULL,
-    provider_id VARCHAR(255) NOT NULL,
-    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id              BIGSERIAL PRIMARY KEY,
+    email           VARCHAR(255) NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    provider        VARCHAR(20)  NOT NULL,
+    provider_id     VARCHAR(255) NOT NULL,
+    password_hash   VARCHAR(255),
+    affiliation        VARCHAR(100),
+    field              JSONB NOT NULL DEFAULT '[]'::jsonb,
+    github_username    VARCHAR(100),
+    profile_image_path VARCHAR(255),
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_users_email UNIQUE (email),
     CONSTRAINT uq_users_provider UNIQUE (provider, provider_id)
 );
 COMMENT ON TABLE users IS '사용자';
-COMMENT ON COLUMN users.provider IS 'google 등 OAuth 제공자';
-COMMENT ON COLUMN users.provider_id IS 'OAuth sub (불변 식별자)';
+COMMENT ON COLUMN users.provider IS 'google 등 OAuth 제공자 또는 local(이메일/비밀번호 가입)';
+COMMENT ON COLUMN users.provider_id IS 'OAuth sub(불변 식별자) 또는 local 계정의 경우 email과 동일';
+COMMENT ON COLUMN users.password_hash IS 'BCrypt 해시. provider=local 계정만 값이 있고 OAuth 계정은 NULL';
+COMMENT ON COLUMN users.affiliation IS '소속 (예: 컴퓨터공학과 3학년)';
+COMMENT ON COLUMN users.field IS '전공/관심 분야 태그 배열 (예: ["백엔드", "인프라"])';
+COMMENT ON COLUMN users.github_username IS 'GitHub 아이디만 저장한다 (URL 아님)';
+COMMENT ON COLUMN users.profile_image_path IS '업로드된 프로필 사진의 uploads 디렉토리 기준 상대 경로 (예: avatars/5.png)';
 
 CREATE TRIGGER trg_users_updated_at
     BEFORE UPDATE ON users

@@ -76,6 +76,9 @@ services:
       WORKFLOW_DEMO_SEED_ENABLED: ${WORKFLOW_DEMO_SEED_ENABLED:-true}
     ports:
       - '8080:8080'
+    volumes:
+      # 업로드 파일(프로필 사진 등)이 컨테이너 재빌드 후에도 유지되도록 named volume에 저장한다.
+      - uploads-data:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -144,3 +147,4 @@ services:
 
 volumes:
   db-data:
+  uploads-data:

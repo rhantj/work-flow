@@ -4,6 +4,7 @@ import com.workflowai.security.JwtService;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
 import io.jsonwebtoken.Claims;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,15 +12,49 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
     private static final String PROVIDER_GOOGLE = "google";
     private static final String PROVIDER_DEMO = "demo";
+    private static final String PROVIDER_LOCAL = "local";
 
     private final GoogleOAuthService googleOAuthService;
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthService(GoogleOAuthService googleOAuthService, UserRepository userRepository, JwtService jwtService) {
+    public AuthService(
+        GoogleOAuthService googleOAuthService,
+        UserRepository userRepository,
+        JwtService jwtService,
+        PasswordEncoder passwordEncoder
+    ) {
         this.googleOAuthService = googleOAuthService;
         this.userRepository = userRepository;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    /** 이메일/비밀번호로 회원가입한다. 이미 가입된 이메일이면 예외를 던진다. */
+    @Transactional
+    public AuthTokenResponse signup(SignupRequest request) {
+        if (userRepository.findByEmail(request.email()).isPresent()) {
+            throw new IllegalStateException("이미 가입된 이메일입니다.");
+        }
+        User user = new User(
+            request.email(),
+            request.name(),
+            PROVIDER_LOCAL,
+            request.email(),
+            passwordEncoder.encode(request.password())
+        );
+        userRepository.save(user);
+        return issueTokens(user);
+    }
+
+    /** 이메일/비밀번호로 로그인한다. 계정이 없거나 비밀번호가 일치하지 않으면 동일한 예외로 던져 계정 존재 여부를 노출하지 않는다. */
+    public AuthTokenResponse login(LoginRequest request) {
+        User user = userRepository.findByEmail(request.email())
+            .filter(u -> u.getPasswordHash() != null)
+            .filter(u -> passwordEncoder.matches(request.password(), u.getPasswordHash()))
+            .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
+        return issueTokens(user);
     }
 
     @Transactional
@@ -29,7 +64,7 @@ public class AuthService {
 
         User user = userRepository.findByProviderAndProviderId(PROVIDER_GOOGLE, userInfo.sub())
             .orElseGet(() -> userRepository.save(
-                new User(userInfo.email(), userInfo.name(), PROVIDER_GOOGLE, userInfo.sub())
+                new User(userInfo.email(), userInfo.name(), PROVIDER_GOOGLE, userInfo.sub(), null)
             ));
 
         return issueTokens(user);
@@ -53,7 +88,7 @@ public class AuthService {
     private AuthTokenResponse issueTokens(User user) {
         String accessToken = jwtService.issueAccessToken(user);
         String refreshToken = jwtService.issueRefreshToken(user);
-        UserSummary summary = new UserSummary(user.getId(), user.getEmail(), user.getName());
+        UserSummary summary = UserSummary.from(user);
         return new AuthTokenResponse(accessToken, refreshToken, jwtService.accessTokenTtlSeconds(), summary);
     }
 }
