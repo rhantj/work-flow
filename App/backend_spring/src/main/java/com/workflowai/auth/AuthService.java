@@ -4,6 +4,7 @@ import com.workflowai.security.JwtService;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
 import io.jsonwebtoken.Claims;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,13 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    /** 이메일/비밀번호로 회원가입한다. 이미 가입된 이메일이면 예외를 던진다. */
+    /**
+     * 이메일/비밀번호로 회원가입한다. 이미 가입된 이메일이면 예외를 던진다.
+     * findByEmail 사전 체크만으로는 동시 요청 경쟁을 완전히 막지 못한다 — 두 요청이 모두 사전 체크를
+     * 통과한 뒤 저장을 시도하면 DB의 email UNIQUE 제약에서 하나가 걸리는데, saveAndFlush로 즉시
+     * 반영해 그 경우도 이 메서드 안에서 잡아 동일한 예외로 통일한다(그렇지 않으면 커밋 시점에야
+     * 예외가 나서 여기서 잡히지 않고 500으로 노출된다).
+     */
     @Transactional
     public AuthTokenResponse signup(SignupRequest request) {
         if (userRepository.findByEmail(request.email()).isPresent()) {
@@ -44,7 +51,11 @@ public class AuthService {
             request.email(),
             passwordEncoder.encode(request.password())
         );
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("이미 가입된 이메일입니다.");
+        }
         return issueTokens(user);
     }
 

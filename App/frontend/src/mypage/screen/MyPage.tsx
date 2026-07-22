@@ -100,10 +100,10 @@ function MemberMyPage({ name, email, affiliation, field, github, profileImageUrl
             <div className="text-right">
               <div className="text-xs text-muted-foreground mb-1">참여 프로젝트</div>
               <div className="text-sm font-semibold text-foreground">{MEMBER_USER.project}</div>
-              <div className="flex items-center gap-1.5 mt-1.5 justify-end">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-[10px] text-emerald-600 font-medium">GitHub 연결됨</span>
-                {github ? (
+              {github && (
+                <div className="flex items-center gap-1.5 mt-1.5 justify-end">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] text-emerald-600 font-medium">GitHub 연결됨</span>
                   <a
                     href={`https://github.com/${github}`}
                     target="_blank"
@@ -112,10 +112,8 @@ function MemberMyPage({ name, email, affiliation, field, github, profileImageUrl
                   >
                     ({github})
                   </a>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground">({github})</span>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -624,9 +622,12 @@ export function MyPage() {
   const role: MyPageRole = projectRoles[0]?.role === "심사자" ? "reviewer" : "member";
   const name = user?.name ?? "";
   const email = user?.email ?? "";
-  const affiliation = user?.affiliation || MEMBER_USER.affiliation;
-  const field = user?.field && user.field.length > 0 ? user.field : [MEMBER_USER.field];
-  const github = user?.githubUsername || MEMBER_USER.github;
+  // 사용자가 정보를 입력한 적이 없으면(null) 데모용 목업으로 보여주되, 일부러 빈 값으로
+  // 지운 경우("" 또는 [])까지 목업으로 덮어 보여주면 지운 게 그대로 남아 보이는 것처럼 오인되므로
+  // null/undefined일 때만 목업으로 대체한다.
+  const affiliation = user?.affiliation ?? MEMBER_USER.affiliation;
+  const field = user?.field ?? [];
+  const github = user?.githubUsername ?? MEMBER_USER.github;
   const profileImageUrl = user?.profileImageUrl ?? null;
   const handleLogout = () => {
     logout();

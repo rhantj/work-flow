@@ -143,12 +143,30 @@ public class MeController {
 
         User user = userRepository.findById(CurrentUser.id())
             .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+        String oldPath = user.getProfileImagePath();
 
+        String newPath;
         try {
-            user.setProfileImagePath(storeAvatar(user.getId(), file, detectedFormat));
+            newPath = storeAvatar(user.getId(), file, detectedFormat);
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail("UPLOAD_FAILED", "이미지 업로드에 실패했습니다."));
+        }
+
+        try {
+            user.setProfileImagePath(newPath);
+            userRepository.saveAndFlush(user);
+        } catch (RuntimeException e) {
+            // DB 반영이 실패하면 방금 쓴 새 파일을 되돌린다 — 새 파일은 이전 파일과 이름이 겹치지
+            // 않으므로(storeAvatar 참고) 기존 사진은 그대로 남는다. DB 경로와 실제 파일이 어긋나지 않게 한다.
+            deleteAvatarFile(newPath);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.fail("UPLOAD_FAILED", "이미지 업로드에 실패했습니다."));
+        }
+
+        // DB에 새 경로가 반영된 게 확인된 뒤에만 이전 파일을 지운다.
+        if (oldPath != null && !oldPath.equals(newPath)) {
+            deleteAvatarFile(oldPath);
         }
 
         return ResponseEntity.ok(ApiResponse.ok(UserSummary.from(user)));
@@ -173,9 +191,10 @@ public class MeController {
     }
 
     /**
-     * ImageIO의 ImageReader가 실제로 인식한 포맷 이름을 기준으로 판단한다 — Content-Type 헤더는
-     * 신뢰하지 않고, ImageIO가 디코딩은 가능하지만 PNG/JPEG가 아닌 포맷(GIF, BMP 등)도 걸러낸다.
-     * 반환값은 저장 시 그대로 확장자로 쓰인다 ("png" 또는 "jpg"), 판별 불가/미허용 포맷이면 null.
+     * ImageIO의 ImageReader가 실제로 인식한 포맷 이름이 PNG/JPEG인지 확인하는 것에 더해,
+     * 같은 리더로 실제 픽셀 데이터까지 끝까지 디코딩되는지도 확인한다 — 헤더만 보고 포맷을
+     * 판별하는 것만으로는 본문이 잘리거나 손상된 파일을 걸러내지 못한다. Content-Type 헤더는
+     * 신뢰하지 않는다. 반환값은 저장 시 그대로 확장자로 쓰인다 ("png" 또는 "jpg"), 그 외에는 null.
      */
     private String detectImageFormat(MultipartFile file) {
         try (ImageInputStream iis = ImageIO.createImageInputStream(file.getInputStream())) {
@@ -189,12 +208,19 @@ public class MeController {
             ImageReader reader = readers.next();
             try {
                 String formatName = reader.getFormatName().toLowerCase();
+                String extension;
                 if (formatName.equals("png")) {
-                    return "png";
+                    extension = "png";
+                } else if (formatName.equals("jpeg") || formatName.equals("jpg")) {
+                    extension = "jpg";
+                } else {
+                    return null;
                 }
-                if (formatName.equals("jpeg") || formatName.equals("jpg")) {
-                    return "jpg";
-                }
+
+                reader.setInput(iis);
+                reader.read(0); // 헤더 인식과 별개로 전체 디코딩이 실제로 되는지 확인 (실패 시 IOException)
+                return extension;
+            } catch (IOException | RuntimeException e) {
                 return null;
             } finally {
                 reader.dispose();
@@ -205,21 +231,22 @@ public class MeController {
     }
 
     /**
-     * 사용자당 파일 하나만 유지한다: avatars/{userId}.{ext}에 저장한다 (ext는 detectImageFormat이
-     * 실제로 감지한 포맷). 임시 파일에 먼저 쓰고 성공했을 때만 교체하며, 확장자가 바뀌어 남는
-     * 이전 파일은 새 파일 저장이 완전히 끝난 뒤에만 지운다 — 저장 도중 실패해도 기존 사진이
-     * 유실되지 않게 한다. ATOMIC_MOVE는 요구하지 않는다 — 이를 지원하지 않는 파일시스템(일부
-     * 컨테이너/네트워크 볼륨)에서는 AtomicMoveNotSupportedException으로 업로드가 항상 실패하는데,
-     * 같은 디렉터리 안에서의 REPLACE_EXISTING만으로도 이 용도로는 충분하다.
+     * 매 업로드마다 고유한 파일명(avatars/{userId}-{nanoTime}.{ext})으로 저장한다 — 같은 이름을
+     * 재사용하면 DB 저장이 실패했을 때 되돌리려고 지우는 파일이 방금 막 덮어쓴 "이전" 파일과
+     * 같아져 기존 사진까지 유실된다. 고유한 이름을 쓰면 새 파일 쓰기가 기존 파일에 전혀
+     * 영향을 주지 않으므로, DB 반영 성공 여부에 따라 새 파일과 이전 파일 중 하나만 안전하게
+     * 지우면 된다(호출부 참고). ATOMIC_MOVE는 요구하지 않는다 — 이를 지원하지 않는 파일시스템
+     * (일부 컨테이너/네트워크 볼륨)에서는 AtomicMoveNotSupportedException으로 업로드가 항상
+     * 실패하는데, 같은 디렉터리 안에서는 REPLACE_EXISTING만으로도 이 용도에 충분하다.
      */
     private String storeAvatar(Long userId, MultipartFile file, String extension) throws IOException {
         Path dir = Path.of(uploadsDir, "avatars").toAbsolutePath().normalize();
         Files.createDirectories(dir);
 
-        String fileName = userId + "." + extension;
+        String fileName = userId + "-" + System.nanoTime() + "." + extension;
         Path target = dir.resolve(fileName);
 
-        Path tmp = dir.resolve("upload-" + userId + "-" + System.nanoTime() + ".tmp");
+        Path tmp = dir.resolve(fileName + ".tmp");
         try {
             file.transferTo(tmp);
             Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
@@ -227,12 +254,14 @@ public class MeController {
             Files.deleteIfExists(tmp);
         }
 
-        for (String ext : List.of("png", "jpg", "jpeg")) {
-            if (!ext.equals(extension)) {
-                Files.deleteIfExists(dir.resolve(userId + "." + ext));
-            }
-        }
-
         return "avatars/" + fileName;
+    }
+
+    /** DB 반영이 확인된 뒤에만 호출한다. 정리 실패는 무시한다 — orphan 파일만 남을 뿐 서비스에는 영향 없다. */
+    private void deleteAvatarFile(String relativePath) {
+        try {
+            Files.deleteIfExists(Path.of(uploadsDir, relativePath).toAbsolutePath().normalize());
+        } catch (IOException ignored) {
+        }
     }
 }
