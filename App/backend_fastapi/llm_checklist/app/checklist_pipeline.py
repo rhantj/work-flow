@@ -69,6 +69,7 @@ def parse_checklist_response(raw: str) -> List[ChecklistItemSuggestion]:
 import logging
 import os
 
+import httpx
 import ollama
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_CHECKLIST_MODEL = "qwen2.5:1.5b"
 DEFAULT_CHECKLIST_TIMEOUT_SECONDS = 20.0
 DEFAULT_CHECKLIST_NUM_PREDICT = 400
+
+# HuggingFace Inference API(회의록 분석과 동일한 프로바이더) 기본값.
+HF_CHAT_COMPLETIONS_URL = "https://router.huggingface.co/v1/chat/completions"
+DEFAULT_CHECKLIST_HF_MODEL = "Qwen/Qwen3-4B-Instruct-2507"
+DEFAULT_CHECKLIST_HF_TIMEOUT_SECONDS = 35.0
+DEFAULT_CHECKLIST_HF_MAX_TOKENS = 700
 
 
 def generate_checklist_with_ollama(request: ChecklistGenerateRequest) -> ChecklistGenerateResponse:
@@ -98,10 +105,44 @@ def generate_checklist_with_ollama(request: ChecklistGenerateRequest) -> Checkli
     return ChecklistGenerateResponse(items=items, engine="ollama")
 
 
+def generate_checklist_with_huggingface(request: ChecklistGenerateRequest) -> ChecklistGenerateResponse:
+    token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
+    if not token:
+        raise RuntimeError("HF_TOKEN is not configured.")
+
+    endpoint = os.getenv("CHECKLIST_HF_ENDPOINT", HF_CHAT_COMPLETIONS_URL)
+    model = os.getenv("CHECKLIST_HF_MODEL") or os.getenv("HF_MEETING_ANALYSIS_MODEL", DEFAULT_CHECKLIST_HF_MODEL)
+    timeout_seconds = float(os.getenv("CHECKLIST_HF_TIMEOUT_SECONDS", str(DEFAULT_CHECKLIST_HF_TIMEOUT_SECONDS)))
+    max_tokens = int(os.getenv("CHECKLIST_HF_MAX_TOKENS", str(DEFAULT_CHECKLIST_HF_MAX_TOKENS)))
+    temperature = float(os.getenv("CHECKLIST_HF_TEMPERATURE", "0.2"))
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": build_checklist_prompt(request)}],
+        "stream": False,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    with httpx.Client(timeout=timeout_seconds) as client:
+        response = client.post(endpoint, headers=headers, json=payload)
+        response.raise_for_status()
+        body = response.json()
+
+    items = parse_checklist_response(body["choices"][0]["message"]["content"])
+    logger.info("Hugging Face 체크리스트 생성 성공. model=%s, items=%d", model, len(items))
+    return ChecklistGenerateResponse(items=items, engine="huggingface")
+
+
 def generate_checklist(request: ChecklistGenerateRequest) -> ChecklistGenerateResponse:
-    provider = os.getenv("CHECKLIST_PROVIDER", "ollama").lower()
-    if provider != "ollama":
-        raise RuntimeError(f"지원하지 않는 CHECKLIST_PROVIDER: {provider}")
-    # Ollama 실패 시 예외를 전파한다. 규칙 기반 폴백은 Spring의 RuleBasedChecklistGenerator가
+    # 앱 전역 LLM 프로바이더를 따른다: CHECKLIST_PROVIDER > MEETING_ANALYSIS_PROVIDER > "ollama".
+    # (팀 환경은 MEETING_ANALYSIS_PROVIDER=huggingface 로 HF Inference API를 쓴다.)
+    provider = (os.getenv("CHECKLIST_PROVIDER") or os.getenv("MEETING_ANALYSIS_PROVIDER", "ollama")).lower()
+    # 실패 시 예외를 전파한다. 규칙 기반 폴백은 Spring의 RuleBasedChecklistGenerator가
     # 카테고리별 풍부한 템플릿으로 담당하므로, FastAPI는 자체 폴백을 하지 않고 실패를 알린다.
-    return generate_checklist_with_ollama(request)
+    if provider in {"huggingface", "hf"}:
+        return generate_checklist_with_huggingface(request)
+    if provider == "ollama":
+        return generate_checklist_with_ollama(request)
+    raise RuntimeError(f"지원하지 않는 LLM 프로바이더: {provider}")
