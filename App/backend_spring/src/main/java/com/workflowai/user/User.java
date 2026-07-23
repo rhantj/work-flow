@@ -52,6 +52,14 @@ public class User {
     @Column(name = "reviewer_status", length = 20)
     private String reviewerStatus;
 
+    // 이메일/비밀번호 회원가입(로컬 계정)에서만 채워진다 — 실제로 이 유저가 회원가입 시점에
+    // 이용약관/개인정보처리방침 화면을 거쳐 동의했는지 감사 목적으로 남긴다. Google OAuth/데모
+    // 로그인으로 만들어진 계정은 이 화면을 거치지 않으므로 null로 남는다. 프론트엔드 체크박스
+    // 상태만 믿지 않고 AuthService가 서버에서 다시 검증한 뒤 이 값을 채운다 — 버그나 API를
+    // 직접 호출하는 우회 경로로 동의 없이 계정이 만들어지는 것을 막기 위해서다.
+    @Column(name = "terms_agreed_at")
+    private LocalDateTime termsAgreedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -155,6 +163,14 @@ public class User {
 
     public void setReviewerStatus(String reviewerStatus) {
         this.reviewerStatus = reviewerStatus;
+    }
+
+    public LocalDateTime getTermsAgreedAt() {
+        return termsAgreedAt;
+    }
+
+    public void setTermsAgreedAt(LocalDateTime termsAgreedAt) {
+        this.termsAgreedAt = termsAgreedAt;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -3,11 +3,10 @@ import { useLocation, useNavigate } from "react-router";
 import { ArrowLeft, Check } from "lucide-react";
 import { AuthBrandPanel } from "../components/AuthBrandPanel";
 
+// SignupScreen.tsx의 SignupDraft와 동일한 이유로 비밀번호는 포함하지 않는다.
 interface SignupDraft {
   name: string;
   email: string;
-  pw: string;
-  pwConfirm: string;
   isProfessor: boolean;
   professorNo: string;
 }
@@ -86,10 +85,18 @@ export function SignupTermsScreen() {
               </section>
             </div>
 
-            <label className="flex items-start gap-2.5 mt-5 cursor-pointer select-none">
+            {/* div onClick 대신 실제 button을 쓴다 — 버튼은 기본적으로 Tab으로 포커스되고
+                Enter/Space로 눌러진다. role="checkbox"/aria-checked로 스크린 리더에는
+                체크박스로 안내된다. */}
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={checked}
+              onClick={handleAgree}
+              className="w-full flex items-start gap-2.5 mt-5 text-left select-none"
+            >
               <div
-                onClick={handleAgree}
-                className={`w-5 h-5 rounded border flex items-center justify-center transition-all mt-0.5 cursor-pointer shrink-0 ${
+                className={`w-5 h-5 rounded border flex items-center justify-center transition-all mt-0.5 shrink-0 ${
                   checked ? "border-blue-500 bg-blue-500" : "border-border"
                 }`}
               >
@@ -98,7 +105,7 @@ export function SignupTermsScreen() {
               <span className="text-sm text-foreground">
                 위 이용약관 및 개인정보처리방침을 모두 확인했으며 이에 동의합니다.
               </span>
-            </label>
+            </button>
             <p className="text-xs text-muted-foreground mt-2 ml-[30px]">
               체크하면 회원가입 화면으로 자동으로 돌아갑니다.
             </p>

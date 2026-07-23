@@ -271,16 +271,19 @@ Flyway 마이그레이션에는 없었다 — db/init을 거치지 않았거나 
 추가해 명시적으로 켤 것.
 
 1. `ls backend_spring/src/main/resources/db/migration/`로 이 시점에 실제로 존재하는
-   마이그레이션 파일 전체 목록을 적어둔다.
+   마이그레이션 파일 전체 목록을 뽑고, 그중 **baseline-version(현재 `20260721_1`)보다
+   버전이 높은 파일만** 따로 적어둔다 — `V20260721_1` 자신은 baseline 대상이라 "적용"되는
+   게 아니라 baseline 행 하나로만 기록되므로, 이 목록에서는 제외한다.
 2. 운영 DB의 최근 스냅샷(또는 동등한 복제본)에 로컬/스테이징에서 `SPRING_FLYWAY_ENABLED=true`로
    앱을 한 번 기동해본다.
-3. 시작 로그에서 Flyway가 `Successfully baselined schema with version: 20260721_1`을 남기고,
-   그 뒤에 1번에서 적어둔 파일들이 **전부** `Successfully applied`로 적용되는지 확인한다 —
-   baseline보다 버전이 높은 파일이 전부 적용되는 건 정상이다(그 DB에 해당 컬럼들이
-   없었다는 뜻). 1번 목록에 없는 마이그레이션이 추가로 적용된다면 원인을 먼저 파악할 것.
+3. 시작 로그에서 Flyway가 `Successfully baselined schema with version: 20260721_1`을 남기고
+   (`V20260721_1`은 여기서만 언급되고 별도의 `Successfully applied` 로그는 남기지 않는다),
+   그 뒤에 1번에서 적어둔 baseline 초과 버전 파일들이 **전부** `Successfully applied`로
+   적용되는지 확인한다 — 그 DB에 해당 컬럼들이 없었다는 뜻이니 정상이다. 1번 목록에 없는
+   마이그레이션이 추가로 적용된다면 원인을 먼저 파악할 것.
 4. `SELECT * FROM flyway_schema_history ORDER BY installed_rank;`로 baseline 행(version
-   20260721_1, type BASELINE)과 1번 목록의 파일들 외에 예상 못한 행이 없는지 눈으로
-   확인한다.
+   `20260721_1`, type `BASELINE`) 정확히 하나와, 1번에서 적어둔 파일들이 type `SUCCESS`로
+   기록돼 있는지, 그 외 예상 못한 행이 없는지 눈으로 확인한다.
 5. `\d users`(또는 동등한 방법)로 `field_tags`/`profile_image_path`/`affiliation`/
    `github_username` 컬럼이 실제로 생겼는지 확인한다.
 6. 위 확인이 끝난 뒤에만 실제 운영 `.env`에 `SPRING_FLYWAY_ENABLED=true`를 추가하고

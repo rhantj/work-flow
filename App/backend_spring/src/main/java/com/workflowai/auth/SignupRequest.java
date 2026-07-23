@@ -1,6 +1,7 @@
 package com.workflowai.auth;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -25,6 +26,12 @@ public record SignupRequest(
 
     @Pattern(regexp = "(?i)^(MEMBER|REVIEWER)$", message = "가입 유형은 MEMBER 또는 REVIEWER만 선택할 수 있습니다.")
     @Schema(description = "가입 유형: MEMBER(일반 회원) 또는 REVIEWER(심사자, 승인 대기)", example = "MEMBER")
-    String roleType
+    String roleType,
+
+    // boolean(원시타입)이라 요청 JSON에 이 필드가 아예 없으면 Jackson이 false로 채운다 —
+    // @AssertTrue와 합쳐지면 "누락"과 "명시적 false"가 동일하게 검증 실패로 처리된다.
+    @AssertTrue(message = "이용약관 및 개인정보처리방침에 동의해주세요.")
+    @Schema(description = "이용약관/개인정보처리방침 동의 여부. true가 아니면 회원가입이 거부된다", example = "true")
+    boolean termsAgreed
 ) {
 }

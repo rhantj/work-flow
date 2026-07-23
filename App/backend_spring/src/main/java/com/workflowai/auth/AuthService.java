@@ -4,6 +4,7 @@ import com.workflowai.security.JwtService;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
 import io.jsonwebtoken.Claims;
+import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -66,7 +67,7 @@ public class AuthService {
 
     /** 이메일/비밀번호 회원가입. REVIEWER는 토큰을 발급하지 않고 승인 대기 상태로만 계정을 만든다. */
     @Transactional
-    public SignupResponse signup(String email, String password, String name, String roleType) {
+    public SignupResponse signup(String email, String password, String name, String roleType, boolean termsAgreed) {
         String normalizedEmail = normalizeEmail(email);
         String normalizedName = normalizeName(name);
         String normalizedRoleType = normalizeRoleType(roleType);
@@ -79,6 +80,13 @@ public class AuthService {
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
             throw new InvalidSignupInputException("비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 합니다.");
         }
+        // 컨트롤러의 @Valid(SignupRequest의 @AssertTrue)가 이미 걸러내지만, 이 메서드를 다른
+        // 경로(테스트, 향후 다른 컨트롤러/배치 등)에서 직접 호출해도 동의 없는 가입이 뚫리지
+        // 않도록 서비스 계층에서도 같은 규칙을 다시 확인한다 — 버그나 API 직접 호출로 이용약관
+        // 동의 없이 계정이 만들어지는 것을 막는 게 이 필드를 만든 목적이다.
+        if (!termsAgreed) {
+            throw new InvalidSignupInputException("이용약관 및 개인정보처리방침에 동의해주세요.");
+        }
         if (userRepository.existsByEmail(normalizedEmail)) {
             throw new EmailAlreadyExistsException();
         }
@@ -86,6 +94,7 @@ public class AuthService {
         String passwordHash = passwordEncoder.encode(password);
         boolean isReviewerApplication = ROLE_TYPE_REVIEWER.equals(normalizedRoleType);
         User newUser = new User(normalizedEmail, normalizedName, PROVIDER_LOCAL, normalizedEmail, passwordHash);
+        newUser.setTermsAgreedAt(LocalDateTime.now());
         if (isReviewerApplication) {
             newUser.setReviewerStatus(REVIEWER_STATUS_PENDING);
         }
