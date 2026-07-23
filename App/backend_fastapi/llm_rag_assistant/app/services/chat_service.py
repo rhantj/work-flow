@@ -144,7 +144,7 @@ async def answer_question(pool, project_id: int, question: str, user_id: int | N
 
     query_embedding = await embed_text(question)
     rows = await search_similar_chunks(pool, project_id, query_embedding, top_k=5, assignee_id=assignee_id)
-    answer = await generate_answer(question, rows)
+    answer = await generate_answer(question, rows, is_personal=assignee_id is not None)
 
     sources = [
         RagSource(

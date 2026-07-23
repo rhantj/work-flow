@@ -109,11 +109,14 @@ async def test_answer_question_filters_by_assignee_when_personal_intent_and_user
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
             new=AsyncMock(return_value="답변"),
-        ),
+        ) as mock_generate,
     ):
         await answer_question(pool, project_id=5, question="내가 담당한 업무 알려줘", user_id=42)
 
     mock_search.assert_awaited_once_with(pool, 5, [0.1], top_k=5, assignee_id=42)
+    # 담당자 필터를 걸었다는 사실이 생성 단계까지 전달돼야 한다. 전달하지 않으면 모델이
+    # 청크가 질문자 것인지 알 수 없어 담당 업무가 있어도 '근거 없음'으로 답한다.
+    assert mock_generate.await_args.kwargs["is_personal"] is True
 
 
 @pytest.mark.asyncio
@@ -132,11 +135,12 @@ async def test_answer_question_does_not_filter_by_assignee_for_non_personal_ques
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
             new=AsyncMock(return_value="답변"),
-        ),
+        ) as mock_generate,
     ):
         await answer_question(pool, project_id=5, question="프로젝트 전체 업무 현황 알려줘", user_id=42)
 
     mock_search.assert_awaited_once_with(pool, 5, [0.1], top_k=5, assignee_id=None)
+    assert mock_generate.await_args.kwargs["is_personal"] is False
 
 
 @pytest.mark.parametrize(
