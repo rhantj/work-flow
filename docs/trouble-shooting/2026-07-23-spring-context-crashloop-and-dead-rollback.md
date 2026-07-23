@@ -149,7 +149,54 @@ Automatic rollback blocked: queue/outbox metrics unavailable
 `| sed -n "1p"` 파이프라인이라 `pipefail`이 없어 종료 코드가 `sed`의 0이 되고,
 `set -e`에도 걸리지 않아 조용히 넘어간 점이 발견을 늦췄다.
 
+## 원인 3 — 백엔드 테스트를 실행하는 CI가 존재하지 않음
+
+원인 1·2보다 상위에 있는 구조적 원인이다. 장애 시점의 워크플로는 `deploy-oci.yml`
+하나뿐이었고, **`main` push가 빌드·테스트를 전혀 거치지 않고 곧바로 운영 배포로
+이어졌다.**
+
+```console
+$ grep -ln "gradlew" .github/workflows/*.yml
+없음
+```
+
+테스트 45개가 레포에 있었지만 CI에서 아무도 실행하지 않았다. 원인 1의 컨텍스트 기동
+실패는 `@SpringBootTest`가 하나만 있었어도 잡혔겠지만, 설령 있었더라도 **실행되지
+않았을 것이다.** 테스트를 추가하는 것만으로는 방어선이 되지 않는다.
+
+## 원인 4 — 롤백 대상 태그가 고장난 커밋을 가리킴
+
+장애 복구 직후 서버 상태를 확인한 결과:
+
+```text
+deploy-previous : 5871984  Merge pull request #244   ← 크래시 루프를 일으킨 커밋
+HEAD            : 7a3654d  Merge pull request #245   ← 수정본
+```
+
+`deploy` 스텝은 배포 시작 시점에 `git tag -f deploy-previous HEAD`를 찍는다. 즉
+`deploy-previous`는 **"직전에 배포된 것"이지 "마지막으로 정상 동작한 것"이 아니다.**
+실패한 배포가 서버 HEAD를 고장난 커밋으로 옮겨놓으면, 그 다음 배포가 찍는
+`deploy-previous`는 고장난 커밋을 가리킨다.
+
+이 상태에서 배포 실패가 나면 롤백이 크래시 루프 버전으로 되돌린다. `Verify rollback
+health` 스텝이 이를 감지해 수동 개입을 요구하겠지만, 그때는 이미 두 번 잘못 배포된
+뒤다.
+
 ## 해결
+
+이 문서는 장애 전체를 다루므로, 아래 조치는 **여러 커밋에 나뉘어 반영됐다.** 어느
+변경이 어디에 들어갔는지 먼저 밝힌다. 이 문서가 포함된 커밋의 diff만 보면 1·3번이
+없어 보이지만, 그 둘은 이미 머지되어 운영에 반영된 상태다.
+
+| 항목 | 반영 위치 | 상태 |
+|---|---|---|
+| 1. `@Autowired` 생성자 확정 | `007c201` (PR #245 → main) | 머지·배포 완료 |
+| 3. `BeanConstructorWiringTest` | `007c201` (PR #245 → main) | 머지·배포 완료 |
+| 2. `ApplicationContextLoadTest` | `fb0a36a` | 이 브랜치 |
+| 4. 롤백 인용·템플릿 수정 | `fb0a36a` | 이 브랜치 |
+| 5. actionlint 게이트 | `fb0a36a` | 이 브랜치 |
+| 6. 테스트 CI·배포 게이트 | `af4d9f9` 이후 | 이 브랜치 |
+| 7. `deploy-last-good` 롤백 지점 | `af4d9f9` 이후 | 이 브랜치 |
 
 ### 1. 생성자 주입 확정
 
@@ -207,6 +254,34 @@ H2로 대체할 수 없다. 엔티티와 스키마가 Postgres 전용 타입에 
 배포 워크플로의 실패 경로(롤백 등)는 정상 배포에서 실행되지 않으므로 문법 오류가 있어도
 드러나지 않는다. actionlint는 `run` 블록을 shellcheck로 검사해 이를 잡는다.
 
+### 6. 테스트 CI 신설 및 배포 게이트 연결
+
+`.github/workflows/backend-tests.yml` — PR과 `dev`/`main` push에서 백엔드 테스트를
+실행한다. 머지 전에 잡는 층이다.
+
+`deploy-oci.yml`에 `test` 잡을 추가하고 `deploy` 잡이 `needs: test`로 의존하게 했다.
+컨텍스트가 뜨지 않는 코드는 서버에 도달할 수 없다.
+
+두 곳 모두 `ApplicationContextLoadTest`가 **실제로 실행됐는지** 결과 XML로 확인한다.
+Docker가 없으면 조용히 건너뛰는 테스트라, 게이트에서 건너뛰면 방어선이 사라진다.
+
+```bash
+if ! grep -q 'tests="1" skipped="0"' "$report"; then
+  echo "ApplicationContextLoadTest가 실행되지 않았거나 건너뛰어졌습니다."
+  exit 1
+fi
+```
+
+### 7. 롤백 대상을 "마지막 정상본"으로 변경
+
+헬스체크를 통과한 시점에만 `deploy-last-good` 태그를 찍는 스텝을 추가하고, 롤백은 이
+태그**만** 사용한다.
+
+`deploy-previous`로 폴백하지 않는다. 폴백하면 원인 4의 위험이 그대로 남기 때문이다 —
+`deploy-previous`는 정상 동작이 확인된 적이 없는 커밋이고, 실제로 장애 직후 크래시
+루프 커밋을 가리키고 있었다. 태그가 없으면 자동 롤백을 차단하고 수동 개입을 요구한다.
+**자동 롤백이 없는 것보다 고장난 버전으로 되돌리는 쪽이 더 위험하다.**
+
 ## 확인
 
 **생성자 수정 (RED → GREEN)**
@@ -242,6 +317,49 @@ SC1088:error:45:20: Parsing stopped here. Invalid use of parentheses?
 
 수정 복원 후 전체 워크플로 통과.
 
+**건너뜀 감지 가드** (`ci/verify-context-test-ran.py`)
+
+처음에는 `grep 'tests="1" skipped="0"'` 문자열 매칭으로 만들었으나, 속성 순서나 리포트
+형식이 바뀌면 조용히 무력화된다. XML 파싱 방식으로 교체하고 7가지 입력으로 확인했다.
+
+| 입력 | 결과 |
+|---|---|
+| 정상 실행 | PASS |
+| 건너뜀 (속성 순서를 뒤바꾼 XML) | FAIL — 건너뜀 감지 |
+| 실행된 테스트 0개 | FAIL |
+| 테스트 실패 | FAIL |
+| `skipped` 속성 누락 (형식 변화) | FAIL — 형식 변화 감지 |
+| 파싱 불가 | FAIL |
+| 리포트 파일 없음 | FAIL |
+
+`skipped` 속성과 `<skipped>` 요소 개수를 교차 확인해, 한쪽만 바뀌는 형식 변화도 막는다.
+
+**롤백 판정부 실측 (서버, 읽기 전용)**
+
+수정본의 판정 로직만 서버에서 실행했다. `docker stop`, `git reset --hard`,
+`compose up`은 제외했다.
+
+```text
+spring_network=[app_default]
+Rollback safety metrics: queue_length=0, queue_pending=0, rag_outbox=0
+판정: PROCEED
+```
+
+수정 전에는 `spring_network`가 비어 outbox 조회가 실패하고 `rag_outbox=unavailable`로
+차단됐다. 판정이 BLOCKED에서 PROCEED로 뒤집혔다.
+
+**롤백 대상 선택 로직 실측 (서버, 읽기 전용)**
+
+서버에 `deploy-last-good`이 아직 없으므로 현재는 자동 롤백이 차단된다. 이것이 의도된
+동작이다 — 폴백 대상인 `deploy-previous`가 크래시 루프 커밋(5871984)을 가리키고 있어,
+폴백했다면 고장난 버전으로 되돌렸을 것이다.
+
+```text
+deploy-previous : 5871984  Merge pull request #244   ← 크래시 루프 커밋
+deploy-last-good: (없음)
+→ 판정: BLOCKED, 수동 개입 요구
+```
+
 **운영 복구**
 
 ```text
@@ -252,14 +370,31 @@ restarts=0 running=true
 
 ## 남은 과제
 
+- **운영 문서에 자격 증명을 쓰지 않는다 (재발 방지).** 이 문서를 처음 작성할 때 서버
+  접속 정보가 평문 예시 명령으로 들어간 채 커밋된 적이 있다. 해당 커밋은 이력에서
+  제거했고 브랜치 전체를 재검색해 남아 있지 않음을 확인했다.
+
+  원인은 보호 범위의 착각이었다. `document_고무서/oci-server.md`만
+  `.git/info/exclude`로 막혀 있고 **`docs/trouble-shooting/`은 추적 대상이다.**
+  운영 문서에는 접속 정보를 넣지 말고 `oci-server.md` 참조로 대체한다. 서버 명령
+  예시는 접속 부분을 빼고 원격에서 실행할 명령만 적는다.
 - `RAG_INTERNAL_API_KEY`, `LANGSMITH_API_KEY` 로테이션 (과거 채팅 기록에 평문 노출).
   `oci-server.md`에 기록된 미결 사항이며 이번 작업에서도 처리하지 않았다.
 - 마이그레이션 009/010(`meetings.analysis_job_id`, `rag_assignee_sync_failures`)에
   해당하는 SQL 파일이 레포에 없다. `db/migration`에는 `V20260721_1` 하나뿐인데
   readiness와 배포 preflight는 두 객체의 존재를 검사한다. Supabase에 수동 적용된
   것으로 보이며, 신규 환경 구축 시 재현이 불가능하다.
-- 롤백 경로는 이번 수정 이후에도 **실제로 트리거된 적이 없다.** 다음 배포 실패 전에
-  스테이징에서 강제 실패를 유도해 end-to-end 검증이 필요하다.
+- **롤백의 변경 구간은 여전히 미검증이다.** 판정부(메트릭 수집·가드)와 대상 선택은
+  서버에서 실측했지만, 그 뒤의 `docker stop` → `git reset --hard` → `compose up`은
+  실행해 본 적이 없다. 운영에서 강제 실패를 유도할 수는 없으므로 스테이징 환경이
+  필요하다. 스테이징이 없는 현재로서는 이 구간이 남은 최대 위험이다.
+- **`deploy-last-good` 태그가 아직 서버에 없다.** 다음 배포가 헬스체크를 통과하면
+  자동으로 생기지만, 그전까지는 롤백 대상이 없다. 즉시 해소하려면 서버에서 현재 정상
+  HEAD에 태그를 찍는다. 접속 절차와 자격 증명은 `oci-server.md`(레포 미추적) 참조.
+
+  ```bash
+  git -C /home/ubuntu/work-flow tag -f deploy-last-good HEAD   # ubuntu 계정으로 실행
+  ```
 - Docker 빌드 캐시 9.6GB (회수 가능 4.9GB). 디스크는 46%로 여유가 있어 시급하지 않다.
 
 ## 관련 문서
