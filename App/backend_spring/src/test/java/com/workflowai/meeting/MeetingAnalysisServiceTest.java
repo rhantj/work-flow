@@ -3,6 +3,7 @@ package com.workflowai.meeting;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.workflowai.common.DemoDataService;
 import com.workflowai.notification.NotificationRepository;
+import com.workflowai.notification.NotificationService;
 import com.workflowai.project.ProjectMember;
 import com.workflowai.project.ProjectMemberRepository;
 import com.workflowai.project.ProjectRole;
@@ -57,6 +59,7 @@ class MeetingAnalysisServiceTest {
     @Mock private MeetingActionItemRepository meetingActionItemRepository;
     @Mock private TaskRepository taskRepository;
     @Mock private NotificationRepository notificationRepository;
+    @Mock private NotificationService notificationService;
     @Mock private UserRepository userRepository;
     @Mock private ProjectMemberRepository projectMemberRepository;
     @Mock private RagIngestService ragIngestService;
@@ -79,7 +82,8 @@ class MeetingAnalysisServiceTest {
         return new MeetingAnalysisService(
             meetingAnalysisRunner, demoDataService, meetingRepository, meetingAttendeeRepository,
             meetingAnalysisRepository, meetingActionItemRepository, taskRepository, notificationRepository,
-            userRepository, projectMemberRepository, ragIngestService, meetingAnalysisPersistence, "/tmp/workflow-uploads"
+            notificationService, userRepository, projectMemberRepository, ragIngestService, meetingAnalysisPersistence,
+            "/tmp/workflow-uploads"
         );
     }
 
@@ -514,6 +518,32 @@ class MeetingAnalysisServiceTest {
         ArgumentCaptor<Task> captor = ArgumentCaptor.forClass(Task.class);
         verify(taskRepository).save(captor.capture());
         assertThat(captor.getValue().getCreatedBy()).isEqualTo(25L);
+    }
+
+    @Test
+    void confirmSaveMarksSavedAtAndNotifiesActorAndLeader() {
+        UserPrincipal uploader = new UserPrincipal(10L, "uploader@example.com", "박지수");
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(uploader, null, List.of())
+        );
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 10L)).thenReturn(true);
+        Meeting meeting = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(projectMemberRepository.findByProjectIdAndRole(1L, ProjectRole.LEADER))
+            .thenReturn(Optional.of(new ProjectMember(1L, 99L, ProjectRole.LEADER)));
+        MeetingAnalysisService service = newService();
+
+        MeetingSaveResponse response = service.confirmSave("demo-project", "5");
+
+        assertThat(response.status()).isEqualTo("SAVED");
+        assertThat(meeting.getSavedAt()).isNotNull();
+        verify(notificationService).notifyActorAndCounterpart(
+            eq(10L), eq("MEETING_SAVED"), any(), any(),
+            eq(99L), eq("MEETING_SAVED_NOTIFY_LEADER"), any(), any(),
+            eq("meeting"), eq(5L)
+        );
     }
 
     private byte[] createPdfBytes(String text) throws Exception {

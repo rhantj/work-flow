@@ -113,4 +113,29 @@ class MeetingAnalysisControllerTest {
             .andExpect(jsonPath("$.data.meetingId").value("42"))
             .andExpect(jsonPath("$.data.status").value("DELETED"));
     }
+
+    @Test
+    void saveMeetingReturns404WhenMeetingMissing() throws Exception {
+        when(meetingAnalysisService.confirmSave("demo-project", "999")).thenReturn(null);
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/meetings/999/save"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.error.code").value("MEETING_NOT_FOUND"));
+    }
+
+    @Test
+    void saveMeetingReturnsSavedStatus() throws Exception {
+        when(meetingAnalysisService.confirmSave("demo-project", "42")).thenReturn(new MeetingSaveResponse("42", "SAVED"));
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/meetings/42/save"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.meetingId").value("42"))
+            .andExpect(jsonPath("$.data.status").value("SAVED"));
+
+        verify(meetingAnalysisService).confirmSave("demo-project", "42");
+    }
 }

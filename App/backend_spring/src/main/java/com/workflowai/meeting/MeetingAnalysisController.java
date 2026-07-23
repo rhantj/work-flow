@@ -201,4 +201,21 @@ public class MeetingAnalysisController {
         }
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    @Operation(
+        summary = "회의록 분석결과 저장 확정",
+        description = "회의록 분석결과를 저장 확정한다. 팀장/팀원 모두 가능하며, 심사자는 접근할 수 없다."
+    )
+    @PostMapping("/{meetingId}/save")
+    @PreAuthorize("@projectAccess.hasRole(#projectId, 'LEADER') || @projectAccess.hasRole(#projectId, 'MEMBER')")
+    public ResponseEntity<ApiResponse<MeetingSaveResponse>> saveMeeting(
+        @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId,
+        @Parameter(description = "회의록 ID", example = "demo-project-1") @PathVariable String meetingId
+    ) {
+        MeetingSaveResponse response = meetingAnalysisService.confirmSave(projectId, meetingId);
+        if (response == null) {
+            return ResponseEntity.status(404).body(ApiResponse.fail("MEETING_NOT_FOUND", "회의록을 찾을 수 없습니다."));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 }

@@ -3,7 +3,9 @@ package com.workflowai.meeting;
 import com.workflowai.common.DemoDataService;
 import com.workflowai.notification.Notification;
 import com.workflowai.notification.NotificationRepository;
+import com.workflowai.notification.NotificationService;
 import com.workflowai.project.ProjectMember;
+import com.workflowai.project.ProjectRole;
 import com.workflowai.project.ProjectMemberRepository;
 import com.workflowai.rag.RagIngestService;
 import com.workflowai.security.CurrentUser;
@@ -51,6 +53,7 @@ public class MeetingAnalysisService {
     private final MeetingActionItemRepository meetingActionItemRepository;
     private final TaskRepository taskRepository;
     private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final RagIngestService ragIngestService;
@@ -66,6 +69,7 @@ public class MeetingAnalysisService {
         MeetingActionItemRepository meetingActionItemRepository,
         TaskRepository taskRepository,
         NotificationRepository notificationRepository,
+        NotificationService notificationService,
         UserRepository userRepository,
         ProjectMemberRepository projectMemberRepository,
         RagIngestService ragIngestService,
@@ -80,6 +84,7 @@ public class MeetingAnalysisService {
         this.meetingActionItemRepository = meetingActionItemRepository;
         this.taskRepository = taskRepository;
         this.notificationRepository = notificationRepository;
+        this.notificationService = notificationService;
         this.userRepository = userRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.ragIngestService = ragIngestService;
@@ -410,6 +415,26 @@ public class MeetingAnalysisService {
             }
         }
         return new TaskRegisterResponse(meetingId, registeredCount, "REGISTERED");
+    }
+
+    @Transactional
+    public MeetingSaveResponse confirmSave(String projectId, String meetingId) {
+        Meeting meeting = requireProjectMeeting(projectId, meetingId);
+        if (meeting == null) return null;
+        meeting.markSaved();
+        meetingRepository.save(meeting);
+
+        Long actorId = CurrentUser.id();
+        Long leaderId = projectMemberRepository.findByProjectIdAndRole(meeting.getProjectId(), ProjectRole.LEADER)
+            .map(ProjectMember::getUserId)
+            .orElse(null);
+        notificationService.notifyActorAndCounterpart(
+            actorId, "MEETING_SAVED", "회의록이 저장되었습니다", "'" + meeting.getTitle() + "' 회의록이 저장되었습니다.",
+            leaderId, "MEETING_SAVED_NOTIFY_LEADER", "회의록이 저장되었습니다",
+            "'" + meeting.getTitle() + "' 회의록을 저장했습니다. 역할분배를 진행해주세요.",
+            "meeting", parseLongOrNull(meetingId)
+        );
+        return new MeetingSaveResponse(meetingId, "SAVED");
     }
 
     private boolean registerSingleTask(Long meetingId, MeetingTodo todo, Long createdBy) {
