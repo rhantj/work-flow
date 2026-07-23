@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createMeetingVersion } from "../libs/utils/meetingAiApi";
+import { ApiRequestError } from "../../global/api/apiClient";
 
 type MeetingEditPanelProps = {
   projectId: string;
@@ -9,15 +10,24 @@ type MeetingEditPanelProps = {
   onAnalyzed: () => void;
 };
 
+function toErrorMessage(error: unknown): string {
+  const status = error instanceof ApiRequestError ? ` (${error.status})` : "";
+  return `저장에 실패했습니다${status}. 잠시 후 다시 시도해주세요.`;
+}
+
 export function MeetingEditPanel({ projectId, meetingId, initialTranscript, onSaved, onAnalyzed }: MeetingEditPanelProps) {
   const [transcript, setTranscript] = useState(initialTranscript);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     setIsSubmitting(true);
+    setError(null);
     try {
       await createMeetingVersion(projectId, meetingId, transcript, false);
       onSaved();
+    } catch (err) {
+      setError(toErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -25,9 +35,12 @@ export function MeetingEditPanel({ projectId, meetingId, initialTranscript, onSa
 
   const handleAnalyze = async () => {
     setIsSubmitting(true);
+    setError(null);
     try {
       await createMeetingVersion(projectId, meetingId, transcript, true);
       onAnalyzed();
+    } catch (err) {
+      setError(toErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -40,6 +53,7 @@ export function MeetingEditPanel({ projectId, meetingId, initialTranscript, onSa
         value={transcript}
         onChange={(e) => setTranscript(e.target.value)}
       />
+      {error && <div className="text-xs text-red-600">{error}</div>}
       <div className="flex justify-end gap-2">
         <button
           type="button"
