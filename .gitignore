@@ -152,6 +152,10 @@ activemq-data/
 
 # Environments
 .env
+# .env 백업본도 같은 시크릿을 담는다. `.env`만 막으면 .env.bak-20260723-164641 같은
+# 파일이 git add -A에 그대로 딸려 들어간다.
+.env.bak*
+.env.*.bak
 .envrc
 .venv
 env/
