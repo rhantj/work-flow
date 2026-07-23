@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from langsmith import traceable
+
 from ml_workload_score.app.services import workload_db as db
 from ml_workload_score.app.services.embedding_difficulty import compute_embedding_adjustments
 from ml_workload_score.app.services.workload_model import (
@@ -18,6 +20,24 @@ from ml_workload_score.app.schema.workload_schema import (
 logger = logging.getLogger(__name__)
 
 
+def _summarize_get_workload_score_outputs(outputs: WorkloadScoreData) -> dict:
+    """LangSmith 트레이스에 팀원별 개인 데이터(WorkloadMemberResult) 전체 대신
+    프로젝트 단위 요약 통계만 기록한다."""
+    return {
+        "project_id": outputs.project_id,
+        "source": outputs.source,
+        "method": outputs.method,
+        "member_count": len(outputs.members),
+        "anomaly_count": sum(1 for m in outputs.members if m.is_anomaly),
+        "note": outputs.note,
+    }
+
+
+@traceable(
+    run_type="chain",
+    name="get_workload_score",
+    process_outputs=_summarize_get_workload_score_outputs,
+)
 async def get_workload_score(project_id: int, use_synthetic_fallback: bool = False) -> WorkloadScoreData:
     """
     프로젝트의 팀원별 업무 편중(과부하/저활동) 점수를 계산한다.
@@ -64,6 +84,9 @@ async def get_workload_score(project_id: int, use_synthetic_fallback: bool = Fal
             overload_score=round(float(row["overload_score_0_100"]), 1),
             is_anomaly=bool(row["is_anomaly"]),
             anomaly_type=row["anomaly_type"],
+            task_count_active_rel=round(float(row["task_count_active_rel"]), 3),
+            difficulty_avg_rel=round(float(row["difficulty_avg_rel"]), 3),
+            overdue_count=int(row["overdue_count"]),
         )
         for _, row in result.iterrows()
     ]
@@ -73,4 +96,5 @@ async def get_workload_score(project_id: int, use_synthetic_fallback: bool = Fal
         source=source,
         method=result.attrs.get("method_used", "unknown"),
         members=members,
+        team_mean_completion=result.attrs.get("team_mean_completion"),
     )

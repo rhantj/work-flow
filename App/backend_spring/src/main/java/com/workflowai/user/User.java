@@ -37,10 +37,8 @@ public class User {
     @Column(length = 100)
     private String affiliation;
 
-    // 컬럼명이 Java 필드명과 다른 이유: 예전에는 이 컬럼이 "field"(VARCHAR)였는데, 다중 태그로
-    // 바꾸며 제자리에서 JSONB로 타입을 바꾸면 공유 DB에서 구버전 백엔드가 기동 불가해지는 파괴적
-    // 변경이 되어, 대신 새 컬럼 field_tags를 추가하는 방식으로 옮겼다(docs/db/migrations/010 참고).
-    // 기존 field 컬럼은 미사용 상태로 남아있다.
+    // 이 컬럼은 이전에 "field"(VARCHAR)였는데, 다중 태그를 지원하기 위해 field_tags(JSONB)로
+    // 완전히 대체했다(레거시 field 컬럼은 삭제됨, docs/db/migrations/011 참고).
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "field_tags", nullable = false)
     private List<String> field = new ArrayList<>();
@@ -50,6 +48,9 @@ public class User {
 
     @Column(name = "profile_image_path", length = 255)
     private String profileImagePath;
+
+    @Column(name = "reviewer_status", length = 20)
+    private String reviewerStatus;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -66,6 +67,10 @@ public class User {
         this.provider = provider;
         this.providerId = providerId;
         this.passwordHash = passwordHash;
+    }
+
+    public User(String email, String name, String provider, String providerId) {
+        this(email, name, provider, providerId, null);
     }
 
     @jakarta.persistence.PrePersist
@@ -142,6 +147,14 @@ public class User {
 
     public void setProfileImagePath(String profileImagePath) {
         this.profileImagePath = profileImagePath;
+    }
+
+    public String getReviewerStatus() {
+        return reviewerStatus;
+    }
+
+    public void setReviewerStatus(String reviewerStatus) {
+        this.reviewerStatus = reviewerStatus;
     }
 
     public LocalDateTime getCreatedAt() {

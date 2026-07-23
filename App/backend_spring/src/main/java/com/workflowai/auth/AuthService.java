@@ -4,6 +4,9 @@ import com.workflowai.security.JwtService;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
 import io.jsonwebtoken.Claims;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -14,6 +17,15 @@ public class AuthService {
     private static final String PROVIDER_GOOGLE = "google";
     private static final String PROVIDER_DEMO = "demo";
     private static final String PROVIDER_LOCAL = "local";
+    private static final String ROLE_TYPE_MEMBER = "MEMBER";
+    private static final String ROLE_TYPE_REVIEWER = "REVIEWER";
+    private static final String REVIEWER_STATUS_PENDING = "PENDING";
+    private static final int MIN_PASSWORD_LENGTH = 8;
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+        "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Set<String> ALLOWED_ROLE_TYPES = Set.of(ROLE_TYPE_MEMBER, ROLE_TYPE_REVIEWER);
 
     private final GoogleOAuthService googleOAuthService;
     private final UserRepository userRepository;
@@ -30,46 +42,6 @@ public class AuthService {
         this.userRepository = userRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
-    }
-
-    /**
-     * 이메일/비밀번호로 회원가입한다. 이미 가입된 이메일이면 예외를 던진다.
-     * findByEmail 사전 체크만으로는 동시 요청 경쟁을 완전히 막지 못한다 — 두 요청이 모두 사전 체크를
-     * 통과한 뒤 저장을 시도하면 DB의 email UNIQUE 제약에서 하나가 걸리는데, saveAndFlush로 즉시
-     * 반영해 그 경우도 이 메서드 안에서 잡아 동일한 예외로 통일한다.
-     * 이 메서드에는 의도적으로 @Transactional을 붙이지 않는다 — 붙이면 saveAndFlush()가 그
-     * 트랜잭션에 참여하게 되어, DataIntegrityViolationException을 여기서 잡아도 스프링이 이미
-     * 트랜잭션을 rollback-only로 표시해버린다. 그러면 이 메서드가 예외 없이 반환되더라도, 실제
-     * 커밋 시점에 rollback-only 상태가 감지되어 UnexpectedRollbackException이 던져진다.
-     * @Transactional 없이 두면 saveAndFlush()가 자기 완결적인 트랜잭션으로 실행되어 그 안에서
-     * 실패가 바로 확정되므로, 여기서 잡아 변환한 예외가 그대로 호출자에게 전달된다.
-     */
-    public AuthTokenResponse signup(SignupRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new IllegalStateException("이미 가입된 이메일입니다.");
-        }
-        User user = new User(
-            request.email(),
-            request.name(),
-            PROVIDER_LOCAL,
-            request.email(),
-            passwordEncoder.encode(request.password())
-        );
-        try {
-            userRepository.saveAndFlush(user);
-        } catch (DataIntegrityViolationException e) {
-            throw new IllegalStateException("이미 가입된 이메일입니다.");
-        }
-        return issueTokens(user);
-    }
-
-    /** 이메일/비밀번호로 로그인한다. 계정이 없거나 비밀번호가 일치하지 않으면 동일한 예외로 던져 계정 존재 여부를 노출하지 않는다. */
-    public AuthTokenResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email())
-            .filter(u -> u.getPasswordHash() != null)
-            .filter(u -> passwordEncoder.matches(request.password(), u.getPasswordHash()))
-            .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
-        return issueTokens(user);
     }
 
     @Transactional
@@ -92,6 +64,68 @@ public class AuthService {
         return issueTokens(user);
     }
 
+    /** 이메일/비밀번호 회원가입. REVIEWER는 토큰을 발급하지 않고 승인 대기 상태로만 계정을 만든다. */
+    @Transactional
+    public SignupResponse signup(String email, String password, String name, String roleType) {
+        String normalizedEmail = normalizeEmail(email);
+        String normalizedName = normalizeName(name);
+        String normalizedRoleType = normalizeRoleType(roleType);
+        if (normalizedName.isBlank()) {
+            throw new InvalidSignupInputException("이름과 이메일을 입력해주세요.");
+        }
+        if (!EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
+            throw new InvalidSignupInputException("올바른 이메일 형식으로 입력해주세요.");
+        }
+        if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
+            throw new InvalidSignupInputException("비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 합니다.");
+        }
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new EmailAlreadyExistsException();
+        }
+
+        String passwordHash = passwordEncoder.encode(password);
+        boolean isReviewerApplication = ROLE_TYPE_REVIEWER.equals(normalizedRoleType);
+        User newUser = new User(normalizedEmail, normalizedName, PROVIDER_LOCAL, normalizedEmail, passwordHash);
+        if (isReviewerApplication) {
+            newUser.setReviewerStatus(REVIEWER_STATUS_PENDING);
+        }
+        User user;
+        try {
+            user = userRepository.saveAndFlush(newUser);
+        } catch (DataIntegrityViolationException e) {
+            // PostgreSQL은 제약조건 위반 시 트랜잭션을 abort 상태로 만들어, 같은 트랜잭션 안에서
+            // 재조회 쿼리를 날리면 "current transaction is aborted"로 500이 난다. users 테이블의
+            // 유니크 제약(uq_users_email, uq_users_provider)은 로컬 가입 시 전부 email 기준이라
+            // 재조회 없이 바로 중복 이메일로 판단한다.
+            throw new EmailAlreadyExistsException();
+        }
+
+        if (isReviewerApplication) {
+            return SignupResponse.pendingReviewerApproval();
+        }
+        return SignupResponse.active(issueTokens(user));
+    }
+
+    /**
+     * 이메일/비밀번호 로그인. Google 전용 계정(password_hash 없음)은 별도 안내 메시지로 거부하고,
+     * 아직 승인되지 않은 REVIEWER 신청 계정(reviewer_status=PENDING)은 로그인 자체를 막는다.
+     */
+    public AuthTokenResponse loginWithPassword(String email, String password) {
+        String normalizedEmail = normalizeEmail(email);
+        User user = userRepository.findByEmail(normalizedEmail)
+            .orElseThrow(InvalidCredentialsException::new);
+        if (user.getPasswordHash() == null) {
+            throw new GoogleAccountRequiredException();
+        }
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new InvalidCredentialsException();
+        }
+        if (REVIEWER_STATUS_PENDING.equals(user.getReviewerStatus())) {
+            throw new ReviewerApprovalPendingException();
+        }
+        return issueTokens(user);
+    }
+
     public AuthTokenResponse refresh(String refreshToken) {
         Claims claims = jwtService.parseRefreshToken(refreshToken);
         Long userId = Long.valueOf(claims.getSubject());
@@ -105,5 +139,23 @@ public class AuthService {
         String refreshToken = jwtService.issueRefreshToken(user);
         UserSummary summary = UserSummary.from(user);
         return new AuthTokenResponse(accessToken, refreshToken, jwtService.accessTokenTtlSeconds(), summary);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeName(String name) {
+        return name == null ? "" : name.trim();
+    }
+
+    private String normalizeRoleType(String roleType) {
+        String normalized = roleType == null || roleType.isBlank()
+            ? ROLE_TYPE_MEMBER
+            : roleType.trim().toUpperCase(Locale.ROOT);
+        if (!ALLOWED_ROLE_TYPES.contains(normalized)) {
+            throw new InvalidSignupInputException("가입 유형은 MEMBER 또는 REVIEWER만 선택할 수 있습니다.");
+        }
+        return normalized;
     }
 }
