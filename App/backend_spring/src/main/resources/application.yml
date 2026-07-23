@@ -16,6 +16,12 @@ server:
 spring:
   application:
     name: workflow-ai-backend
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
   servlet:
     multipart:
       max-file-size: 100MB
