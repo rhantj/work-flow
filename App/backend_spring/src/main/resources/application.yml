@@ -46,6 +46,15 @@ spring:
     enabled: ${SPRING_FLYWAY_ENABLED:false}
     # Flyway는 기본 비활성화다. 명시적으로 켠 기존 DB에서는 schema_history 부재로 기동 실패하지 않게 baseline을 기본 허용한다.
     baseline-on-migrate: ${SPRING_FLYWAY_BASELINE_ON_MIGRATE:true}
+    # baseline-on-migrate=true만으로는 "기존 DB=최신 상태"가 보장되지 않는다 — baseline-version을
+    # 명시하지 않으면 Flyway 기본값(1)이 쓰이는데, db/migration에 이미 있는 V20260721_1은 그보다
+    # 버전이 높아 "아직 미적용"으로 간주돼 baseline 직후 실제로 실행돼 버린다. 그 SQL 자체는
+    # ADD COLUMN IF NOT EXISTS 등으로 idempotent하게 짜여 있지만, 검증되지 않은 운영 DB의 실제
+    # 상태(예: 같은 컬럼이 다른 타입/제약으로 이미 존재)와 충돌하면 기동 실패로 이어질 수 있다.
+    # baseline-version을 저장소에 이미 존재하는 가장 높은 마이그레이션 버전으로 명시적으로
+    # 고정해, 그 이하 버전은 전부 "이미 처리된 이력"으로 취급하고 절대 실행하지 않게 한다 —
+    # 새 마이그레이션을 추가할 때마다 이 값을 그 새 버전으로 올려야 baseline 의미가 유지된다.
+    baseline-version: ${SPRING_FLYWAY_BASELINE_VERSION:20260721_1}
     locations: classpath:db/migration
 
 workflow:

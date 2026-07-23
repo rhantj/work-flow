@@ -166,17 +166,43 @@ cd work-flow/App/backend_fastapi
 python -m llm_rag_assistant.scripts.reembed_document_chunks
 ```
 
-**이제부터 새 스키마 변경은 위 for 루프에 파일을 추가하는 대신 Flyway로 관리한다.**
-`docker-compose.yml`이 `SPRING_FLYWAY_ENABLED=true`를 기본값으로 켜두므로(이미 이 저장소에
-Flyway 의존성·설정은 준비돼 있었고 기본값만 꺼져 있었다), 앱이 기동할 때마다
+**이제부터 새 스키마 변경은 위 for 루프에 파일을 추가하는 대신 Flyway로 관리한다.** 이미 이
+저장소에 Flyway 의존성·설정은 준비돼 있었고, `docker-compose.yml`은 로컬 개발에서
+`SPRING_FLYWAY_ENABLED=true`를 기본값으로 켜둔다. 앱이 기동할 때마다
 `backend_spring/src/main/resources/db/migration/V<날짜>_<순번>__설명.sql` 형식의 파일을 찾아
-`flyway_schema_history` 테이블에 기록해가며 **아직 적용 안 된 것만, 딱 한 번씩** 적용한다.
-`baseline-on-migrate=true`라 이력 테이블이 없는 기존 DB(001~010이 이미 수동 적용된 운영 DB든,
-db/init으로 막 만들어진 로컬 DB든)를 만나도 실패하지 않고 그 시점을 baseline으로 잡은 뒤 그보다
-버전이 높은 마이그레이션만 적용한다. 즉 위 for 루프가 갖고 있던 "재배포할 때마다 전체를 다시
-실행해서 이미 적용된 파괴적 변경이 또 도는" 위험이, Flyway가 담당하는 범위에서는 구조적으로
-없어진다. 새 스키마 변경이 필요하면 `docs/db/migrations`에 번호를 추가하지 말고
-`db/migration/`에 `V20260723_1__description.sql` 형식으로 추가할 것.
+`flyway_schema_history` 테이블에 기록해가며 **baseline-version보다 버전이 높은 것만, 딱 한
+번씩** 적용한다.
+
+> ⚠️ **`baseline-on-migrate=true`만으로는 "기존 DB에는 이후 마이그레이션만 적용"이 보장되지
+> 않는다.** baseline-version을 명시하지 않으면 Flyway 기본값(1)이 쓰이는데,
+> `db/migration/`에 이미 있는 `V20260721_1__auth_and_project_onboarding.sql`은 그보다 버전이
+> 높아서 "아직 미적용"으로 간주돼 baseline 직후 실제로 실행된다 — 그 SQL 자체는
+> `ADD COLUMN IF NOT EXISTS` 등으로 idempotent하게 짜여 있지만, 검증되지 않은 운영 DB의 실제
+> 상태와 우연히 충돌하면(예: 같은 이름의 컬럼이 다른 타입/제약으로 이미 있는 경우) 기동
+> 실패로 이어질 수 있다. 그래서 `application.yml`에 `spring.flyway.baseline-version`을 저장소에
+> 이미 존재하는 가장 높은 마이그레이션 버전(`20260721_1`)으로 명시적으로 고정해뒀다 — 이
+> 값 이하 버전은 전부 "이미 처리된 이력"으로 취급되어 baseline 시점에 실행되지 않는다. 새
+> 마이그레이션을 추가할 때마다 `SPRING_FLYWAY_BASELINE_VERSION`(또는 코드의 기본값)을 그
+> 새 버전으로 올려야 이 baseline 의미가 계속 유지된다.
+
+**운영(OCI) DB에서 최초로 켜기 전 검증 절차 (필수):** `docker-compose.prod.yml`은
+`SPRING_FLYWAY_ENABLED`를 다시 기본 `false`로 되돌려서, 로컬에서 기본으로 켜지는 것과 달리
+운영에서는 자동으로 켜지지 않는다. 아래를 거친 뒤에만 `.env`에 `SPRING_FLYWAY_ENABLED=true`를
+추가해 명시적으로 켤 것.
+
+1. 운영 DB의 최근 스냅샷(또는 동등한 복제본)에 로컬/스테이징에서 `SPRING_FLYWAY_ENABLED=true`로
+   앱을 한 번 기동해본다.
+2. 시작 로그에서 Flyway가 `Successfully baselined schema with version: 20260721_1` 같은
+   메시지를 남기는지, 그 뒤에 `Successfully applied ...`로 실제 적용된 마이그레이션이
+   있다면 그게 정말 의도한 것인지 확인한다 — baseline 외에 아무것도 안 뜨는 게 정상이다.
+3. `SELECT * FROM flyway_schema_history ORDER BY installed_rank;`로 baseline 행(version
+   20260721_1, type BASELINE)만 있고 그 외 성공적으로 적용된 실제 마이그레이션이 없는지
+   눈으로 확인한다.
+4. 위 확인이 끝난 뒤에만 실제 운영 `.env`에 `SPRING_FLYWAY_ENABLED=true`를 추가하고
+   재배포한다.
+
+새 스키마 변경이 필요하면 `docs/db/migrations`에 번호를 추가하지 말고 `db/migration/`에
+`V20260723_1__description.sql` 형식으로 추가할 것 (그리고 위 baseline-version도 함께 올릴 것).
 
 ## 8-1. (선택, 1회) 레거시 users.field 정리
 
