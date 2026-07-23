@@ -66,6 +66,11 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/workflow}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-root}
+      # 001~010이 이미 적용된(또는 db/init으로 갓 만들어진) DB에도 안전하게 baseline을 잡고
+      # 시작하도록 application.yml에서 baseline-on-migrate가 이미 true로 돼 있다. 이걸 켜두면
+      # 앞으로 새 마이그레이션은 db/migration/V<날짜>_<순번>__설명.sql로만 추가하면 되고,
+      # 재배포마다 docs/db/migrations 전체를 수동 for 루프로 다시 돌릴 필요가 없어진다.
+      SPRING_FLYWAY_ENABLED: ${SPRING_FLYWAY_ENABLED:-true}
       WORKFLOW_AI_FASTAPI_URL: http://backend-fastapi:8000
       RAG_INTERNAL_API_KEY: ${RAG_INTERNAL_API_KEY}
       JWT_SECRET: ${JWT_SECRET}

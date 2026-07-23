@@ -125,11 +125,12 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 첫 빌드는 2 OCPU에서 **10~20분** 걸린다 (Gradle + pnpm + pip).
 
-## 8. DB 마이그레이션 적용 (첫 기동 후 1회)
+## 8. DB 마이그레이션 적용 (첫 기동 후 1회, 이후엔 Flyway가 대신한다)
 
-compose는 `backend_spring/src/main/resources/db/init`만 자동 실행한다.
-`docs/db/migrations/001~010`은 **수동으로 적용해야 한다.** `011`(레거시 `users.field` 정리)은
-파괴적 변경이라 이 루프에 일부러 포함하지 않는다 — 8-1절을 볼 것.
+compose는 `backend_spring/src/main/resources/db/init`만 자동 실행한다. `docs/db/migrations`는
+과거(Flyway 도입 전)에 쓰던 방식으로, 이 환경을 **아직 한 번도 001~010까지 못 따라잡았다면**
+아래 for 루프로 한 번 캐치업시켜야 한다. 이미 001~010이 적용된 환경(기존 운영 서버 재배포 등)
+이라면 이 루프는 다시 돌릴 필요가 없다 — 자세한 이유는 바로 아래 Flyway 설명 참고.
 
 init 스크립트는 `document_chunks.embedding`을 JSONB로 만들고, 마이그레이션 001이 이걸
 `VECTOR(768)`로, 007이 다시 `VECTOR(1024)`로 바꾼다(RAG 챗봇 임베딩 모델이
@@ -150,17 +151,11 @@ done
 > 두 디렉터리를 합칠 수 없는 이유: `docker-entrypoint-initdb.d`는 알파벳순으로 실행하는데
 > `001_`이 `01_`보다 앞서서 순서가 뒤집힌다.
 
-> ⚠️ **재실행 위험(001~007 전체 공통):** 이 저장소는 Flyway 등 마이그레이션 이력
-> 추적을 쓰지 않는다(`SPRING_FLYWAY_ENABLED` 기본 false) — 즉 어떤 마이그레이션을
-> 이미 적용했는지 DB가 스스로 기억하지 못한다. 위 for 루프는 **재배포할 때마다
-> 001~007을 처음부터 다시 실행**하므로, 나머지 마이그레이션은 대부분 `IF NOT EXISTS` 등으로
-> 안전하지만 **007만은 특히 위험하다**: 007은 `document_chunks.embedding`을 전부
-> `NULL`로 초기화하는 파괴적 변경이라, 이미 재임베딩까지 끝난 운영 DB에 실수로
-> 다시 실행하면 재임베딩을 마칠 때까지 RAG 검색이 완전히 빈 결과만 반환한다.
-> 007 자체에는 컬럼이 이미 `vector(1024)`면 건너뛰는 idempotency guard가 있지만,
-> **처음 007을 적용하는 배포에서만** 아래 재임베딩 절차를 실행하고, 이후 재배포에서는
-> for 루프를 다시 돌리더라도 재임베딩을 다시 실행할 필요가 없는지(=007이 이미 스킵됐는지)
-> 로그의 `NOTICE`를 확인할 것.
+> ⚠️ **007만은 재실행 시 위험하다:** 007은 `document_chunks.embedding`을 전부 `NULL`로
+> 초기화하는 파괴적 변경이라, 이미 재임베딩까지 끝난 운영 DB에 실수로 다시 실행하면
+> 재임베딩을 마칠 때까지 RAG 검색이 완전히 빈 결과만 반환한다. 007 자체에는 컬럼이 이미
+> `vector(1024)`면 건너뛰는 idempotency guard가 있지만, **처음 007을 적용하는 배포에서만**
+> 아래 재임베딩 절차를 실행할 것.
 
 **007 적용 후 반드시 재임베딩을 실행할 것(최초 1회만).** 007은 컬럼 타입만 바꾸고 기존
 임베딩 값은 NULL로 비운다(차원이 달라 기존 벡터를 그대로 옮길 수 없음) — 재임베딩 없이는
@@ -171,14 +166,26 @@ cd work-flow/App/backend_fastapi
 python -m llm_rag_assistant.scripts.reembed_document_chunks
 ```
 
+**이제부터 새 스키마 변경은 위 for 루프에 파일을 추가하는 대신 Flyway로 관리한다.**
+`docker-compose.yml`이 `SPRING_FLYWAY_ENABLED=true`를 기본값으로 켜두므로(이미 이 저장소에
+Flyway 의존성·설정은 준비돼 있었고 기본값만 꺼져 있었다), 앱이 기동할 때마다
+`backend_spring/src/main/resources/db/migration/V<날짜>_<순번>__설명.sql` 형식의 파일을 찾아
+`flyway_schema_history` 테이블에 기록해가며 **아직 적용 안 된 것만, 딱 한 번씩** 적용한다.
+`baseline-on-migrate=true`라 이력 테이블이 없는 기존 DB(001~010이 이미 수동 적용된 운영 DB든,
+db/init으로 막 만들어진 로컬 DB든)를 만나도 실패하지 않고 그 시점을 baseline으로 잡은 뒤 그보다
+버전이 높은 마이그레이션만 적용한다. 즉 위 for 루프가 갖고 있던 "재배포할 때마다 전체를 다시
+실행해서 이미 적용된 파괴적 변경이 또 도는" 위험이, Flyway가 담당하는 범위에서는 구조적으로
+없어진다. 새 스키마 변경이 필요하면 `docs/db/migrations`에 번호를 추가하지 말고
+`db/migration/`에 `V20260723_1__description.sql` 형식으로 추가할 것.
+
 ## 8-1. (선택, 1회) 레거시 users.field 정리
 
 011은 `users.field`를 `field_legacy_removed`로 이름만 바꿔 보관한다(진짜 `DROP` 아님, 문제
 생기면 `RENAME COLUMN field_legacy_removed TO field`로 즉시 원복 가능). 위 8절의 자동 for
-루프에는 **일부러 포함하지 않았다** — 이 컬럼명을 참조하는 구버전 인스턴스가 아직 하나라도
-떠 있으면 그 인스턴스가 즉시 오류를 내는 파괴적 변경이라, "재배포할 때마다 자동으로 도는"
-경로에 얹어두면 안 되기 때문이다. 대신 아래 체크리스트를 사람이 직접 확인한 뒤 별도로,
-**딱 한 번만** 실행한다.
+루프에도, Flyway가 관리하는 `db/migration/`에도 **일부러 넣지 않았다** — 이 컬럼명을 참조하는
+구버전 인스턴스가 아직 하나라도 떠 있으면 그 인스턴스가 즉시 오류를 내는 파괴적 변경이라,
+"자동으로 도는" 어떤 경로에도 얹어두면 안 되기 때문이다. Flyway를 켜도 이 단계는 여전히
+사람이 체크리스트를 직접 확인한 뒤 별도로, **딱 한 번만** 수동 실행해야 한다.
 
 체크리스트 (모두 확인한 뒤 실행할 것):
 
