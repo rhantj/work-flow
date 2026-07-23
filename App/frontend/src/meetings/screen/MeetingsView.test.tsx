@@ -220,6 +220,23 @@ describe("MeetingsView 홈 탭", () => {
 
     await waitFor(() => expect(fetchMeetings).toHaveBeenCalled());
 
-    expect(screen.getByRole("button", { name: "저장된 회의록" })).toHaveClass("border-blue-600");
+    // 대상 회의록(savedAt 있음)이 목록에 반영된 뒤에 탭이 결정되므로 waitFor로 최종 상태를 확인한다.
+    await waitFor(() => expect(screen.getByRole("button", { name: "저장된 회의록" })).toHaveClass("border-blue-600"));
+  });
+
+  it("meetingId 쿼리파라미터의 회의록이 아직 저장되지 않았으면(savedAt null) 분석/업로드 탭으로 전환된다", async () => {
+    // "2"는 beforeEach의 fetchMeetings 목록에서 savedAt: null(분석 완료, 저장 확정 전) 상태다.
+    // MEETING_ANALYSIS_COMPLETED_NOTIFY_LEADER 알림의 바로가기는 이 상태에서 발송되므로,
+    // 저장된 탭이 아니라 분석/업로드 탭으로 이동해야 한다.
+    render(
+      <MemoryRouter initialEntries={["/meetings?meetingId=2"]}>
+        <MeetingsView />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(fetchMeetings).toHaveBeenCalled());
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "분석/업로드" })).toHaveClass("border-blue-600"));
+    expect(screen.getByRole("button", { name: "저장된 회의록" })).not.toHaveClass("border-blue-600");
   });
 });

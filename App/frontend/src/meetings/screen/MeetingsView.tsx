@@ -9,6 +9,7 @@ import { CATEGORIES } from "../../board/libs/mock/tasks";
 import type { Meeting, UploadFlow, UploadType, GenTodo, SavedMeetingRecord } from "../libs/types/meeting";
 import type { CatId, Priority, Task } from "../../board/libs/types/task";
 import { analyzeMeeting, confirmMeetingSave, deleteMeeting, fetchMeeting, fetchMeetings, registerMeetingTasks, retryMeetingAnalysis } from "../libs/utils/meetingAiApi";
+import { MeetingEditPanel } from "../components/MeetingEditPanel";
 import type { MeetingAiResult } from "../libs/types/meetingAiTypes";
 import { deleteTask, DEMO_PROJECT_ID } from "../../board/libs/utils/taskApi";
 import { useAuth } from "../../global/hooks/useAuth";
@@ -423,11 +424,13 @@ export function MeetingsView() {
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Meeting | null>(null);
   const [confirmReregister, setConfirmReregister] = useState<(() => void) | null>(null);
+  const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pdfCaptureRef = useRef<HTMLDivElement | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resultTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollSessionRef = useRef(0);
+  const deepLinkHandledIdRef = useRef<string | null>(null);
   const analyzeStages = getAnalyzeStages(uploadType);
   const canAddManualTodo = currentUserRole === "leader";
 
@@ -588,11 +591,10 @@ export function MeetingsView() {
 
   // 서버에 저장된 회의록 목록을 가져와 로컬에 없는 항목만 보충한다.
   // 실패해도 화면은 로컬 저장 목록으로 그대로 동작한다.
-  useEffect(() => {
+  // 마운트 시의 초기 로드뿐 아니라, 회의록 수정(버전 생성) 후 목록을 다시 불러올 때도 재사용한다.
+  const refreshMeetingsFromServer = () => {
     const cached = getStoredMeetings(projectId);
-    setMeetings(cached);
-    setSelected(cached[0]?.id ?? null);
-    fetchMeetings(projectId)
+    return fetchMeetings(projectId)
       .then(list => {
         const deletedMeetingIds = getDeletedMeetingIds(projectId);
         const serverMeetings: Meeting[] = list.map(dto => {
@@ -622,18 +624,30 @@ export function MeetingsView() {
         setMeetingListError("서버에서 회의록 목록을 불러오지 못했습니다. 로컬 저장 목록만 표시됩니다.");
         setTimeout(() => setMeetingListError(null), 4000);
       });
+  };
+
+  useEffect(() => {
+    const cached = getStoredMeetings(projectId);
+    setMeetings(cached);
+    setSelected(cached[0]?.id ?? null);
+    refreshMeetingsFromServer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // 알림의 "바로가기"를 통해 특정 회의록으로 딥링크된 경우, 저장된 회의록 탭에서 해당 회의록을 바로 보여준다.
-  // 위 useEffect가 마운트 시 selected를 cached[0]로 동기 초기화하므로, 그 뒤에 실행되도록 이 아래에 둔다.
+  // 알림의 "바로가기"를 통해 특정 회의록으로 딥링크된 경우, 저장 확정 여부(savedAt)에 따라
+  // 알맞은 탭으로 보내준다: 저장 확정된 회의록은 "저장된" 탭, 분석만 완료되고 아직
+  // 저장 전(MEETING_ANALYSIS_COMPLETED_NOTIFY_LEADER 알림 시점)인 회의록은 "분석/업로드" 탭.
+  // 목록이 아직 로드되기 전이라면 selected만 먼저 세팅해두고, 목록 로드 후 이 effect가
+  // 다시 실행될 때 탭을 결정한다.
   useEffect(() => {
     const targetMeetingId = searchParams.get("meetingId");
-    if (targetMeetingId) {
-      setHomeTab("saved");
-      setSelected(targetMeetingId);
-    }
-  }, [searchParams]);
+    if (!targetMeetingId || deepLinkHandledIdRef.current === targetMeetingId) return;
+    setSelected(targetMeetingId);
+    const target = meetings.find(item => item.id === targetMeetingId);
+    if (!target) return;
+    setHomeTab(target.savedAt ? "saved" : "analyze");
+    deepLinkHandledIdRef.current = targetMeetingId;
+  }, [searchParams, meetings]);
 
   // 참석자 체크 목록은 현재 프로젝트의 실제 멤버만 보여준다.
   useEffect(() => {
@@ -799,6 +813,18 @@ export function MeetingsView() {
       setSaveMeetingError(`서버 저장에 실패했습니다${status}. 잠시 후 다시 시도해주세요.`);
       setTimeout(() => setSaveMeetingError(null), 6000);
     }
+  };
+
+  // 저장된 회의록 탭에서 "수정"/"AI 재분석하기"를 누르면 수정 화면(MeetingEditPanel)을 연다.
+  // 주의: 현재 GET /meetings/{id} 응답(MeetingAnalysisResponse)에는 원문(transcript)이 내려오지 않는다.
+  // 백엔드 DTO 확장 전까지는 빈 문자열로 시작해 사용자가 직접 채우도록 한다(별도 이슈로 보고됨).
+  const handleOpenMeetingEdit = (meetingId: string) => {
+    setEditingMeetingId(meetingId);
+  };
+
+  const closeMeetingEditAndRefresh = () => {
+    setEditingMeetingId(null);
+    void refreshMeetingsFromServer();
   };
 
   const handleViewOriginal = async () => {
@@ -2327,7 +2353,24 @@ export function MeetingsView() {
 
       {homeTab === "saved" && (
         <div className="flex-1 overflow-y-auto p-6">
-          {savedMeetingsList.length === 0 ? (
+          {editingMeetingId ? (
+            <div className="max-w-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-foreground">회의록 수정</div>
+                <button type="button" onClick={() => setEditingMeetingId(null)}
+                  className="text-xs text-muted-foreground hover:underline">
+                  취소
+                </button>
+              </div>
+              <MeetingEditPanel
+                projectId={projectId}
+                meetingId={editingMeetingId}
+                initialTranscript=""
+                onSaved={closeMeetingEditAndRefresh}
+                onAnalyzed={closeMeetingEditAndRefresh}
+              />
+            </div>
+          ) : savedMeetingsList.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center text-muted-foreground">
               <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
                 <FileAudio className="w-8 h-8 text-slate-400" />
@@ -2337,7 +2380,9 @@ export function MeetingsView() {
             </div>
           ) : (
             <div className="space-y-2 max-w-2xl">
-              {savedMeetingsList.map(m => (
+              {savedMeetingsList.map(m => {
+                const isPendingVersion = Boolean(m.originalMeetingId) && m.status === "pending";
+                return (
                 <div key={m.id} onClick={() => { setSelected(m.id); setHomeTab("analyze"); }}
                   role="button"
                   tabIndex={0}
@@ -2358,11 +2403,21 @@ export function MeetingsView() {
                       {m.originalMeetingId && (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">수정됨</span>
                       )}
+                      {currentUserRole !== "reviewer" && (
+                        <button
+                          type="button"
+                          onClick={event => { event.stopPropagation(); handleOpenMeetingEdit(m.id); }}
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-border text-foreground hover:bg-muted"
+                        >
+                          {isPendingVersion ? "AI 재분석하기" : "수정"}
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="text-sm font-medium text-foreground leading-snug">{m.title}</div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
