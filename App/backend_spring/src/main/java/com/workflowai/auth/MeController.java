@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -55,8 +54,20 @@ public class MeController {
 
     // 같은 유저가 아바타를 동시에 두 번 업로드하면, 두 요청이 서로 다른 oldPath(둘 다 업로드 전
     // 상태)를 읽어 각자의 새 파일만 알고 있어 나중에 덮어써진 쪽의 파일이 고아로 남는다.
-    // 유저 단위로 read-store-save-cleanup 전체를 직렬화해 이 경쟁을 없앤다.
-    private final ConcurrentHashMap<Long, Object> avatarUploadLocks = new ConcurrentHashMap<>();
+    // 유저 단위로 read-store-save-cleanup 전체를 직렬화해 이 경쟁을 없앤다. 유저 ID를 키로 쓰는
+    // 맵 대신 고정 개수(64개) 스트라이프 락을 두어, 얼마나 많은 유저가 다녀가든 메모리가 늘지
+    // 않는다 — 서로 다른 유저가 같은 스트라이프에 걸리면 불필요하게 잠깐 직렬화될 수 있지만
+    // 안전성에는 영향이 없다. 다중 백엔드 인스턴스로 수평 확장할 경우에는 이 JVM 내부 락으로는
+    // 인스턴스 간 경쟁을 막지 못하므로 DB 어드바이저리 락 등으로 바꿔야 한다(현재는 단일 인스턴스
+    // 배포라 해당 없음).
+    private static final int AVATAR_LOCK_STRIPES = 64;
+    private final Object[] avatarUploadLocks = new Object[AVATAR_LOCK_STRIPES];
+
+    {
+        for (int i = 0; i < avatarUploadLocks.length; i++) {
+            avatarUploadLocks[i] = new Object();
+        }
+    }
 
     public MeController(
         UserRepository userRepository,
@@ -167,7 +178,7 @@ public class MeController {
         }
 
         Long userId = CurrentUser.id();
-        Object lock = avatarUploadLocks.computeIfAbsent(userId, id -> new Object());
+        Object lock = avatarUploadLocks[Math.floorMod(userId.hashCode(), AVATAR_LOCK_STRIPES)];
         synchronized (lock) {
             User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
