@@ -107,6 +107,21 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
+    void analyzeSetsUploadedByToCurrentUser() {
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.analyze(
+            "demo-project", null, "회의", "2026-07-23", "정기회의", "document", List.of(), List.of()
+        );
+
+        ArgumentCaptor<Meeting> meetingCaptor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(meetingCaptor.capture());
+        assertThat(meetingCaptor.getAllValues().get(0).getUploadedBy()).isEqualTo(CURRENT_USER_ID);
+    }
+
+    @Test
     void analyzeExtractsPdfTextBeforeDispatchingAnalysisRequest() throws Exception {
         mockMember(1L);
         MeetingAnalysisService service = newService();

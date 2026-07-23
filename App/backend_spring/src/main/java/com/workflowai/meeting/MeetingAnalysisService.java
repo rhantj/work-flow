@@ -121,7 +121,7 @@ public class MeetingAnalysisService {
             LocalDate.parse(resolvedDate),
             meetingKind,
             fileName,
-            null,
+            CurrentUser.id(),
             file == null ? null : file.getSize()
         ));
 
