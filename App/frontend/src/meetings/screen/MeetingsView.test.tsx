@@ -210,4 +210,16 @@ describe("MeetingsView 홈 탭", () => {
 
     expect(screen.getByRole("button", { name: "분석/업로드" })).toHaveClass("border-blue-600");
   });
+
+  it("meetingId 쿼리파라미터가 있으면 저장된 회의록 탭으로 전환되고 해당 회의록이 선택된다", async () => {
+    render(
+      <MemoryRouter initialEntries={["/meetings?meetingId=1"]}>
+        <MeetingsView />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(fetchMeetings).toHaveBeenCalled());
+
+    expect(screen.getByRole("button", { name: "저장된 회의록" })).toHaveClass("border-blue-600");
+  });
 });

@@ -625,6 +625,16 @@ export function MeetingsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // 알림의 "바로가기"를 통해 특정 회의록으로 딥링크된 경우, 저장된 회의록 탭에서 해당 회의록을 바로 보여준다.
+  // 위 useEffect가 마운트 시 selected를 cached[0]로 동기 초기화하므로, 그 뒤에 실행되도록 이 아래에 둔다.
+  useEffect(() => {
+    const targetMeetingId = searchParams.get("meetingId");
+    if (targetMeetingId) {
+      setHomeTab("saved");
+      setSelected(targetMeetingId);
+    }
+  }, [searchParams]);
+
   // 참석자 체크 목록은 현재 프로젝트의 실제 멤버만 보여준다.
   useEffect(() => {
     if (currentProjectId == null) {
