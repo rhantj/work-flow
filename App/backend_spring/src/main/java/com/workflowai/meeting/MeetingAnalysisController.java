@@ -218,4 +218,22 @@ public class MeetingAnalysisController {
         }
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
+
+    @Operation(
+        summary = "회의록 수정본(버전) 생성",
+        description = "원본을 훼손하지 않고 새 버전을 만든다. triggerAnalysis=false면 저장만, true면 저장 후 AI 재분석까지 수행한다. 팀장/팀원 모두 가능하며 심사자는 접근할 수 없다."
+    )
+    @PostMapping("/{meetingId}/versions")
+    @PreAuthorize("@projectAccess.hasRole(#projectId, 'LEADER') || @projectAccess.hasRole(#projectId, 'MEMBER')")
+    public ResponseEntity<ApiResponse<MeetingVersionResponse>> createVersion(
+        @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId,
+        @Parameter(description = "원본 회의록 ID", example = "demo-project-1") @PathVariable String meetingId,
+        @RequestBody MeetingVersionRequest request
+    ) {
+        MeetingVersionResponse response = meetingAnalysisService.createVersion(projectId, meetingId, request);
+        if (response == null) {
+            return ResponseEntity.status(404).body(ApiResponse.fail("MEETING_NOT_FOUND", "회의록을 찾을 수 없습니다."));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 }

@@ -572,6 +572,72 @@ class MeetingAnalysisServiceTest {
         );
     }
 
+    @Test
+    void createVersionSavesOnlyWhenTriggerAnalysisIsFalse() {
+        UserPrincipal editor = new UserPrincipal(10L, "editor@example.com", "박지수");
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(editor, null, List.of())
+        );
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 10L)).thenReturn(true);
+        Meeting original = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(original, "id", 5L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(original));
+        when(meetingRepository.countByOriginalMeetingId(5L)).thenReturn(0L);
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(projectMemberRepository.findByProjectIdAndRole(1L, ProjectRole.LEADER))
+            .thenReturn(Optional.of(new ProjectMember(1L, 99L, ProjectRole.LEADER)));
+        MeetingAnalysisService service = newService();
+
+        MeetingVersionResponse response = service.createVersion("demo-project", "5",
+            new MeetingVersionRequest("수정된 본문", false));
+
+        assertThat(response.status()).isEqualTo("SAVED");
+        ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(captor.capture());
+        Meeting savedVersion = captor.getAllValues().stream()
+            .filter(m -> m.getOriginalMeetingId() != null).findFirst().orElseThrow();
+        assertThat(savedVersion.getTitle()).isEqualTo("정기회의_수정본");
+        assertThat(savedVersion.getAnalysisStatus()).isEqualTo("pending");
+        verify(meetingAnalysisRunner, never()).runAnalysis(any(), any());
+    }
+
+    @Test
+    void createVersionSecondEditGetsIncrementedSuffix() {
+        mockMember(1L);
+        Meeting original = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(original, "id", 5L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(original));
+        when(meetingRepository.countByOriginalMeetingId(5L)).thenReturn(1L);
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        MeetingAnalysisService service = newService();
+
+        service.createVersion("demo-project", "5", new MeetingVersionRequest("본문", false));
+
+        ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(captor.capture());
+        Meeting savedVersion = captor.getAllValues().stream()
+            .filter(m -> m.getOriginalMeetingId() != null).findFirst().orElseThrow();
+        assertThat(savedVersion.getTitle()).isEqualTo("정기회의_수정본2");
+    }
+
+    @Test
+    void createVersionTriggersAnalysisWhenRequested() {
+        mockMember(1L);
+        Meeting original = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(original, "id", 5L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(original));
+        when(meetingRepository.countByOriginalMeetingId(5L)).thenReturn(0L);
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        MeetingAnalysisService service = newService();
+
+        MeetingVersionResponse response = service.createVersion("demo-project", "5",
+            new MeetingVersionRequest("수정된 본문", true));
+
+        assertThat(response.status()).isEqualTo("PROCESSING");
+        verify(meetingAnalysisRunner).runAnalysis(any(), any());
+    }
+
     private byte[] createPdfBytes(String text) throws Exception {
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PDPage page = new PDPage();

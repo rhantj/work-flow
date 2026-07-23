@@ -8,4 +8,6 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
     List<Meeting> findByProjectIdOrderByCreatedAtDesc(Long projectId);
 
     Optional<Meeting> findByIdAndProjectId(Long id, Long projectId);
+
+    long countByOriginalMeetingId(Long originalMeetingId);
 }

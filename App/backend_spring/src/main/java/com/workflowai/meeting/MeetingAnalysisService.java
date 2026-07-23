@@ -444,6 +444,54 @@ public class MeetingAnalysisService {
         return new MeetingSaveResponse(meetingId, "SAVED");
     }
 
+    @Transactional
+    public MeetingVersionResponse createVersion(String projectId, String meetingId, MeetingVersionRequest request) {
+        Meeting original = requireProjectMeeting(projectId, meetingId);
+        if (original == null) return null;
+
+        long existingVersions = meetingRepository.countByOriginalMeetingId(original.getId());
+        String versionTitle = original.getTitle() + (existingVersions == 0 ? "_수정본" : "_수정본" + (existingVersions + 1));
+
+        Long editorId = CurrentUser.id();
+        Meeting version = meetingRepository.save(Meeting.newVersion(original, request.transcript(), editorId, versionTitle));
+        version.markSaved();
+        meetingRepository.save(version);
+
+        notifyEdited(original, version, editorId);
+
+        if (!request.triggerAnalysis()) {
+            return new MeetingVersionResponse(String.valueOf(version.getId()), "SAVED");
+        }
+
+        AiAnalyzeRequest aiRequest = new AiAnalyzeRequest(
+            projectId,
+            version.getTitle(),
+            version.getMeetingDate() == null ? LocalDate.now().toString() : version.getMeetingDate().toString(),
+            defaultString(version.getMeetingType(), "정기회의"),
+            defaultString(version.getFileType(), "document"),
+            version.getOriginalFileName(),
+            request.transcript(),
+            List.of()
+        );
+        runAnalysisAfterCommit(version.getId(), aiRequest);
+        return new MeetingVersionResponse(String.valueOf(version.getId()), "PROCESSING");
+    }
+
+    /** 수정본 저장/분석 시 수정한 본인 + 반대편(팀장 또는 원본 업로더)에게 알린다. */
+    private void notifyEdited(Meeting original, Meeting version, Long editorId) {
+        Long leaderId = projectMemberRepository.findByProjectIdAndRole(original.getProjectId(), ProjectRole.LEADER)
+            .map(ProjectMember::getUserId)
+            .orElse(null);
+        Long counterpartId = editorId != null && editorId.equals(leaderId) ? original.getUploadedBy() : leaderId;
+        notificationService.notifyActorAndCounterpart(
+            editorId, "MEETING_EDITED", "회의록을 수정했습니다",
+            "'" + original.getTitle() + "' 회의록을 수정했습니다.",
+            counterpartId, "MEETING_EDITED", "회의록이 수정되었습니다",
+            "'" + original.getTitle() + "' 회의록이 수정되었습니다.",
+            "meeting", version.getId()
+        );
+    }
+
     private boolean registerSingleTask(Long meetingId, MeetingTodo todo, Long createdBy) {
         Long assigneeId = resolveAssignee(todo.assignee_id());
         LocalDate dueDate = parseDateOrNull(todo.due_date());
