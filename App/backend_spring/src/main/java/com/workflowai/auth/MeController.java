@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -51,6 +52,11 @@ public class MeController {
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectRepository projectRepository;
     private final String uploadsDir;
+
+    // 같은 유저가 아바타를 동시에 두 번 업로드하면, 두 요청이 서로 다른 oldPath(둘 다 업로드 전
+    // 상태)를 읽어 각자의 새 파일만 알고 있어 나중에 덮어써진 쪽의 파일이 고아로 남는다.
+    // 유저 단위로 read-store-save-cleanup 전체를 직렬화해 이 경쟁을 없앤다.
+    private final ConcurrentHashMap<Long, Object> avatarUploadLocks = new ConcurrentHashMap<>();
 
     public MeController(
         UserRepository userRepository,
@@ -160,35 +166,39 @@ public class MeController {
                 .body(ApiResponse.fail("INVALID_FILE_TYPE", "PNG 또는 JPG 파일만 업로드할 수 있습니다."));
         }
 
-        User user = userRepository.findById(CurrentUser.id())
-            .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
-        String oldPath = user.getProfileImagePath();
+        Long userId = CurrentUser.id();
+        Object lock = avatarUploadLocks.computeIfAbsent(userId, id -> new Object());
+        synchronized (lock) {
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+            String oldPath = user.getProfileImagePath();
 
-        String newPath;
-        try {
-            newPath = storeAvatar(user.getId(), file, detectedFormat);
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail("UPLOAD_FAILED", "이미지 업로드에 실패했습니다."));
+            String newPath;
+            try {
+                newPath = storeAvatar(user.getId(), file, detectedFormat);
+            } catch (IOException e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("UPLOAD_FAILED", "이미지 업로드에 실패했습니다."));
+            }
+
+            try {
+                user.setProfileImagePath(newPath);
+                userRepository.saveAndFlush(user);
+            } catch (RuntimeException e) {
+                // DB 반영이 실패하면 방금 쓴 새 파일을 되돌린다 — 새 파일은 이전 파일과 이름이 겹치지
+                // 않으므로(storeAvatar 참고) 기존 사진은 그대로 남는다. DB 경로와 실제 파일이 어긋나지 않게 한다.
+                deleteAvatarFile(newPath);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("UPLOAD_FAILED", "이미지 업로드에 실패했습니다."));
+            }
+
+            // DB에 새 경로가 반영된 게 확인된 뒤에만 이전 파일을 지운다.
+            if (oldPath != null && !oldPath.equals(newPath)) {
+                deleteAvatarFile(oldPath);
+            }
+
+            return ResponseEntity.ok(ApiResponse.ok(UserSummary.from(user)));
         }
-
-        try {
-            user.setProfileImagePath(newPath);
-            userRepository.saveAndFlush(user);
-        } catch (RuntimeException e) {
-            // DB 반영이 실패하면 방금 쓴 새 파일을 되돌린다 — 새 파일은 이전 파일과 이름이 겹치지
-            // 않으므로(storeAvatar 참고) 기존 사진은 그대로 남는다. DB 경로와 실제 파일이 어긋나지 않게 한다.
-            deleteAvatarFile(newPath);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail("UPLOAD_FAILED", "이미지 업로드에 실패했습니다."));
-        }
-
-        // DB에 새 경로가 반영된 게 확인된 뒤에만 이전 파일을 지운다.
-        if (oldPath != null && !oldPath.equals(newPath)) {
-            deleteAvatarFile(oldPath);
-        }
-
-        return ResponseEntity.ok(ApiResponse.ok(UserSummary.from(user)));
     }
 
     @Operation(
