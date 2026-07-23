@@ -104,7 +104,7 @@ function MemberMyPage({ name, email, affiliation, field, github, profileImageUrl
             <div className="text-right">
               <div className="text-xs text-muted-foreground mb-1">참여 프로젝트</div>
               <div className="text-sm font-semibold text-foreground">{MEMBER_USER.project}</div>
-              {github && (
+              {github ? (
                 <div className="flex items-center gap-1.5 mt-1.5 justify-end">
                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
                   <span className="text-[10px] text-emerald-600 font-medium">GitHub 연결됨</span>
@@ -116,6 +116,11 @@ function MemberMyPage({ name, email, affiliation, field, github, profileImageUrl
                   >
                     ({github})
                   </a>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 mt-1.5 justify-end">
+                  <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+                  <span className="text-[10px] text-muted-foreground font-medium">GitHub 연결안됨</span>
                 </div>
               )}
             </div>
