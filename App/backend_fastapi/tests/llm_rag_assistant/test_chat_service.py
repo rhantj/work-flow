@@ -290,7 +290,9 @@ def test_answer_cache_key_scopes_schema_project_assignee_and_exact_question() ->
     assert baseline != _answer_cache_key(project_id=5, assignee_id=42, question="동일 질문")
     assert baseline != _answer_cache_key(project_id=5, assignee_id=None, question="동일 질문 ")
 
-    with patch("llm_rag_assistant.app.services.chat_service._ANSWER_CACHE_SCHEMA_VERSION", "v2"):
+    # 현재 값과 반드시 다른 값이어야 한다. 실제 버전을 그대로 쓰면 패치가 무의미해져
+    # 이 검증이 조용히 통과만 한다.
+    with patch("llm_rag_assistant.app.services.chat_service._ANSWER_CACHE_SCHEMA_VERSION", "other-version"):
         assert baseline != _answer_cache_key(project_id=5, assignee_id=None, question="동일 질문")
 
     assert baseline != _answer_cache_key(
