@@ -245,9 +245,7 @@ issue_message.md
 start.sh
 stop.sh
 
-# serena 작업 파일은 제외하되, 프로젝트 지식이 담긴 memories는 팀과 공유한다
-.serena/*
-!.serena/memories/
+# .serena는 팀과 공유한다 (cache와 project.local.yml은 .serena/.gitignore가 제외)
 session-report*
 
 # 회의록 AI / Spring Boot / FastAPI 로컬 개발 도구 및 산출물 (실행에 불필요)
