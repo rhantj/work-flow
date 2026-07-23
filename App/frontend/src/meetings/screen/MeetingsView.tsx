@@ -12,6 +12,7 @@ import { analyzeMeeting, deleteMeeting, fetchMeeting, fetchMeetings, registerMee
 import type { MeetingAiResult } from "../libs/types/meetingAiTypes";
 import { deleteTask, DEMO_PROJECT_ID } from "../../board/libs/utils/taskApi";
 import { useAuth } from "../../global/hooks/useAuth";
+import type { ProjectRoleKo } from "../../global/api/authTypes";
 import { ApiRequestError } from "../../global/api/apiClient";
 import { getProjectMembers, type MemberResponse } from "../../global/api/projectsApi";
 import jsPDF from "jspdf";
@@ -44,7 +45,14 @@ import {
   Loader2,
 } from "lucide-react";
 
-const CURRENT_USER_ROLE: "leader" | "member" = "leader";
+export type CurrentUserRole = "leader" | "member" | "reviewer";
+
+export function deriveCurrentUserRole(role: ProjectRoleKo | null | undefined): CurrentUserRole {
+  if (role === "팀장") return "leader";
+  if (role === "심사자") return "reviewer";
+  return "member";
+}
+
 const PARTICIPANT_COLORS = ["#3B5BDB", "#7048E8", "#10B981", "#F59E0B", "#EC4899", "#0EA5E9"];
 const MEETING_STATUS_POLL_INTERVAL_MS = 2000;
 const MEETING_STATUS_MAX_POLL_ATTEMPTS = 60;
@@ -358,7 +366,8 @@ const buildMeetingFromAnalysisResponse = (
 };
 
 export function MeetingsView() {
-  const { currentProjectId, user } = useAuth();
+  const { currentProjectId, user, currentProject } = useAuth();
+  const currentUserRole = deriveCurrentUserRole(currentProject?.role);
   const projectId = String(currentProjectId ?? DEMO_PROJECT_ID);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -418,7 +427,7 @@ export function MeetingsView() {
   const resultTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollSessionRef = useRef(0);
   const analyzeStages = getAnalyzeStages(uploadType);
-  const canAddManualTodo = CURRENT_USER_ROLE === "leader";
+  const canAddManualTodo = currentUserRole === "leader";
 
   // 실제 서버 처리 흐름에 맞춘 진행률 표시:
   // 업로드 요청 → 서버 PROCESSING 폴링 → 완료/실패 응답 순서로 목표 진행률만 올린다.
@@ -1421,14 +1430,18 @@ export function MeetingsView() {
         </div>
         {/* Actions */}
         <div className="p-4 space-y-2">
-          <button onClick={() => setUploadFlow("review")}
-            className="w-full py-2.5 text-sm font-semibold text-white rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-            style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
-            <ListChecks className="w-4 h-4" />역할 분배 검토 →
-          </button>
-          <button onClick={handleSaveMeeting} className="w-full py-2 text-xs font-medium text-muted-foreground border border-border rounded-xl hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
-            <FileText className="w-3.5 h-3.5" />회의록 저장
-          </button>
+          {currentUserRole === "leader" && (
+            <button onClick={() => setUploadFlow("review")}
+              className="w-full py-2.5 text-sm font-semibold text-white rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
+              <ListChecks className="w-4 h-4" />역할 분배 검토 →
+            </button>
+          )}
+          {currentUserRole !== "reviewer" && (
+            <button onClick={handleSaveMeeting} className="w-full py-2 text-xs font-medium text-muted-foreground border border-border rounded-xl hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" />{currentUserRole === "leader" ? "회의록 분석결과 저장" : "회의록 저장"}
+            </button>
+          )}
           {saveMeetingMessage && <div className="text-[10px] text-emerald-600 text-center">{saveMeetingMessage}</div>}
           <button onClick={() => setUploadFlow(null)} className="w-full py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
             닫기
@@ -1505,10 +1518,12 @@ export function MeetingsView() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-foreground">생성된 To-Do <span className="text-muted-foreground font-normal">({generatedTodos.length}개)</span></div>
-              <button onClick={() => setUploadFlow("review")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg hover:opacity-90"
-                style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
-                <ListChecks className="w-3.5 h-3.5" />역할 분배 검토
-              </button>
+              {currentUserRole === "leader" && (
+                <button onClick={() => setUploadFlow("review")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg hover:opacity-90"
+                  style={{ background:"linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}>
+                  <ListChecks className="w-3.5 h-3.5" />역할 분배 검토
+                </button>
+              )}
             </div>
             {groupedGeneratedTodos.map(todo => {
               const assigneeId = getAssignee(todo);
@@ -1660,7 +1675,7 @@ export function MeetingsView() {
                   className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all ${showUnassigned ? "border-amber-400 bg-amber-50 text-amber-700" : "border-border bg-card text-muted-foreground hover:border-slate-300"}`}>
                   <AlertTriangle className="w-3.5 h-3.5" />미배정만 보기 {showUnassigned && <span className="bg-amber-200 text-amber-800 px-1 rounded text-[10px]">{unassignedCount}</span>}
                 </button>
-                {isReviewBatchAlreadyRegistered ? (
+                {currentUserRole === "leader" && (isReviewBatchAlreadyRegistered ? (
                   <button onClick={() => { setUploadFlow(null); navigate("/board"); }}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
                     style={{ background:"linear-gradient(135deg,#10B981,#059669)" }}>
@@ -1674,7 +1689,7 @@ export function MeetingsView() {
                     {isRegisteringTasks ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                     {isRegisteringTasks ? "업무보드 등록 중" : `${approvedCount}개 업무 보드에 등록`}
                   </button>
-                )}
+                ))}
               </div>
               {registerMessage && <div className="text-[11px] text-amber-600">{registerMessage}</div>}
             </div>
@@ -2184,7 +2199,7 @@ export function MeetingsView() {
                     <CheckSquare className="w-4 h-4" style={{ color: "var(--primary)" }} />
                     <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">생성된 To-Do</div>
                   </div>
-                  {isMeetingTodosRegistered ? (
+                  {currentUserRole === "leader" && (isMeetingTodosRegistered ? (
                     <button onClick={() => { navigate("/board"); }}
                       className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
                       등록 완료 · 업무보드 확인
@@ -2197,7 +2212,7 @@ export function MeetingsView() {
                       {isRegisteringTasks && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                       {isRegisteringTasks ? "등록 중" : "업무로 등록"}
                     </button>
-                  )}
+                  ))}
                 </div>
                 {registerMessage && <div className="text-[11px] text-amber-600 mb-2">{registerMessage}</div>}
                 <ul className="space-y-2">

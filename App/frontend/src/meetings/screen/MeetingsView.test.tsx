@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGeneratedTodos } from "./MeetingsView";
+import { buildGeneratedTodos, deriveCurrentUserRole } from "./MeetingsView";
 import type { MeetingAiResult } from "../libs/types/meetingAiTypes";
 
 const baseResult = (assignee_id: string | null): MeetingAiResult => ({
@@ -53,5 +53,24 @@ describe("buildGeneratedTodos", () => {
     const todos = buildGeneratedTodos(result);
 
     expect(todos[0].basis).toBe("회의록 후보 담당자: 곽진아");
+  });
+});
+
+describe("deriveCurrentUserRole", () => {
+  it("팀장 역할은 leader로 매핑된다", () => {
+    expect(deriveCurrentUserRole("팀장")).toBe("leader");
+  });
+
+  it("심사자 역할은 reviewer로 매핑된다", () => {
+    expect(deriveCurrentUserRole("심사자")).toBe("reviewer");
+  });
+
+  it("팀원 역할은 member로 매핑된다", () => {
+    expect(deriveCurrentUserRole("팀원")).toBe("member");
+  });
+
+  it("역할 정보가 없으면(null/undefined) member로 폴백한다, 하드코딩된 leader로 기본값을 두지 않는다", () => {
+    expect(deriveCurrentUserRole(null)).toBe("member");
+    expect(deriveCurrentUserRole(undefined)).toBe("member");
   });
 });
