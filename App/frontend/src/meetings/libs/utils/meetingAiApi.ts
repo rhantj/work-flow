@@ -121,3 +121,31 @@ export async function registerMeetingTasks(
     body: JSON.stringify({ todos }),
   });
 }
+
+export interface MeetingSaveResponseDto {
+  meetingId: string;
+  status: "SAVED";
+}
+
+export async function confirmMeetingSave(projectId: string, meetingId: string): Promise<MeetingSaveResponseDto> {
+  return apiFetch<MeetingSaveResponseDto>(`/projects/${projectId}/meetings/${meetingId}/save`, {
+    method: "POST",
+  });
+}
+
+export interface MeetingVersionResponseDto {
+  meetingId: string;
+  status: "SAVED" | "PROCESSING";
+}
+
+export async function createMeetingVersion(
+  projectId: string,
+  meetingId: string,
+  transcript: string,
+  triggerAnalysis: boolean
+): Promise<MeetingVersionResponseDto> {
+  return apiFetch<MeetingVersionResponseDto>(`/projects/${projectId}/meetings/${meetingId}/versions`, {
+    method: "POST",
+    body: JSON.stringify({ transcript, triggerAnalysis }),
+  });
+}

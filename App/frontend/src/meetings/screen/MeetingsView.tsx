@@ -8,7 +8,7 @@ import { addActivity } from "../../board/libs/utils/activityStore";
 import { CATEGORIES } from "../../board/libs/mock/tasks";
 import type { Meeting, UploadFlow, UploadType, GenTodo, SavedMeetingRecord } from "../libs/types/meeting";
 import type { CatId, Priority, Task } from "../../board/libs/types/task";
-import { analyzeMeeting, deleteMeeting, fetchMeeting, fetchMeetings, registerMeetingTasks, retryMeetingAnalysis } from "../libs/utils/meetingAiApi";
+import { analyzeMeeting, confirmMeetingSave, deleteMeeting, fetchMeeting, fetchMeetings, registerMeetingTasks, retryMeetingAnalysis } from "../libs/utils/meetingAiApi";
 import type { MeetingAiResult } from "../libs/types/meetingAiTypes";
 import { deleteTask, DEMO_PROJECT_ID } from "../../board/libs/utils/taskApi";
 import { useAuth } from "../../global/hooks/useAuth";
@@ -771,6 +771,14 @@ export function MeetingsView() {
     setTimeout(() => setSaveMeetingMessage(null), 2500);
   };
 
+  // 로컬 상태 반영(handleSaveMeeting)에 더해 서버의 saved_at 확정과 MEETING_SAVED/_NOTIFY_LEADER 알림 발송을 트리거한다.
+  const handleConfirmSave = async () => {
+    handleSaveMeeting();
+    if (selected) {
+      await confirmMeetingSave(projectId, selected);
+    }
+  };
+
   const handleViewOriginal = async () => {
     if (!selectedFile) {
       setOriginalViewMessage("원본 파일이 없습니다.");
@@ -1438,7 +1446,7 @@ export function MeetingsView() {
             </button>
           )}
           {currentUserRole !== "reviewer" && (
-            <button onClick={handleSaveMeeting} className="w-full py-2 text-xs font-medium text-muted-foreground border border-border rounded-xl hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
+            <button onClick={handleConfirmSave} className="w-full py-2 text-xs font-medium text-muted-foreground border border-border rounded-xl hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
               <FileText className="w-3.5 h-3.5" />{currentUserRole === "leader" ? "회의록 분석결과 저장" : "회의록 저장"}
             </button>
           )}
