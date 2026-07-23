@@ -104,7 +104,7 @@ public class Meeting {
             null
         );
         version.transcript = transcript;
-        version.originalMeetingId = original.id != null ? original.id : original.originalMeetingId;
+        version.originalMeetingId = original.originalMeetingId != null ? original.originalMeetingId : original.id;
         version.editedBy = editedBy;
         return version;
     }

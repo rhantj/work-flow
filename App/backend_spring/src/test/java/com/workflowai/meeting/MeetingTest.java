@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class MeetingTest {
 
@@ -37,5 +38,18 @@ class MeetingTest {
         assertThat(version.getTranscript()).isEqualTo("수정된 본문");
         assertThat(version.getAnalysisStatus()).isEqualTo("pending");
         assertThat(version.getProjectId()).isEqualTo(original.getProjectId());
+    }
+
+    @Test
+    void newVersionOfAVersionStillLinksToOriginalRoot() {
+        Meeting original = newOriginal();
+        ReflectionTestUtils.setField(original, "id", 1L);
+
+        Meeting versionB = Meeting.newVersion(original, "1차 수정본", 20L, "정기회의_수정본1");
+        ReflectionTestUtils.setField(versionB, "id", 2L);
+
+        Meeting versionC = Meeting.newVersion(versionB, "2차 수정본", 30L, "정기회의_수정본2");
+
+        assertThat(versionC.getOriginalMeetingId()).isEqualTo(original.getId());
     }
 }
