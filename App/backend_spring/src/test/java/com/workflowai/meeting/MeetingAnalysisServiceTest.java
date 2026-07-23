@@ -266,6 +266,24 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
+    void deleteNotifiesActorAndLeader() {
+        mockMember(1L);
+        Meeting meeting = new Meeting(1L, "삭제 회의", "document", null, "completed", LocalDate.now(), "정기회의", "notes.txt", CURRENT_USER_ID, 5L);
+        when(meetingRepository.findByIdAndProjectId(12L, 1L)).thenReturn(Optional.of(meeting));
+        when(projectMemberRepository.findByProjectIdAndRole(1L, ProjectRole.LEADER))
+            .thenReturn(Optional.of(new ProjectMember(1L, 99L, ProjectRole.LEADER)));
+        MeetingAnalysisService service = newService();
+
+        service.delete("demo-project", "12", false);
+
+        verify(notificationService).notifyActorAndCounterpart(
+            eq(CURRENT_USER_ID), eq("MEETING_DELETED"), any(), any(),
+            eq(99L), eq("MEETING_DELETED"), any(), any(),
+            eq("meeting"), eq(12L)
+        );
+    }
+
+    @Test
     void deleteRejectsWhenCurrentUserIsNotTheUploader() {
         mockMember(1L);
         Long otherUploaderId = 999L;

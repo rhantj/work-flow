@@ -394,9 +394,20 @@ public class MeetingAnalysisService {
             meetingActionItemRepository.clearMeetingId(meetingDbId);
             taskRepository.clearSourceMeetingId(meetingDbId);
         }
+        Long actorId = CurrentUser.id();
+        Long leaderId = projectMemberRepository.findByProjectIdAndRole(meeting.getProjectId(), ProjectRole.LEADER)
+            .map(ProjectMember::getUserId)
+            .orElse(null);
+        String title = meeting.getTitle();
+
         meetingRepository.delete(meeting);
         deleteUploadedFile(filePath);
 
+        notificationService.notifyActorAndCounterpart(
+            actorId, "MEETING_DELETED", "회의록을 삭제했습니다", "'" + title + "' 회의록을 삭제했습니다.",
+            leaderId, "MEETING_DELETED", "회의록이 삭제되었습니다", "'" + title + "' 회의록이 삭제되었습니다.",
+            "meeting", meetingDbId
+        );
         return new MeetingDeleteResponse(meetingId, "DELETED");
     }
 
