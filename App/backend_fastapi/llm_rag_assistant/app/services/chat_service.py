@@ -14,7 +14,11 @@ from llm_rag_assistant.app.services.retrieval_service import search_similar_chun
 logger = logging.getLogger(__name__)
 
 _SNIPPET_MAX_LEN = 200
-_ANSWER_CACHE_SCHEMA_VERSION = "v1"
+# 캐시 키 해시에 들어가므로, 올리면 프로젝트 데이터 변경 없이도 기존 답변 캐시가 전부
+# 무효화된다. 응답 스키마뿐 아니라 프롬프트 구성이 바뀔 때도 올려야 한다. 그러지 않으면
+# 배포 뒤에도 이전 프롬프트로 만든 답변이 TTL(30분) 동안 계속 반환된다.
+# v2: 개인화 질문 컨텍스트에 담당자 필터 안내문 추가 (generation_service._PERSONAL_CONTEXT_NOTICE)
+_ANSWER_CACHE_SCHEMA_VERSION = "v2"
 _ANSWER_CACHE_TTL_SECONDS = 1800
 
 # "내 할 일 알려줘" 류 개인화 질문 판별용. 순수 벡터 유사도만으로는 "내"가 누구인지 구분할
@@ -144,7 +148,7 @@ async def answer_question(pool, project_id: int, question: str, user_id: int | N
 
     query_embedding = await embed_text(question)
     rows = await search_similar_chunks(pool, project_id, query_embedding, top_k=5, assignee_id=assignee_id)
-    answer = await generate_answer(question, rows)
+    answer = await generate_answer(question, rows, is_personal=assignee_id is not None)
 
     sources = [
         RagSource(
