@@ -449,8 +449,14 @@ public class MeetingAnalysisService {
         Meeting original = requireProjectMeeting(projectId, meetingId);
         if (original == null) return null;
 
-        long existingVersions = meetingRepository.countByOriginalMeetingId(original.getId());
-        String versionTitle = original.getTitle() + (existingVersions == 0 ? "_수정본" : "_수정본" + (existingVersions + 1));
+        // 경로 파라미터로 받은 회의록이 이미 버전(originalMeetingId != null)이면 최초 원본을 기준으로 제목/카운트를 계산한다.
+        Long rootId = original.getOriginalMeetingId() != null ? original.getOriginalMeetingId() : original.getId();
+        String rootTitle = original.getOriginalMeetingId() == null
+            ? original.getTitle()
+            : meetingRepository.findById(rootId).map(Meeting::getTitle).orElse(original.getTitle());
+
+        long existingVersions = meetingRepository.countByOriginalMeetingId(rootId);
+        String versionTitle = rootTitle + (existingVersions == 0 ? "_수정본" : "_수정본" + (existingVersions + 1));
 
         Long editorId = CurrentUser.id();
         Meeting version = meetingRepository.save(Meeting.newVersion(original, request.transcript(), editorId, versionTitle));

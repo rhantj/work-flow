@@ -622,6 +622,35 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
+    void createVersionOnAlreadyVersionedMeetingUsesRootTitleAndRootCount() {
+        mockMember(1L);
+        // 최초 원본 A(id=5)
+        Meeting rootOriginal = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(rootOriginal, "id", 5L);
+        // "저장된 회의록" 탭에서 다시 연 이미 존재하는 버전 B(id=6, originalMeetingId=5) - 경로 파라미터로 들어옴
+        Meeting pathMeeting = new Meeting(1L, "정기회의_수정본", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(pathMeeting, "id", 6L);
+        ReflectionTestUtils.setField(pathMeeting, "originalMeetingId", 5L);
+
+        when(meetingRepository.findByIdAndProjectId(6L, 1L)).thenReturn(Optional.of(pathMeeting));
+        when(meetingRepository.findById(5L)).thenReturn(Optional.of(rootOriginal));
+        when(meetingRepository.countByOriginalMeetingId(5L)).thenReturn(2L);
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        MeetingAnalysisService service = newService();
+
+        service.createVersion("demo-project", "6", new MeetingVersionRequest("본문", false));
+
+        verify(meetingRepository).countByOriginalMeetingId(5L);
+        verify(meetingRepository, never()).countByOriginalMeetingId(6L);
+        ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(captor.capture());
+        Meeting savedVersion = captor.getAllValues().stream()
+            .filter(m -> m.getOriginalMeetingId() != null).findFirst().orElseThrow();
+        // 최초 원본(A) 제목 기준 "_수정본3" - "정기회의_수정본_수정본" 처럼 중첩되면 안 됨
+        assertThat(savedVersion.getTitle()).isEqualTo("정기회의_수정본3");
+    }
+
+    @Test
     void createVersionTriggersAnalysisWhenRequested() {
         mockMember(1L);
         Meeting original = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
