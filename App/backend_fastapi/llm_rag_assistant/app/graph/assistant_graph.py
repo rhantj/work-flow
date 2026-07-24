@@ -4,12 +4,11 @@ import asyncio
 import logging
 import uuid
 
-from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 from pydantic import BaseModel
 
-from core.config import get_settings
 from llm_rag_assistant.app.graph.planner import plan_actions
 from llm_rag_assistant.app.graph.state import (
     SUPPORTED_TOOLS,
@@ -186,47 +185,33 @@ def _build() -> StateGraph:
     return builder
 
 
-# 체크포인트는 승인 대기 중인 임시 상태다. 내구성이 필요 없고 TTL이 필요해 Redis를 쓴다
-# (유실되면 "요청이 만료되었습니다"로 안내하고 사용자가 다시 말하면 된다).
-_CHECKPOINT_TTL_MINUTES = 30
-
+# 체크포인트는 승인 대기 중인 임시 상태다. 내구성이 필요 없어(유실 시 "요청이 만료되었습니다"로
+# 안내하고 사용자가 다시 말하면 된다) 프로세스 메모리에 보관한다. 만료(30분)는 Spring의
+# 스레드 소유권 TTL이 강제하므로, 버려진 스레드의 체크포인트가 메모리에 남아도 재개는 소유권
+# 검사에서 막힌다. 다중 워커로 확장하면 재개가 다른 워커로 가 체크포인트를 못 찾을 수 있어,
+# 그때는 공유 백엔드(Postgres 등) 체크포인터로 옮겨야 한다.
 _compiled = None
-_checkpointer_cm = None
-# 최초 동시 요청이 각자 체크포인터를 만들어 Redis 연결이 새는 것을 막는다(이중 검사 잠금).
+# 최초 동시 요청이 각자 그래프를 컴파일하지 않도록 이중 검사 잠금으로 한 번만 만든다.
 _graph_lock = asyncio.Lock()
 
 
 async def get_graph():
-    """그래프를 지연 생성한다. Redis 연결이 앱 기동을 막지 않도록 첫 요청에서 만든다."""
-    global _compiled, _checkpointer_cm
+    """그래프를 지연 생성한다. 첫 요청에서 체크포인터와 함께 한 번만 컴파일한다."""
+    global _compiled
     if _compiled is not None:
         return _compiled
     async with _graph_lock:
         # 잠금 대기 중 다른 요청이 이미 만들었을 수 있으므로 다시 확인한다.
         if _compiled is not None:
             return _compiled
-        settings = get_settings()
-        checkpointer_cm = AsyncRedisSaver.from_conn_string(
-            settings.redis_url,
-            ttl={"default_ttl": _CHECKPOINT_TTL_MINUTES, "refresh_on_read": False},
-        )
-        checkpointer = await checkpointer_cm.__aenter__()
-        await checkpointer.asetup()
-        _checkpointer_cm = checkpointer_cm
-        _compiled = _build().compile(checkpointer=checkpointer)
+        _compiled = _build().compile(checkpointer=InMemorySaver())
     return _compiled
 
 
 async def close_graph() -> None:
-    """앱 종료 시 체크포인터가 잡고 있는 Redis 연결을 닫는다(자원 누수 방지)."""
-    global _compiled, _checkpointer_cm
+    """앱 종료 시 그래프 상태를 초기화한다(InMemorySaver는 닫을 외부 자원이 없다)."""
+    global _compiled
     async with _graph_lock:
-        if _checkpointer_cm is not None:
-            try:
-                await _checkpointer_cm.__aexit__(None, None, None)
-            except Exception:
-                logger.warning("체크포인터 종료 실패", exc_info=True)
-        _checkpointer_cm = None
         _compiled = None
 
 

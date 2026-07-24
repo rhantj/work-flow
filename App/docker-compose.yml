@@ -26,24 +26,17 @@ services:
       retries: 10
 
   redis:
-    # 코어 Redis의 상위호환. 어시스턴트 LangGraph 체크포인터(langgraph-checkpoint-redis)가
-    # RediSearch/RedisJSON 모듈을 요구해 alpine에서 교체. 스트림·캐시 등 기존 사용은 그대로 동작한다.
-    image: redis/redis-stack-server:7.2.0-v11
+    # 순수 Redis. 어시스턴트 체크포인터가 InMemorySaver로 바뀌어 RediSearch/RedisJSON
+    # 모듈이 더 이상 필요 없다. 캐시·스트림·스레드 소유권 등 나머지 사용은 순수 Redis 명령뿐.
+    image: redis:7-alpine
     container_name: workflow-redis
     command:
       - redis-server
-      # redis-stack-server 엔트리포인트를 bare redis-server로 덮으면 모듈이 안 올라오므로 직접 로드한다.
-      - --loadmodule
-      - /opt/redis-stack/lib/redisearch.so
-      - --loadmodule
-      - /opt/redis-stack/lib/rejson.so
-      # 이미지 WORKDIR이 비어 있어(/) bare redis-server의 기본 dir는 /가 된다.
-      # 명시하지 않으면 AOF/RDB가 redis-data 볼륨(/data) 밖에 쓰여 매 배포마다 유실된다.
+      # AOF/RDB를 redis-data 볼륨(/data)에 쓰도록 명시한다(미지정 시 볼륨 밖에 쓰여 유실).
       - --dir
       - /data
-      # bare redis-server 오버라이드로 redis-stack 기본 설정(protected-mode no)이 사라져
-      # 다른 컨테이너(fastapi/spring) 연결이 DENIED된다. 호스트 포트는 127.0.0.1로만 노출돼
-      # 있어 docker 내부망 한정 접근이므로 protected-mode를 끈다(기존 alpine 동작 복원).
+      # 호스트 포트는 127.0.0.1로만 노출돼 docker 내부망 한정 접근이므로 protected-mode를 끈다
+      # (다른 컨테이너 fastapi/spring 연결이 DENIED되지 않게).
       - --protected-mode
       - 'no'
       - --appendonly
