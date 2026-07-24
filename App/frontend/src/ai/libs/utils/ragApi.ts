@@ -5,6 +5,10 @@ import { apiFetch } from "../../../global/api/apiClient";
 // 프론트에서 자른 크기가 서버 검증(초과 시 400 INVALID_HISTORY)에 걸리지 않는다.
 export const MAX_HISTORY_MESSAGES = 6;
 
+// 메시지 1개당 글자 수 상한. Spring RagController.MAX_HISTORY_CONTENT_LENGTH와 같은 값이라야
+// 긴 질문/답변이 히스토리로 재전송될 때 400 INVALID_HISTORY로 대화 전체가 끊기지 않는다.
+export const MAX_HISTORY_CONTENT_LENGTH = 1000;
+
 // 후속 질문 재작성에 필요한 최소 필드만. sources 등 부가 필드는 서버로 보내지 않는다.
 export interface RagHistoryMessage {
   role: "user" | "assistant";
@@ -37,7 +41,7 @@ export async function queryRag(
 ): Promise<RagQueryResult> {
   const trimmedHistory = history
     .slice(-MAX_HISTORY_MESSAGES)
-    .map(({ role, content }) => ({ role, content }));
+    .map(({ role, content }) => ({ role, content: content.slice(0, MAX_HISTORY_CONTENT_LENGTH) }));
   const data = await apiFetch<RawRagQueryResult>("/ai/rag/query", {
     method: "POST",
     body: JSON.stringify({ project_id: projectId, question, history: trimmedHistory }),

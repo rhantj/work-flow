@@ -68,6 +68,24 @@ describe("useRagQuery", () => {
     });
   });
 
+  it("truncates each history message to 1000 characters to avoid server INVALID_HISTORY rejection", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ answer: "답변", sources: [] });
+
+    const longContent = "가".repeat(1500);
+    const history = [{ role: "assistant" as const, content: longContent }];
+
+    const { result } = renderHook(() => useRagQuery());
+
+    act(() => {
+      result.current.ask(1, "그건 무슨 뜻이야?", history);
+    });
+
+    await waitFor(() => expect(result.current.status).toBe("success"));
+
+    const sentBody = JSON.parse(vi.mocked(apiFetch).mock.calls[0][1]!.body as string);
+    expect(sentBody.history).toEqual([{ role: "assistant", content: "가".repeat(1000) }]);
+  });
+
   it("sends an empty history array when there is no prior conversation", async () => {
     vi.mocked(apiFetch).mockResolvedValue({ answer: "답변", sources: [] });
 

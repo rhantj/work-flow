@@ -44,7 +44,11 @@ def test_query_endpoint_returns_answer_with_sources() -> None:
 
 
 def test_query_endpoint_forwards_history_to_service() -> None:
-    """멀티턴: 요청의 history가 answer_question까지 그대로 전달되고, 없어도 200이다."""
+    """멀티턴: 요청의 history가 answer_question까지 dict 형태로 전달되고, 없어도 200이다.
+
+    query_rewrite_service._format_history는 turn.get()으로 접근하므로 Pydantic
+    모델(RagHistoryMessage)이 아니라 dict여야 한다 - 회귀 방지용 검증.
+    """
     _override_pool()
     fake_result = RagQueryResponse(answer="답변", sources=[])
     history = [
@@ -64,7 +68,8 @@ def test_query_endpoint_forwards_history_to_service() -> None:
     app.dependency_overrides.clear()
     assert response.status_code == 200
     passed_history = mock_answer.await_args.kwargs["history"]
-    assert [{"role": m.role, "content": m.content} for m in passed_history] == history
+    assert passed_history == history
+    assert all(isinstance(turn, dict) for turn in passed_history)
 
 
 def test_query_endpoint_returns_503_when_connection_fails() -> None:
