@@ -103,7 +103,7 @@ interface AIAssistantProps {
 }
 
 export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
-  const { user, currentProjectId } = useAuth();
+  const { user, currentProjectId, currentProject } = useAuth();
   const sessionKey = useMemo(() => buildSessionKey(user?.id, currentProjectId), [user?.id, currentProjectId]);
   const sessionKeyRef = useRef(sessionKey);
   const [messages, setMessages] = useState<ChatMsg[]>(
@@ -242,7 +242,7 @@ export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
           </div>
           <div>
             <div className="text-sm font-semibold text-white">AI 어시스턴트</div>
-            <div className="text-[10px] text-purple-200">스마트 주차 관리 시스템</div>
+            <div className="text-[10px] text-purple-200">{currentProject?.projectTitle ?? "프로젝트를 선택하세요"}</div>
           </div>
         </div>
         <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
