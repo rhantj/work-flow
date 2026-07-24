@@ -7,8 +7,14 @@ export interface RagSource {
   similarity: number;
 }
 
+import type { ActionCard } from "./command";
+
 export interface ChatMsg {
   role: "user" | "assistant";
   content: string;
   sources?: RagSource[];
+  // 확인 카드가 붙은 어시스턴트 메시지. 실행/취소가 끝나면 undefined로 지워 카드를 감춘다.
+  card?: ActionCard;
+  // 카드 실행 결과를 그래프에 되돌릴 때 쓰는 그래프 스레드 id. 카드와 짝이다.
+  threadId?: string;
 }

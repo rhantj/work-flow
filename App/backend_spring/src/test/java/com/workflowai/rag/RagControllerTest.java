@@ -138,6 +138,27 @@ class RagControllerTest {
     }
 
     @Test
+    void queryRejectsBlankQuestionAsBadRequestNot503() throws Exception {
+        // question이 null이면 FastAPI가 422로 거부 → RestClientException → 503("일시 장애")으로
+        // 위장된다. 공백이면 무의미한 재작성/생성 LLM 호출을 태운다. 400으로 먼저 끊는다.
+        authenticateAs(5L);
+        RagController controller = new RagController(fastApiRagClient, rateLimiter);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        String nullBody = "{\"project_id\":1,\"question\":null,\"history\":[]}";
+        mockMvc.perform(post("/api/v1/ai/rag/query").contentType(MediaType.APPLICATION_JSON).content(nullBody))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("INVALID_QUESTION"));
+
+        String blankBody = "{\"project_id\":1,\"question\":\"   \",\"history\":[]}";
+        mockMvc.perform(post("/api/v1/ai/rag/query").contentType(MediaType.APPLICATION_JSON).content(blankBody))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("INVALID_QUESTION"));
+
+        verify(fastApiRagClient, org.mockito.Mockito.never()).query(any());
+    }
+
+    @Test
     void queryRejectsHistoryMessageWithNullContent() throws Exception {
         authenticateAs(5L);
         RagController controller = new RagController(fastApiRagClient, rateLimiter);

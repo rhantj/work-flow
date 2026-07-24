@@ -6,6 +6,7 @@ import { getCat } from "../libs/utils/taskService";
 import { CAT_MODAL_FIELDS } from "../libs/utils/catFields";
 import { createTask, DEMO_PROJECT_ID } from "../libs/utils/taskApi";
 import { useAuth } from "../../global/hooks/useAuth";
+import { useProject } from "../../global/hooks/useProject";
 import type { MemberResponse } from "../../global/api/projectsApi";
 import type { Priority, Task, TaskStatus } from "../libs/types/task";
 
@@ -21,6 +22,7 @@ interface AddTaskModalProps {
 
 export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onCreated }: AddTaskModalProps) {
   const { currentProjectId } = useAuth();
+  const project = useProject(currentProjectId);
   const [step, setStep] = useState(0);
   const [selCat, setSelCat] = useState("");
   const [customCat, setCustomCat] = useState("");
@@ -79,8 +81,8 @@ export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onC
         }, currentProjectId ?? DEMO_PROJECT_ID);
         onCreated(created);
         setStep(step + 1);
-      } catch {
-        setSubmitError("업무 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      } catch (cause) {
+        setSubmitError(cause instanceof Error ? cause.message : "업무 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
       } finally {
         setSubmitting(false);
       }
@@ -189,11 +191,11 @@ export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onC
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-foreground block mb-1.5">시작일</label>
-                      <input type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} max={fDue || undefined} className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+                      <input type="date" min={project?.startDate ?? undefined} max={fDue || project?.deadline || undefined} value={fStart} onChange={(e) => setFStart(e.target.value)} className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-foreground block mb-1.5">마감일</label>
-                      <input type="date" value={fDue} onChange={(e) => setFDue(e.target.value)} min={fStart || undefined} className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
+                      <input type="date" min={fStart || project?.startDate || undefined} max={project?.deadline ?? undefined} value={fDue} onChange={(e) => setFDue(e.target.value)} className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-sm outline-none focus:border-blue-400" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">

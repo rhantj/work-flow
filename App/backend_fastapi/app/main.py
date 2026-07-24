@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -23,6 +24,8 @@ from pydantic import BaseModel, Field
 
 from core.cache import get_redis_client
 from llm_rag_assistant.app.routers.chat_router import router as rag_router
+from llm_rag_assistant.app.routers.assistant_router import router as assistant_router
+from llm_rag_assistant.app.graph.assistant_graph import close_graph
 from llm_rag_assistant.app.services.embedding_service import preload_embedding_model
 from ml_workload_score.app.routers.workload_router import router as workload_router
 from ai_contribution_report.app.routers.contribution_router import router as contribution_report_router
@@ -46,6 +49,11 @@ DEFAULT_HF_MEETING_ANALYSIS_TEMPERATURE = 0.1
 HF_CHAT_COMPLETIONS_URL = "https://router.huggingface.co/v1/chat/completions"
 MEETING_ANALYSIS_CACHE_SCHEMA_VERSION = 1
 MEETING_ANALYSIS_CACHE_TTL_SECONDS = 86400
+DEFAULT_WHISPER_MODEL_SIZE = "small"
+DEFAULT_WHISPER_DEVICE = "cpu"
+DEFAULT_WHISPER_COMPUTE_TYPE = "int8"
+DEFAULT_WHISPER_LANGUAGE = "ko"
+AUDIO_FILE_EXTENSIONS = (".mp3", ".wav", ".m4a", ".ogg")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -55,6 +63,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.exception("RAG 임베딩 모델 사전 로드 실패 - 첫 요청 시 재시도됩니다.")
     yield
+    # 명령 그래프 체크포인터가 잡은 Redis 연결을 닫는다.
+    await close_graph()
 
 
 app = FastAPI(title="WorkFlow AI FastAPI", version="0.1.0", lifespan=lifespan)
@@ -68,6 +78,7 @@ app.add_middleware(
 )
 
 app.include_router(rag_router)
+app.include_router(assistant_router)
 app.include_router(workload_router)
 app.include_router(contribution_report_router)
 app.include_router(delay_risk_router)
@@ -127,6 +138,10 @@ class MeetingAnalysisResult(BaseModel):
     risks: List[str]
     keywords: List[str]
     meeting_meta: MeetingMeta
+
+
+class AudioTranscribeResult(BaseModel):
+    text: str
 
 
 @app.get("/api/v1/health")
@@ -269,7 +284,7 @@ async def analyze_upload(
     if file:
         file_name = file.filename
         raw = await file.read()
-        text = extract_uploaded_text(raw, file_name)
+        text = await asyncio.to_thread(extract_uploaded_text, raw, file_name)
     return analyze_json(
         AnalyzeRequest(
             title=title,
@@ -281,6 +296,18 @@ async def analyze_upload(
             participants=participants,
         )
     )
+
+
+@app.post("/api/v1/meetings/transcribe", response_model=AudioTranscribeResult)
+async def transcribe_audio(file: UploadFile = File(...)):
+    """Spring이 음성 회의록 업로드 시 텍스트만 필요할 때 호출하는 STT 전용 엔드포인트.
+    분석까지 함께 하는 /analyze와 달리, 추출된 텍스트만 반환해 Spring 쪽 기존 분석 파이프라인(큐/폴백/알림)을 그대로 재사용할 수 있게 한다."""
+    raw = await file.read()
+    try:
+        text = await asyncio.to_thread(extract_audio_text, raw)
+    except DocumentTextExtractionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return AudioTranscribeResult(text=text)
 
 
 def resolve_participants(request: AnalyzeRequest) -> List[str]:
@@ -694,6 +721,8 @@ def extract_uploaded_text(raw: bytes, file_name: Optional[str] = None) -> str:
             return extract_pdf_text(raw)
         if name.endswith(".docx"):
             return extract_docx_text(raw)
+        if name.endswith(AUDIO_FILE_EXTENSIONS):
+            return extract_audio_text(raw)
         return raw.decode("utf-8", errors="ignore").strip()
     except DocumentTextExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -743,6 +772,41 @@ def extract_docx_text(raw: bytes) -> str:
     except Exception as exc:
         logger.exception("DOCX 텍스트 추출 실패")
         raise DocumentTextExtractionError("DOCX 텍스트 추출에 실패했습니다.") from exc
+
+
+_whisper_model = None
+
+
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        from faster_whisper import WhisperModel
+
+        _whisper_model = WhisperModel(
+            os.getenv("WHISPER_MODEL_SIZE", DEFAULT_WHISPER_MODEL_SIZE),
+            device=os.getenv("WHISPER_DEVICE", DEFAULT_WHISPER_DEVICE),
+            compute_type=os.getenv("WHISPER_COMPUTE_TYPE", DEFAULT_WHISPER_COMPUTE_TYPE),
+        )
+    return _whisper_model
+
+
+def extract_audio_text(raw: bytes) -> str:
+    try:
+        model = get_whisper_model()
+        language = os.getenv("WHISPER_LANGUAGE", DEFAULT_WHISPER_LANGUAGE)
+        segments, _ = model.transcribe(BytesIO(raw), language=language)
+        text = " ".join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
+        if not text:
+            raise DocumentTextExtractionError("음성 파일에서 텍스트를 추출하지 못했습니다.")
+        return text
+    except DocumentTextExtractionError:
+        raise
+    except ImportError as exc:
+        logger.exception("음성 인식(STT) 의존성 누락")
+        raise DocumentTextExtractionError("음성 인식에 필요한 서버 의존성이 설치되지 않았습니다.") from exc
+    except Exception as exc:
+        logger.exception("음성 파일 텍스트 추출 실패")
+        raise DocumentTextExtractionError("음성 파일 텍스트 추출에 실패했습니다.") from exc
 
 
 _TITLE_LEADING_PATTERNS = [

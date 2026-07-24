@@ -7,6 +7,7 @@ export const DEMO_PROJECT_ID = 1;
 
 interface TaskListItemDto {
   id: string;
+  milestoneId: string | null;
   title: string;
   category: string | null;
   status: string;
@@ -37,6 +38,7 @@ function normalizePriority(raw: string | null): Priority {
 function toTask(dto: TaskListItemDto): Task {
   return {
     id: dto.id,
+    milestoneId: dto.milestoneId ?? undefined,
     title: dto.title,
     status: normalizeStatus(dto.status),
     priority: normalizePriority(dto.priority),

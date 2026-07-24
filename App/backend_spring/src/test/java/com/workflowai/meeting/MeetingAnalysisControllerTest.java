@@ -1,5 +1,8 @@
 package com.workflowai.meeting;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -9,10 +12,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -25,7 +31,7 @@ class MeetingAnalysisControllerTest {
     @Test
     void getMeetingsPassesProjectIdToService() throws Exception {
         when(meetingAnalysisService.findByProject("project-a")).thenReturn(List.of(
-            new MeetingSummary("11", "A 프로젝트 회의", "2026-07-19", "정기회의", "completed")
+            new MeetingSummary("11", "A 프로젝트 회의", "2026-07-19", "정기회의", "completed", null, null, false)
         ));
         MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
@@ -112,5 +118,77 @@ class MeetingAnalysisControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.meetingId").value("42"))
             .andExpect(jsonPath("$.data.status").value("DELETED"));
+    }
+
+    @Test
+    void saveMeetingReturns404WhenMeetingMissing() throws Exception {
+        when(meetingAnalysisService.confirmSave("demo-project", "999")).thenReturn(null);
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/meetings/999/save"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.error.code").value("MEETING_NOT_FOUND"));
+    }
+
+    @Test
+    void saveMeetingReturnsSavedStatus() throws Exception {
+        when(meetingAnalysisService.confirmSave("demo-project", "42")).thenReturn(new MeetingSaveResponse("42", "SAVED"));
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/meetings/42/save"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.meetingId").value("42"))
+            .andExpect(jsonPath("$.data.status").value("SAVED"));
+
+        verify(meetingAnalysisService).confirmSave("demo-project", "42");
+    }
+
+    @Test
+    void createVersionReturns409OnlyWhenTitleUniqueConstraintViolated() throws Exception {
+        when(meetingAnalysisService.createVersion(eq("demo-project"), eq("42"), any()))
+            .thenThrow(new DataIntegrityViolationException(
+                "insert failed",
+                new ConstraintViolationException("constraint violation", null, "uq_meetings_original_id_title")
+            ));
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/meetings/42/versions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"transcript\":\"내용\",\"triggerAnalysis\":false}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("VERSION_TITLE_CONFLICT"));
+    }
+
+    @Test
+    void createVersionPropagatesUnrelatedDataIntegrityViolation() {
+        when(meetingAnalysisService.createVersion(eq("demo-project"), eq("42"), any()))
+            .thenThrow(new DataIntegrityViolationException(
+                "insert failed",
+                new ConstraintViolationException("constraint violation", null, "fk_meetings_edited_by")
+            ));
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        assertThatThrownBy(() -> mockMvc.perform(post("/api/v1/projects/demo-project/meetings/42/versions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"transcript\":\"내용\",\"triggerAnalysis\":false}")))
+            .hasCauseInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void createVersionPropagatesDataIntegrityViolationWithoutConstraintName() {
+        // 드라이버가 제약 이름을 구조적으로 노출하지 못하는 경우, 안전하게 제목 충돌이 아닌 것으로 처리한다.
+        when(meetingAnalysisService.createVersion(eq("demo-project"), eq("42"), any()))
+            .thenThrow(new DataIntegrityViolationException("insert failed", new RuntimeException("unknown db error")));
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        assertThatThrownBy(() -> mockMvc.perform(post("/api/v1/projects/demo-project/meetings/42/versions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"transcript\":\"내용\",\"triggerAnalysis\":false}")))
+            .hasCauseInstanceOf(DataIntegrityViolationException.class);
     }
 }

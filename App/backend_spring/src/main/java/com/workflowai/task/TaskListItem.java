@@ -6,6 +6,7 @@ import java.util.Map;
 @Schema(description = "업무 목록 항목")
 public record TaskListItem(
     @Schema(description = "업무 ID", example = "42") String id,
+    @Schema(description = "소속 마일스톤 ID", example = "3") String milestoneId,
     @Schema(description = "업무 제목", example = "발표자료 초안 작성") String title,
     @Schema(description = "카테고리", example = "PRESENTATION") String category,
     @Schema(description = "상태", example = "todo", allowableValues = {"todo", "inprogress", "blocked", "done"}) String status,
@@ -21,6 +22,7 @@ public record TaskListItem(
     public static TaskListItem from(Task task) {
         return new TaskListItem(
             String.valueOf(task.getId()),
+            task.getMilestoneId() == null ? null : String.valueOf(task.getMilestoneId()),
             task.getTitle(),
             task.getCategory(),
             task.getStatus(),

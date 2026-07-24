@@ -51,6 +51,7 @@ export const router = createBrowserRouter([
               { path: "completion-approvals", element: <CompletionApprovalsView /> },
             ],
           },
+          { path: "roadmap", element: <Navigate to="/dashboard" replace /> },
           { path: "meetings", element: <MeetingsView /> },
           { path: "deliverables", element: <DeliverablesView /> },
           {

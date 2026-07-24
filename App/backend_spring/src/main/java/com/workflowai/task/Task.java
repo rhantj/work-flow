@@ -92,11 +92,33 @@ public class Task {
         Long createdBy,
         double position
     ) {
+        this(projectId, null, title, category, status, assigneeId, null, dueDate, priority,
+            description, sourceType, sourceMeetingId, createdBy, position);
+    }
+
+    public Task(
+        Long projectId,
+        Long milestoneId,
+        String title,
+        String category,
+        String status,
+        Long assigneeId,
+        LocalDate startDate,
+        LocalDate dueDate,
+        String priority,
+        String description,
+        String sourceType,
+        Long sourceMeetingId,
+        Long createdBy,
+        double position
+    ) {
         this.projectId = projectId;
+        this.milestoneId = milestoneId;
         this.title = title;
         this.category = category;
         this.status = status;
         this.assigneeId = assigneeId;
+        this.startDate = startDate;
         this.dueDate = dueDate;
         this.priority = priority;
         this.description = description;
@@ -164,6 +186,10 @@ public class Task {
         return sourceMeetingId;
     }
 
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
     public double getPosition() {
         return position;
     }
@@ -214,6 +240,15 @@ public class Task {
     /** 팀장이 완료를 반려한다 — status는 그대로 두고 대기 상태만 끈다. */
     public void rejectCompletion() {
         this.pendingApproval = false;
+    }
+
+    public void moveToMilestone(Long milestoneId) {
+        this.milestoneId = milestoneId;
+    }
+
+    public void updatePlanningDates(LocalDate startDate, LocalDate dueDate) {
+        this.startDate = startDate;
+        this.dueDate = dueDate;
     }
 
     /**

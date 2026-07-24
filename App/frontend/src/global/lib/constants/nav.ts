@@ -18,6 +18,7 @@ export const TAB_TITLES: Record<Tab, string> = {
   dashboard: "대시보드",
   board: "업무 보드",
   "completion-approvals": "완료 승인",
+  roadmap: "로드맵",
   meetings: "회의록 AI",
   deliverables: "산출물 생성",
   github: "GitHub 연동",

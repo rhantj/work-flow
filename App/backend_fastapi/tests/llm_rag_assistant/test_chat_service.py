@@ -98,6 +98,24 @@ async def test_answer_question_handles_no_matching_chunks() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("blank", ["", "   ", "\n\t"])
+async def test_answer_question_short_circuits_blank_question_without_llm(blank: str) -> None:
+    # Spring이 보통 400으로 막지만, 내부 호출 경로(그래프 등)가 빈 질문을 넘겨도
+    # 임베딩·검색·생성 LLM을 태우지 않고 즉시 빈 응답으로 끊는다.
+    embed = AsyncMock(return_value=[0.1])
+    gen = AsyncMock(return_value="답변")
+    with (
+        patch("llm_rag_assistant.app.services.chat_service.embed_text", new=embed),
+        patch("llm_rag_assistant.app.services.chat_service.generate_answer", new=gen),
+    ):
+        result = await answer_question(object(), project_id=5, question=blank)
+
+    assert result.sources == []
+    embed.assert_not_awaited()
+    gen.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_answer_question_filters_by_assignee_when_personal_intent_and_user_id_given() -> None:
     pool = object()
     rows = [{"source_type": "task", "source_id": 3, "content": "내 업무", "similarity": 0.9}]

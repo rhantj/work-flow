@@ -4,8 +4,11 @@ import com.workflowai.activity.ActivityService;
 import com.workflowai.common.ApiResponse;
 import com.workflowai.common.DemoDataService;
 import com.workflowai.notification.NotificationService;
+import com.workflowai.project.Project;
 import com.workflowai.project.ProjectMemberRepository;
+import com.workflowai.project.ProjectRepository;
 import com.workflowai.project.ProjectRole;
+import com.workflowai.project.ProjectSchedulePolicy;
 import com.workflowai.rag.RagIngestService;
 import com.workflowai.security.CurrentUser;
 import com.workflowai.user.User;
@@ -63,6 +66,7 @@ public class TaskController {
     private final ActivityService activityService;
     private final NotificationService notificationService;
     private final ProjectMemberRepository projectMemberRepository;
+    private final ProjectRepository projectRepository;
     private final RagIngestService ragIngestService;
 
     public TaskController(
@@ -72,6 +76,7 @@ public class TaskController {
         ActivityService activityService,
         NotificationService notificationService,
         ProjectMemberRepository projectMemberRepository,
+        ProjectRepository projectRepository,
         RagIngestService ragIngestService
     ) {
         this.taskRepository = taskRepository;
@@ -80,6 +85,7 @@ public class TaskController {
         this.activityService = activityService;
         this.notificationService = notificationService;
         this.projectMemberRepository = projectMemberRepository;
+        this.projectRepository = projectRepository;
         this.ragIngestService = ragIngestService;
     }
 
@@ -157,8 +163,10 @@ public class TaskController {
         } catch (DateTimeParseException e) {
             return ResponseEntity.badRequest().body(ApiResponse.fail("INVALID_DUE_DATE", "dueDate는 YYYY-MM-DD 형식이어야 합니다."));
         }
-        if (!isValidDateRange(startDate, dueDate)) {
-            return ResponseEntity.badRequest().body(ApiResponse.fail("INVALID_DATE_RANGE", "시작일은 마감일보다 늦을 수 없습니다."));
+        if (startDate != null || dueDate != null) {
+            Project project = projectRepository.findById(projectDbId)
+                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾을 수 없습니다."));
+            ProjectSchedulePolicy.validate(project, startDate, dueDate, "업무");
         }
 
         Long assigneeId;
@@ -174,10 +182,12 @@ public class TaskController {
         String category = defaultString(request.category(), "other");
         Task newTask = new Task(
             projectDbId,
+            null,
             request.title(),
             category,
             status,
             assigneeId,
+            startDate,
             dueDate,
             request.priority(),
             request.description(),
@@ -300,8 +310,10 @@ public class TaskController {
         // applyUpdate는 null이면 기존값을 유지하므로, 검증도 "적용됐을 때의 실제 값" 기준으로 한다.
         LocalDate effectiveStartDate = startDate != null ? startDate : task.getStartDate();
         LocalDate effectiveDueDate = dueDate != null ? dueDate : task.getDueDate();
-        if (!isValidDateRange(effectiveStartDate, effectiveDueDate)) {
-            return ResponseEntity.badRequest().body(ApiResponse.fail("INVALID_DATE_RANGE", "시작일은 마감일보다 늦을 수 없습니다."));
+        if (request.startDate() != null || request.dueDate() != null) {
+            Project project = projectRepository.findById(projectDbId)
+                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾을 수 없습니다."));
+            ProjectSchedulePolicy.validate(project, effectiveStartDate, effectiveDueDate, "업무");
         }
 
         String titleBefore = task.getTitle();
@@ -630,11 +642,6 @@ public class TaskController {
 
     private static LocalDate parseDate(String date) {
         return date == null || date.isBlank() ? null : LocalDate.parse(date);
-    }
-
-    /** 시작일이 마감일보다 늦으면 안 된다. 둘 중 하나라도 없으면 검증하지 않는다. */
-    private static boolean isValidDateRange(LocalDate startDate, LocalDate dueDate) {
-        return startDate == null || dueDate == null || !startDate.isAfter(dueDate);
     }
 
     private static String defaultString(String value, String fallback) {

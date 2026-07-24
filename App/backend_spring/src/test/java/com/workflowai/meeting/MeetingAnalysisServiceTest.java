@@ -13,11 +13,14 @@ import static org.mockito.Mockito.when;
 
 import com.workflowai.common.DemoDataService;
 import com.workflowai.notification.NotificationRepository;
+import com.workflowai.notification.NotificationService;
 import com.workflowai.project.ProjectMember;
 import com.workflowai.project.ProjectMemberRepository;
+import com.workflowai.project.ProjectRepository;
 import com.workflowai.project.ProjectRole;
 import com.workflowai.rag.RagIngestService;
 import com.workflowai.security.UserPrincipal;
+import com.workflowai.task.Task;
 import com.workflowai.task.TaskRepository;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
@@ -61,8 +64,10 @@ class MeetingAnalysisServiceTest {
     @Mock private MeetingActionItemRepository meetingActionItemRepository;
     @Mock private TaskRepository taskRepository;
     @Mock private NotificationRepository notificationRepository;
+    @Mock private NotificationService notificationService;
     @Mock private UserRepository userRepository;
     @Mock private ProjectMemberRepository projectMemberRepository;
+    @Mock private ProjectRepository projectRepository;
     @Mock private RagIngestService ragIngestService;
     @Mock private MeetingAnalysisPersistence meetingAnalysisPersistence;
 
@@ -86,13 +91,21 @@ class MeetingAnalysisServiceTest {
         return new MeetingAnalysisService(
             meetingAnalysisJobPublisher, demoDataService, meetingRepository, meetingAttendeeRepository,
             meetingAnalysisRepository, meetingActionItemRepository, taskRepository, notificationRepository,
-            userRepository, projectMemberRepository, ragIngestService, meetingAnalysisPersistence, "/tmp/workflow-uploads"
+            notificationService, userRepository, projectMemberRepository, projectRepository, ragIngestService,
+            meetingAnalysisPersistence, "/tmp/workflow-uploads"
         );
     }
 
     private void mockMember(Long projectDbId) {
         when(demoDataService.resolveProjectId("demo-project")).thenReturn(projectDbId);
         when(projectMemberRepository.existsByProjectIdAndUserId(projectDbId, CURRENT_USER_ID)).thenReturn(true);
+    }
+
+    /** delete()가 서비스 레이어에서도 팀장 권한을 재확인하므로, 삭제 관련 테스트는 이 헬퍼로 팀장 멤버십까지 스텁한다. */
+    private void mockLeader(Long projectDbId) {
+        mockMember(projectDbId);
+        when(projectMemberRepository.findByProjectIdAndUserId(projectDbId, CURRENT_USER_ID))
+            .thenReturn(Optional.of(new ProjectMember(projectDbId, CURRENT_USER_ID, ProjectRole.LEADER)));
     }
 
     @Test
@@ -116,6 +129,38 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
+    void analyzeSavesExtractedTextAsTranscriptOnMeeting() {
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MockMultipartFile file = new MockMultipartFile("file", "notes.txt", "text/plain", "회의 내용 원문".getBytes());
+        MeetingAnalysisResponse response = service.analyze(
+            "demo-project", file, "7차 정기회의", "2026-07-15", "정기회의", "document", List.of(), null
+        );
+
+        assertThat(response.transcript()).isEqualTo("회의 내용 원문");
+        ArgumentCaptor<Meeting> meetingCaptor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(meetingCaptor.capture());
+        assertThat(meetingCaptor.getValue().getTranscript()).isEqualTo("회의 내용 원문");
+    }
+
+    @Test
+    void analyzeSetsUploadedByToCurrentUser() {
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.analyze(
+            "demo-project", null, "회의", "2026-07-23", "정기회의", "document", List.of(), List.of()
+        );
+
+        ArgumentCaptor<Meeting> meetingCaptor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(meetingCaptor.capture());
+        assertThat(meetingCaptor.getAllValues().get(0).getUploadedBy()).isEqualTo(CURRENT_USER_ID);
+    }
+
+    @Test
     void analyzeExtractsPdfTextBeforeDispatchingAnalysisRequest() throws Exception {
         mockMember(1L);
         MeetingAnalysisService service = newService();
@@ -136,6 +181,58 @@ class MeetingAnalysisServiceTest {
         verify(meetingAnalysisJobPublisher).enqueue(any(), requestCaptor.capture(), any(UUID.class));
         assertThat(requestCaptor.getValue().text()).contains("Meeting minutes body");
         assertThat(requestCaptor.getValue().text()).doesNotContain("텍스트 추출 예정");
+    }
+
+    @Test
+    void analyzeSkipsSynchronousExtractionForAudioAndEnqueuesWithBlankText() {
+        // STT는 수 초~수십 초 걸릴 수 있어 업로드 요청 안에서 동기 처리하면 타임아웃 위험이 크므로,
+        // analyze()는 오디오 파일의 텍스트 추출을 하지 않고 빈 텍스트로 큐에 넘긴다.
+        // 실제 STT는 MeetingAnalysisRunner가 비동기 큐 실행 시점에 수행한다.
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        MockMultipartFile file = new MockMultipartFile("file", "meeting.wav", "audio/wav", "fake-audio-bytes".getBytes());
+
+        MeetingAnalysisResponse response = service.analyze(
+            "demo-project", file, "음성 회의록", "2026-07-24", "정기회의", "audio", List.of("김민준"), null
+        );
+
+        assertThat(response.transcript()).isEmpty();
+        ArgumentCaptor<AiAnalyzeRequest> requestCaptor = ArgumentCaptor.forClass(AiAnalyzeRequest.class);
+        verify(meetingAnalysisJobPublisher).enqueue(any(), requestCaptor.capture(), any(UUID.class));
+        assertThat(requestCaptor.getValue().text()).isEmpty();
+        assertThat(requestCaptor.getValue().source_type()).isEqualTo("audio");
+    }
+
+    @Test
+    void analyzeNormalizesSourceTypeToAudioFromFileExtensionEvenWhenCallerOmitsIt() {
+        // 프론트가 sourceType을 안 보내거나 기본값("document")으로 보내도, 파일 확장자가 오디오면
+        // 큐(MeetingAnalysisRunner)가 source_type만 보고 STT 필요 여부를 판단하므로 반드시 "audio"로
+        // 정규화돼야 한다. 안 그러면 빈 텍스트로 분석이 그대로 진행되는 버그가 생긴다.
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        MockMultipartFile file = new MockMultipartFile("file", "meeting.wav", "audio/wav", "fake-audio-bytes".getBytes());
+
+        service.analyze(
+            "demo-project", file, "음성 회의록", "2026-07-24", "정기회의", "document", List.of("김민준"), null
+        );
+
+        ArgumentCaptor<AiAnalyzeRequest> requestCaptor = ArgumentCaptor.forClass(AiAnalyzeRequest.class);
+        verify(meetingAnalysisJobPublisher).enqueue(any(), requestCaptor.capture(), any(UUID.class));
+        assertThat(requestCaptor.getValue().source_type()).isEqualTo("audio");
+    }
+
+    @Test
+    void analyzeRejectsAudioFileExceedingSizeLimit() {
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        byte[] oversized = new byte[31 * 1024 * 1024];
+        MockMultipartFile file = new MockMultipartFile("file", "meeting.wav", "audio/wav", oversized);
+
+        assertThatThrownBy(() -> service.analyze(
+            "demo-project", file, "음성 회의록", "2026-07-24", "정기회의", "audio", List.of("김민준"), null
+        )).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -283,7 +380,61 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
+    void findByProjectMarksTasksRegisteredTrueWhenAnActionItemHasBeenTurnedIntoATask() {
+        mockMember(1L);
+        Meeting meeting = new Meeting(1L, "정기회의", "document", "/tmp/x.txt", "completed", LocalDate.now(), "정기회의", "x.txt", null, 5L);
+        ReflectionTestUtils.setField(meeting, "id", 10L);
+        when(meetingRepository.findByProjectIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(meeting));
+
+        MeetingActionItem registeredItem = new MeetingActionItem(10L, "할일", "설명", "BACKEND", null, 2L, null, "HIGH", "근거");
+        registeredItem.setCreatedTaskId(99L);
+        when(meetingActionItemRepository.findByMeetingIdIn(List.of(10L))).thenReturn(List.of(registeredItem));
+        MeetingAnalysisService service = newService();
+
+        List<MeetingSummary> result = service.findByProject("demo-project");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).tasksRegistered()).isTrue();
+    }
+
+    @Test
+    void findByProjectMarksTasksRegisteredFalseWhenNoActionItemHasBeenTurnedIntoATask() {
+        mockMember(1L);
+        Meeting meeting = new Meeting(1L, "정기회의", "document", "/tmp/x.txt", "completed", LocalDate.now(), "정기회의", "x.txt", null, 5L);
+        ReflectionTestUtils.setField(meeting, "id", 10L);
+        when(meetingRepository.findByProjectIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(meeting));
+
+        MeetingActionItem unregisteredItem = new MeetingActionItem(10L, "할일", "설명", "BACKEND", null, 2L, null, "HIGH", "근거");
+        when(meetingActionItemRepository.findByMeetingIdIn(List.of(10L))).thenReturn(List.of(unregisteredItem));
+        MeetingAnalysisService service = newService();
+
+        List<MeetingSummary> result = service.findByProject("demo-project");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).tasksRegistered()).isFalse();
+    }
+
+    @Test
+    void deleteRejectsWhenCurrentUserIsNotLeader() {
+        // 컨트롤러의 @PreAuthorize에만 기대지 않고 서비스 레이어에서도 팀장 권한을 재확인한다.
+        // 존재하지 않는 회의록에 대해 403을 먼저 주지 않도록, 권한 검사 전에 회의록 존재를 확인하므로
+        // 이 테스트는 실제로 존재하는 회의록을 스텁해야 팀장 권한 검사 분기까지 도달한다.
+        mockMember(1L);
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, CURRENT_USER_ID))
+            .thenReturn(Optional.of(new ProjectMember(1L, CURRENT_USER_ID, ProjectRole.MEMBER)));
+        Meeting meeting = new Meeting(1L, "회의록", "text/plain", null, "completed", null, null, null, 50L, null);
+        when(meetingRepository.findByIdAndProjectIdForUpdate(20L, 1L)).thenReturn(Optional.of(meeting));
+        MeetingAnalysisService service = newService();
+
+        assertThatThrownBy(() -> service.delete("demo-project", "20", false))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(meetingRepository, never()).delete(any());
+    }
+
+    @Test
     void deleteReturnsNullWhenMeetingBelongsToAnotherProject() {
+        // 회의록이 존재하지 않으면(다른 프로젝트 소속) 팀장 권한 검사에 도달하지 않으므로 mockMember로 충분하다.
         mockMember(1L);
         when(meetingRepository.findByIdAndProjectIdForUpdate(99L, 1L)).thenReturn(Optional.empty());
         MeetingAnalysisService service = newService();
@@ -301,7 +452,7 @@ class MeetingAnalysisServiceTest {
 
     @Test
     void deleteRemovesMeetingRelatedRowsAndUploadedFile() throws Exception {
-        mockMember(1L);
+        mockLeader(1L);
         Path dir = Files.createTempDirectory("meeting-delete");
         Path file = dir.resolve("notes.txt");
         Files.writeString(file, "삭제할 회의록");
@@ -328,37 +479,56 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
-    void deleteRejectsWhenCurrentUserIsNotTheUploader() {
-        mockMember(1L);
+    void deleteNotifiesActorAndUploaderWhenLeaderDeletesSomeoneElsesMeeting() {
+        // 삭제는 팀장 전용이라 actor(CurrentUser)는 항상 팀장이다. 반대편은 팀장 자신이 아니라
+        // 실제 업로더(50L)여야, 팀장이 남이 올린 회의록을 지웠을 때 업로더에게도 알림이 간다.
+        mockLeader(1L);
+        Long uploaderId = 50L;
+        Meeting meeting = new Meeting(1L, "삭제 회의", "document", null, "completed", LocalDate.now(), "정기회의", "notes.txt", uploaderId, 5L);
+        when(meetingRepository.findByIdAndProjectIdForUpdate(12L, 1L)).thenReturn(Optional.of(meeting));
+        MeetingAnalysisService service = newService();
+
+        service.delete("demo-project", "12", false);
+
+        verify(notificationService).notifyActorAndCounterpart(
+            eq(CURRENT_USER_ID), eq("MEETING_DELETED"), any(), any(),
+            eq(uploaderId), eq("MEETING_DELETED"), any(), any(),
+            eq("meeting"), eq(12L)
+        );
+    }
+
+    @Test
+    void deleteSucceedsWhenCurrentUserIsNotTheUploader() {
+        // 팀장은 본인이 업로드하지 않은 회의록도 삭제할 수 있다 — 업로더 일치 여부는 더 이상
+        // 서비스 레이어에서 검사하지 않고, 팀장 권한 자체는 컨트롤러의 @PreAuthorize가 강제한다.
+        mockLeader(1L);
         Long otherUploaderId = 999L;
         Meeting meeting = new Meeting(1L, "삭제 회의", "document", "/tmp/x.txt", "completed", LocalDate.now(), "정기회의", "notes.txt", otherUploaderId, 5L);
         when(meetingRepository.findByIdAndProjectIdForUpdate(10L, 1L)).thenReturn(Optional.of(meeting));
         MeetingAnalysisService service = newService();
 
-        assertThatThrownBy(() -> service.delete("demo-project", "10", false))
-            .isInstanceOf(AccessDeniedException.class);
+        MeetingDeleteResponse response = service.delete("demo-project", "10", false);
 
-        verify(meetingRepository, never()).delete(any());
-        verify(meetingActionItemRepository, never()).deleteByMeetingId(any());
-        verify(meetingActionItemRepository, never()).clearMeetingId(any());
+        assertThat(response.status()).isEqualTo("DELETED");
+        verify(meetingRepository).delete(meeting);
     }
 
     @Test
-    void deleteRejectsWhenMeetingHasNoRecordedUploader() {
-        mockMember(1L);
+    void deleteSucceedsWhenMeetingHasNoRecordedUploader() {
+        mockLeader(1L);
         Meeting meeting = new Meeting(1L, "삭제 회의", "document", "/tmp/x.txt", "completed", LocalDate.now(), "정기회의", "notes.txt", null, 5L);
         when(meetingRepository.findByIdAndProjectIdForUpdate(11L, 1L)).thenReturn(Optional.of(meeting));
         MeetingAnalysisService service = newService();
 
-        assertThatThrownBy(() -> service.delete("demo-project", "11", false))
-            .isInstanceOf(AccessDeniedException.class);
+        MeetingDeleteResponse response = service.delete("demo-project", "11", false);
 
-        verify(meetingRepository, never()).delete(any());
+        assertThat(response.status()).isEqualTo("DELETED");
+        verify(meetingRepository).delete(meeting);
     }
 
     @Test
     void deleteCanRemoveLinkedBoardTasksWhenRequested() {
-        mockMember(1L);
+        mockLeader(1L);
         Meeting meeting = new Meeting(1L, "삭제 회의", "document", null, "completed", LocalDate.now(), "정기회의", "notes.txt", CURRENT_USER_ID, 5L);
         com.workflowai.task.Task linkedTask = new com.workflowai.task.Task(
             1L, "연결 업무", "other", "todo", null, null, null, null, "MEETING_AI", 9L, 1L, 0.0
@@ -429,6 +599,27 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
+    void findIncludesTranscriptForProcessingAndCompletedResponses() {
+        mockMember(1L);
+        Meeting meeting = new Meeting(1L, "정기회의", "document", "/tmp/x.txt", "pending", LocalDate.now(), "정기회의", "x.txt", null, 5L);
+        ReflectionTestUtils.setField(meeting, "transcript", "수정된 회의록 원문");
+        when(meetingRepository.findByIdAndProjectId(7L, 1L)).thenReturn(Optional.of(meeting));
+        MeetingAnalysisService service = newService();
+
+        MeetingAnalysisResponse processing = service.find("demo-project", "7");
+        assertThat(processing.transcript()).isEqualTo("수정된 회의록 원문");
+
+        meeting.setAnalysisStatus("completed");
+        when(meetingAnalysisRepository.findById(7L)).thenReturn(Optional.of(new MeetingAnalysis(
+            7L, "요약", List.of("결정"), List.of("위험"), List.of("키워드"), "FASTAPI"
+        )));
+        when(meetingActionItemRepository.findByMeetingId(7L)).thenReturn(List.of());
+
+        MeetingAnalysisResponse completed = service.find("demo-project", "7");
+        assertThat(completed.transcript()).isEqualTo("수정된 회의록 원문");
+    }
+
+    @Test
     void retryTransitionsFailedMeetingBackToProcessing() throws Exception {
         mockMember(1L);
         Path textFile = Files.createTempFile("meeting-notes", ".txt");
@@ -442,6 +633,7 @@ class MeetingAnalysisServiceTest {
 
         assertThat(response.status()).isEqualTo("PROCESSING");
         assertThat(meeting.getAnalysisStatus()).isEqualTo("processing");
+        assertThat(meeting.getTranscript()).isEqualTo("재분석할 회의 내용");
         verify(meetingAnalysisJobPublisher).enqueue(eq(4L), eq(new AiAnalyzeRequest(
             "demo-project", "정기회의", meeting.getMeetingDate().toString(), "정기회의", "document", "x.txt", "재분석할 회의 내용", List.of()
         )), eq(meeting.getAnalysisJobId()));
@@ -594,6 +786,218 @@ class MeetingAnalysisServiceTest {
         List<MeetingAttendanceDetail> detail = service.attendanceDetail("demo-project", 2L);
 
         assertThat(detail).isEmpty();
+    }
+
+    @Test
+    void registerTasksUsesCurrentUserAsCreatedByNotHardcodedDemoUser() {
+        UserPrincipal otherLeader = new UserPrincipal(25L, "leader@example.com", "박지수");
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(otherLeader, null, List.of())
+        );
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 25L)).thenReturn(true);
+        Meeting meeting = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(meeting));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(taskRepository.findTopByProjectIdAndStatusOrderByPositionDesc(any(), any())).thenReturn(Optional.empty());
+        MeetingAnalysisService service = newService();
+
+        TaskRegisterRequest request = new TaskRegisterRequest(List.of(
+            new MeetingTodo("업무1", "설명", null, null, null, "MEDIUM", "ETC", true, "")
+        ));
+        service.registerTasks("demo-project", "5", request);
+
+        ArgumentCaptor<Task> captor = ArgumentCaptor.forClass(Task.class);
+        verify(taskRepository).save(captor.capture());
+        assertThat(captor.getValue().getCreatedBy()).isEqualTo(25L);
+    }
+
+    @Test
+    void registerTasksNotifiesLeaderAndUploaderWhenDifferent() {
+        UserPrincipal leader = new UserPrincipal(99L, "leader@example.com", "김팀장");
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(leader, null, List.of())
+        );
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 99L)).thenReturn(true);
+        Meeting meeting = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(meeting));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(taskRepository.findTopByProjectIdAndStatusOrderByPositionDesc(any(), any())).thenReturn(Optional.empty());
+        MeetingAnalysisService service = newService();
+
+        TaskRegisterRequest request = new TaskRegisterRequest(List.of(
+            new MeetingTodo("업무1", "설명", null, null, null, "MEDIUM", "ETC", true, "")
+        ));
+        service.registerTasks("demo-project", "5", request);
+
+        verify(notificationService).notifyActorAndCounterpart(
+            eq(99L), eq("MEETING_TASKS_REGISTERED"), any(), any(),
+            eq(10L), eq("MEETING_TASKS_REGISTERED_NOTIFY_MEMBER"), any(), any(),
+            eq("meeting"), eq(5L)
+        );
+    }
+
+    @Test
+    void confirmSaveMarksSavedAtAndNotifiesActorAndLeader() {
+        UserPrincipal uploader = new UserPrincipal(10L, "uploader@example.com", "박지수");
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(uploader, null, List.of())
+        );
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 10L)).thenReturn(true);
+        Meeting meeting = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(projectMemberRepository.findByProjectIdAndRole(1L, ProjectRole.LEADER))
+            .thenReturn(Optional.of(new ProjectMember(1L, 99L, ProjectRole.LEADER)));
+        MeetingAnalysisService service = newService();
+
+        MeetingSaveResponse response = service.confirmSave("demo-project", "5");
+
+        assertThat(response.status()).isEqualTo("SAVED");
+        assertThat(meeting.getSavedAt()).isNotNull();
+        verify(notificationService).notifyActorAndCounterpart(
+            eq(10L), eq("MEETING_SAVED"), any(), any(),
+            eq(99L), eq("MEETING_SAVED_NOTIFY_LEADER"), any(), any(),
+            eq("meeting"), eq(5L)
+        );
+    }
+
+    @Test
+    void createVersionRejectsNullRequest() {
+        MeetingAnalysisService service = newService();
+
+        assertThatThrownBy(() -> service.createVersion("demo-project", "5", null))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void createVersionRejectsBlankTranscript() {
+        MeetingAnalysisService service = newService();
+
+        assertThatThrownBy(() -> service.createVersion("demo-project", "5", new MeetingVersionRequest("   ", false)))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void createVersionSavesOnlyWhenTriggerAnalysisIsFalse() {
+        UserPrincipal editor = new UserPrincipal(10L, "editor@example.com", "박지수");
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(editor, null, List.of())
+        );
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 10L)).thenReturn(true);
+        Meeting original = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(original, "id", 5L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(original));
+        when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(original));
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(projectMemberRepository.findByProjectIdAndRole(1L, ProjectRole.LEADER))
+            .thenReturn(Optional.of(new ProjectMember(1L, 99L, ProjectRole.LEADER)));
+        MeetingAnalysisService service = newService();
+
+        MeetingVersionResponse response = service.createVersion("demo-project", "5",
+            new MeetingVersionRequest("수정된 본문", false));
+
+        assertThat(response.status()).isEqualTo("SAVED");
+        ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(captor.capture());
+        Meeting savedVersion = captor.getAllValues().stream()
+            .filter(m -> m.getOriginalMeetingId() != null).findFirst().orElseThrow();
+        assertThat(savedVersion.getTitle()).isEqualTo("정기회의_수정본");
+        assertThat(savedVersion.getAnalysisStatus()).isEqualTo("pending");
+        verify(meetingAnalysisJobPublisher, never()).enqueue(any(), any(), any());
+    }
+
+    @Test
+    void createVersionSecondEditGetsIncrementedSuffix() {
+        mockMember(1L);
+        Meeting original = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(original, "id", 5L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(original));
+        when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(original));
+        when(meetingRepository.existsByOriginalMeetingIdAndTitle(5L, "정기회의_수정본")).thenReturn(true);
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        MeetingAnalysisService service = newService();
+
+        service.createVersion("demo-project", "5", new MeetingVersionRequest("본문", false));
+
+        ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(captor.capture());
+        Meeting savedVersion = captor.getAllValues().stream()
+            .filter(m -> m.getOriginalMeetingId() != null).findFirst().orElseThrow();
+        assertThat(savedVersion.getTitle()).isEqualTo("정기회의_수정본2");
+    }
+
+    @Test
+    void createVersionSkipsExistingTitleWhenGapExistsFromDeletedVersion() {
+        // "_수정본"이 삭제되고 "_수정본2"만 남은 상황(과거 count 기반이면 count=1이라 "_수정본2"를
+        // 다시 생성해 유니크 인덱스와 충돌한다). 존재 확인 루프는 실제로 비어 있는 "_수정본" 자리를 찾아낸다.
+        mockMember(1L);
+        Meeting original = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(original, "id", 5L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(original));
+        when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(original));
+        when(meetingRepository.existsByOriginalMeetingIdAndTitle(5L, "정기회의_수정본")).thenReturn(false);
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        MeetingAnalysisService service = newService();
+
+        service.createVersion("demo-project", "5", new MeetingVersionRequest("본문", false));
+
+        verify(meetingRepository, never()).existsByOriginalMeetingIdAndTitle(5L, "정기회의_수정본2");
+        ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(captor.capture());
+        Meeting savedVersion = captor.getAllValues().stream()
+            .filter(m -> m.getOriginalMeetingId() != null).findFirst().orElseThrow();
+        assertThat(savedVersion.getTitle()).isEqualTo("정기회의_수정본");
+    }
+
+    @Test
+    void createVersionOnAlreadyVersionedMeetingUsesRootTitleAndRootCount() {
+        mockMember(1L);
+        // 최초 원본 A(id=5)
+        Meeting rootOriginal = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(rootOriginal, "id", 5L);
+        // "저장된 회의록" 탭에서 다시 연 이미 존재하는 버전 B(id=6, originalMeetingId=5) - 경로 파라미터로 들어옴
+        Meeting pathMeeting = new Meeting(1L, "정기회의_수정본", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(pathMeeting, "id", 6L);
+        ReflectionTestUtils.setField(pathMeeting, "originalMeetingId", 5L);
+
+        when(meetingRepository.findByIdAndProjectId(6L, 1L)).thenReturn(Optional.of(pathMeeting));
+        when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(rootOriginal));
+        when(meetingRepository.existsByOriginalMeetingIdAndTitle(5L, "정기회의_수정본")).thenReturn(true);
+        when(meetingRepository.existsByOriginalMeetingIdAndTitle(5L, "정기회의_수정본2")).thenReturn(true);
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        MeetingAnalysisService service = newService();
+
+        service.createVersion("demo-project", "6", new MeetingVersionRequest("본문", false));
+
+        verify(meetingRepository, atLeastOnce()).existsByOriginalMeetingIdAndTitle(eq(5L), any());
+        verify(meetingRepository, never()).existsByOriginalMeetingIdAndTitle(eq(6L), any());
+        ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+        verify(meetingRepository, atLeastOnce()).save(captor.capture());
+        Meeting savedVersion = captor.getAllValues().stream()
+            .filter(m -> m.getOriginalMeetingId() != null).findFirst().orElseThrow();
+        // 최초 원본(A) 제목 기준 "_수정본3" - "정기회의_수정본_수정본" 처럼 중첩되면 안 됨
+        assertThat(savedVersion.getTitle()).isEqualTo("정기회의_수정본3");
+    }
+
+    @Test
+    void createVersionTriggersAnalysisWhenRequested() {
+        mockMember(1L);
+        Meeting original = new Meeting(1L, "정기회의", "document", null, "completed", LocalDate.now(), "정기회의", "a.txt", 10L, 10L);
+        ReflectionTestUtils.setField(original, "id", 5L);
+        when(meetingRepository.findByIdAndProjectId(5L, 1L)).thenReturn(Optional.of(original));
+        when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(original));
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
+        MeetingAnalysisService service = newService();
+
+        MeetingVersionResponse response = service.createVersion("demo-project", "5",
+            new MeetingVersionRequest("수정된 본문", true));
+
+        assertThat(response.status()).isEqualTo("PROCESSING");
+        verify(meetingAnalysisJobPublisher).enqueue(any(), any(), any());
     }
 
     private byte[] createPdfBytes(String text) throws Exception {
