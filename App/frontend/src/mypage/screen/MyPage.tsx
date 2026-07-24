@@ -243,7 +243,7 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
                   </div>
                   {showScore ? (
                     <div>
-                      <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                      <div className="grid grid-cols-4 gap-2 mb-3 text-center">
                         <div>
                           <div className="text-2xl font-bold text-foreground">
                             {myEvaluation?.contributionRevealed && myEvaluation.score != null
@@ -259,6 +259,14 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
                               : "-"}
                           </div>
                           <div className="text-[11px] text-muted-foreground mt-0.5">심사자 점수</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-foreground">
+                            {myEvaluation?.finalRevealed && myEvaluation.totalScore != null
+                              ? myEvaluation.totalScore.toFixed(2)
+                              : "-"}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">총합</div>
                         </div>
                         <div>
                           <div className="text-2xl font-bold text-emerald-600">

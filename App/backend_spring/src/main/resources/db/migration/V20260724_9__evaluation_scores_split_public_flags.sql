@@ -5,8 +5,21 @@
 -- 세 개의 독립 플래그로 분리한다. 기존 is_public=true였던 row는 컬럼명 변경만으로
 -- contribution_public=true를 그대로 유지하고, final_public/comment_public은
 -- 새 컬럼이라 기본값(false)으로 시작한다(과다 공개 방지 — 안전한 기본값).
-
-ALTER TABLE evaluation_scores RENAME COLUMN is_public TO contribution_public;
+--
+-- RENAME은 is_public 컬럼이 실제로 존재할 때만 실행한다 — Flyway가 신규 DB
+-- 구성(docker-entrypoint-initdb.d의 init 스크립트들이 먼저 전부 실행되는 경우)에서
+-- 켜져 있으면, init/10_evaluation_scores_split_public_flags.sql이 이미
+-- is_public을 contribution_public으로 바꿔둔 뒤 이 마이그레이션이 실행되어
+-- RENAME 대상 컬럼이 없어 실패하는 문제를 방지한다(코드 리뷰로 발견).
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'evaluation_scores' AND column_name = 'is_public'
+    ) THEN
+        ALTER TABLE evaluation_scores RENAME COLUMN is_public TO contribution_public;
+    END IF;
+END $$;
 
 ALTER TABLE evaluation_scores ADD COLUMN IF NOT EXISTS final_public BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE evaluation_scores ADD COLUMN IF NOT EXISTS comment_public BOOLEAN NOT NULL DEFAULT FALSE;
