@@ -409,6 +409,7 @@ public class MeetingAnalysisService {
     @Transactional
     public MeetingDeleteResponse delete(String projectId, String meetingId, boolean deleteLinkedTasks) {
         Long projectDbId = requireProjectMember(projectId);
+        requireLeader(projectDbId);
         Long meetingDbId = parseLongOrNull(meetingId);
         if (meetingDbId == null) return null;
         Meeting meeting = meetingRepository.findByIdAndProjectIdForUpdate(meetingDbId, projectDbId).orElse(null);
@@ -528,10 +529,11 @@ public class MeetingAnalysisService {
         if (original == null) return null;
 
         // 경로 파라미터로 받은 회의록이 이미 버전(originalMeetingId != null)이면 최초 원본을 기준으로 제목/카운트를 계산한다.
+        // 루트를 비관적 락(FOR UPDATE)으로 조회해서, 같은 원본에 대한 동시 수정본 생성 요청을
+        // 트랜잭션 단위로 직렬화한다 — 그래야 count 기반 제목 접미사가 동시 요청에서 중복되지 않는다.
         Long rootId = original.getOriginalMeetingId() != null ? original.getOriginalMeetingId() : original.getId();
-        String rootTitle = original.getOriginalMeetingId() == null
-            ? original.getTitle()
-            : meetingRepository.findById(rootId).map(Meeting::getTitle).orElse(original.getTitle());
+        Meeting lockedRoot = meetingRepository.findByIdForUpdate(rootId).orElse(original);
+        String rootTitle = lockedRoot.getTitle();
 
         long existingVersions = meetingRepository.countByOriginalMeetingId(rootId);
         String versionTitle = rootTitle + (existingVersions == 0 ? "_수정본" : "_수정본" + (existingVersions + 1));
@@ -674,6 +676,20 @@ public class MeetingAnalysisService {
             throw new AccessDeniedException("프로젝트 멤버만 접근할 수 있습니다.");
         }
         return projectDbId;
+    }
+
+    /**
+     * 컨트롤러의 @PreAuthorize에만 기대지 않고 서비스 레이어에서도 팀장 권한을 다시 확인한다
+     * (다른 서비스나 배치 작업이 이 메서드를 직접 호출해도 권한 우회가 일어나지 않도록 방어).
+     */
+    private void requireLeader(Long projectDbId) {
+        Long userId = CurrentUser.id();
+        boolean isLeader = projectMemberRepository.findByProjectIdAndUserId(projectDbId, userId)
+            .map(member -> member.getRole() == ProjectRole.LEADER)
+            .orElse(false);
+        if (!isLeader) {
+            throw new AccessDeniedException("팀장만 회의록을 삭제할 수 있습니다.");
+        }
     }
 
     /**

@@ -101,6 +101,13 @@ class MeetingAnalysisServiceTest {
         when(projectMemberRepository.existsByProjectIdAndUserId(projectDbId, CURRENT_USER_ID)).thenReturn(true);
     }
 
+    /** delete()가 서비스 레이어에서도 팀장 권한을 재확인하므로, 삭제 관련 테스트는 이 헬퍼로 팀장 멤버십까지 스텁한다. */
+    private void mockLeader(Long projectDbId) {
+        mockMember(projectDbId);
+        when(projectMemberRepository.findByProjectIdAndUserId(projectDbId, CURRENT_USER_ID))
+            .thenReturn(Optional.of(new ProjectMember(projectDbId, CURRENT_USER_ID, ProjectRole.LEADER)));
+    }
+
     @Test
     void analyzeSavesMeetingAsProcessingAndReturnsImmediately() {
         mockMember(1L);
@@ -356,8 +363,22 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
-    void deleteReturnsNullWhenMeetingBelongsToAnotherProject() {
+    void deleteRejectsWhenCurrentUserIsNotLeader() {
+        // 컨트롤러의 @PreAuthorize에만 기대지 않고 서비스 레이어에서도 팀장 권한을 재확인한다.
         mockMember(1L);
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, CURRENT_USER_ID))
+            .thenReturn(Optional.of(new ProjectMember(1L, CURRENT_USER_ID, ProjectRole.MEMBER)));
+        MeetingAnalysisService service = newService();
+
+        assertThatThrownBy(() -> service.delete("demo-project", "20", false))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(meetingRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteReturnsNullWhenMeetingBelongsToAnotherProject() {
+        mockLeader(1L);
         when(meetingRepository.findByIdAndProjectIdForUpdate(99L, 1L)).thenReturn(Optional.empty());
         MeetingAnalysisService service = newService();
 
@@ -374,7 +395,7 @@ class MeetingAnalysisServiceTest {
 
     @Test
     void deleteRemovesMeetingRelatedRowsAndUploadedFile() throws Exception {
-        mockMember(1L);
+        mockLeader(1L);
         Path dir = Files.createTempDirectory("meeting-delete");
         Path file = dir.resolve("notes.txt");
         Files.writeString(file, "삭제할 회의록");
@@ -404,7 +425,7 @@ class MeetingAnalysisServiceTest {
     void deleteNotifiesActorAndUploaderWhenLeaderDeletesSomeoneElsesMeeting() {
         // 삭제는 팀장 전용이라 actor(CurrentUser)는 항상 팀장이다. 반대편은 팀장 자신이 아니라
         // 실제 업로더(50L)여야, 팀장이 남이 올린 회의록을 지웠을 때 업로더에게도 알림이 간다.
-        mockMember(1L);
+        mockLeader(1L);
         Long uploaderId = 50L;
         Meeting meeting = new Meeting(1L, "삭제 회의", "document", null, "completed", LocalDate.now(), "정기회의", "notes.txt", uploaderId, 5L);
         when(meetingRepository.findByIdAndProjectIdForUpdate(12L, 1L)).thenReturn(Optional.of(meeting));
@@ -423,7 +444,7 @@ class MeetingAnalysisServiceTest {
     void deleteSucceedsWhenCurrentUserIsNotTheUploader() {
         // 팀장은 본인이 업로드하지 않은 회의록도 삭제할 수 있다 — 업로더 일치 여부는 더 이상
         // 서비스 레이어에서 검사하지 않고, 팀장 권한 자체는 컨트롤러의 @PreAuthorize가 강제한다.
-        mockMember(1L);
+        mockLeader(1L);
         Long otherUploaderId = 999L;
         Meeting meeting = new Meeting(1L, "삭제 회의", "document", "/tmp/x.txt", "completed", LocalDate.now(), "정기회의", "notes.txt", otherUploaderId, 5L);
         when(meetingRepository.findByIdAndProjectIdForUpdate(10L, 1L)).thenReturn(Optional.of(meeting));
@@ -437,7 +458,7 @@ class MeetingAnalysisServiceTest {
 
     @Test
     void deleteSucceedsWhenMeetingHasNoRecordedUploader() {
-        mockMember(1L);
+        mockLeader(1L);
         Meeting meeting = new Meeting(1L, "삭제 회의", "document", "/tmp/x.txt", "completed", LocalDate.now(), "정기회의", "notes.txt", null, 5L);
         when(meetingRepository.findByIdAndProjectIdForUpdate(11L, 1L)).thenReturn(Optional.of(meeting));
         MeetingAnalysisService service = newService();
@@ -450,7 +471,7 @@ class MeetingAnalysisServiceTest {
 
     @Test
     void deleteCanRemoveLinkedBoardTasksWhenRequested() {
-        mockMember(1L);
+        mockLeader(1L);
         Meeting meeting = new Meeting(1L, "삭제 회의", "document", null, "completed", LocalDate.now(), "정기회의", "notes.txt", CURRENT_USER_ID, 5L);
         com.workflowai.task.Task linkedTask = new com.workflowai.task.Task(
             1L, "연결 업무", "other", "todo", null, null, null, null, "MEETING_AI", 9L, 1L, 0.0
@@ -863,7 +884,7 @@ class MeetingAnalysisServiceTest {
         ReflectionTestUtils.setField(pathMeeting, "originalMeetingId", 5L);
 
         when(meetingRepository.findByIdAndProjectId(6L, 1L)).thenReturn(Optional.of(pathMeeting));
-        when(meetingRepository.findById(5L)).thenReturn(Optional.of(rootOriginal));
+        when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(rootOriginal));
         when(meetingRepository.countByOriginalMeetingId(5L)).thenReturn(2L);
         when(meetingRepository.save(any(Meeting.class))).thenAnswer(inv -> inv.getArgument(0));
         MeetingAnalysisService service = newService();

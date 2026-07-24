@@ -802,13 +802,15 @@ export function MeetingsView() {
     setTimeout(() => setSaveMeetingMessage(null), 2500);
   };
 
-  // 로컬 상태 반영(handleSaveMeeting)에 더해 서버의 saved_at 확정과 MEETING_SAVED/_NOTIFY_LEADER 알림 발송을 트리거한다.
+  // 서버 저장확정(saved_at 확정 + MEETING_SAVED/_NOTIFY_LEADER 알림)을 먼저 시도하고,
+  // 성공했을 때만 로컬 상태 반영(handleSaveMeeting)과 성공 메시지를 보여준다 — 순서를 바꾸면
+  // 서버 저장이 실패해도 로컬은 이미 "저장됨"으로 보여 화면과 실제 상태가 어긋난다.
   const handleConfirmSave = async () => {
-    handleSaveMeeting();
     if (!selected) return;
     setSaveMeetingError(null);
     try {
       await confirmMeetingSave(projectId, selected);
+      handleSaveMeeting();
     } catch (error) {
       const status = error instanceof ApiRequestError ? ` (${error.status})` : "";
       setSaveMeetingError(`서버 저장에 실패했습니다${status}. 잠시 후 다시 시도해주세요.`);
