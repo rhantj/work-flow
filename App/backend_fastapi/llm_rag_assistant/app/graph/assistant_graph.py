@@ -302,6 +302,11 @@ async def resume_command(thread_id: str, execution_result: dict) -> GraphOutcome
 
     result = await graph.ainvoke(Command(resume=execution_result), config=config)
     outcome = _to_outcome(result, thread_id)
-    # 재개된 스레드는 종료 상태다. 체크포인트를 지워 메모리를 회수한다.
-    await _discard_thread(graph, thread_id)
+    if outcome.type == "confirm":
+        # 멀티액션 계획의 다음 단계가 또 승인을 기다린다. 체크포인트를 유지하고 타이머를 갱신한다.
+        # (여기서 지우면 후속 승인이 aget_state에서 스레드를 못 찾아 만료 처리된다.)
+        _pending_threads[thread_id] = time.monotonic()
+    else:
+        # 종료 상태. 체크포인트를 지워 메모리를 회수한다.
+        await _discard_thread(graph, thread_id)
     return outcome
