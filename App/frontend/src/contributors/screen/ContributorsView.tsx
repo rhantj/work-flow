@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { useNavigate } from "react-router";
 import {
   AlertCircle,
@@ -34,6 +34,7 @@ import {
   getEvaluationSettings,
   upsertEvaluationScore,
   upsertEvaluationSettings,
+  type EvaluationScoreUpdate,
 } from "../../global/api/evaluationApi";
 import { MemberDrilldownPanel } from "../components/MemberDrilldownPanel";
 import { useAuth } from "../../global/hooks/useAuth";
@@ -101,8 +102,11 @@ export function ContributorsView() {
   const { currentProjectId } = useAuth();
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [query, setQuery] = useState("");
-  // 심사 코멘트 — 선택된 팀원에게 남길 메모(현재는 로컬 입력만, 서버 저장 연동 없음).
-  const [memo, setMemo] = useState("");
+  // 심사 코멘트 — 선택된 팀원에게 남길 메모. 서버의 comment로 초기 seed되고, 저장 버튼으로
+  // evaluation_scores.comment에 영속화된다(공개 여부는 commentPublicFlags로 독립 관리).
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentSavingMemberId, setCommentSavingMemberId] = useState<string | null>(null);
+  const [commentSaveErrorByMemberId, setCommentSaveErrorByMemberId] = useState<Record<string, string | null>>({});
   // 프로젝트 상세(제목, eval_status 등) — 실제 API 응답. 실패하면 null 유지(제목/배지 미표시).
   const [project, setProject] = useState<ProjectResponse | null>(null);
   useEffect(() => {
@@ -199,29 +203,47 @@ export function ContributorsView() {
     }
     return grouped;
   }, [projectTasks]);
-  // 공개 여부는 evaluation_scores 테이블에 영속화된다. 심사자가 "공개" 배지를 누르면
-  // 즉시 서버에 upsert하고, 팀원 마이페이지는 이 값을 그대로 조회해 보여준다.
-  const [publicFlags, setPublicFlags] = useState<Record<string, boolean>>({});
+  // 세 공개 플래그는 evaluation_scores 테이블에 각각 독립 컬럼으로 영속화된다 —
+  // 기여 점수(왼쪽 테이블), 총합/심사자 점수/학점(학점 계산기), 심사 코멘트를 심사자가
+  // 서로 다른 시점에 따로 공개할 수 있어야 하기 때문이다(중간 점검용 공개 vs 최종 확정 공개).
+  const [contributionPublicFlags, setContributionPublicFlags] = useState<Record<string, boolean>>({});
+  const [finalPublicFlags, setFinalPublicFlags] = useState<Record<string, boolean>>({});
+  const [commentPublicFlags, setCommentPublicFlags] = useState<Record<string, boolean>>({});
   const [publicFlagError, setPublicFlagError] = useState<string | null>(null);
   // 학점 계산기 입력값 — 서버의 reviewerScore/grade로 초기 seed되고, 이후 입력에 따라 갱신된다.
   const [evaluationDrafts, setEvaluationDrafts] = useState<Record<string, { reviewerScore: string; grade: string }>>({});
   useEffect(() => {
     if (currentProjectId == null) {
-      setPublicFlags({});
+      setContributionPublicFlags({});
+      setFinalPublicFlags({});
+      setCommentPublicFlags({});
       setEvaluationDrafts({});
+      setCommentDrafts({});
       return;
     }
     getEvaluationScores(currentProjectId)
       .then((scores) => {
-        setPublicFlags((prev) => {
-          const next = { ...prev };
+        const fillDefaults = (record: Record<string, boolean>) => {
+          const next = { ...record };
           for (const member of members) {
             const key = String(member.userId);
             if (!(key in next)) next[key] = false;
           }
-          for (const s of scores) {
-            next[String(s.userId)] = s.isPublic;
-          }
+          return next;
+        };
+        setContributionPublicFlags((prev) => {
+          const next = fillDefaults(prev);
+          for (const s of scores) next[String(s.userId)] = s.contributionPublic;
+          return next;
+        });
+        setFinalPublicFlags((prev) => {
+          const next = fillDefaults(prev);
+          for (const s of scores) next[String(s.userId)] = s.finalPublic;
+          return next;
+        });
+        setCommentPublicFlags((prev) => {
+          const next = fillDefaults(prev);
+          for (const s of scores) next[String(s.userId)] = s.commentPublic;
           return next;
         });
         setEvaluationDrafts((prev) => {
@@ -238,17 +260,31 @@ export function ContributorsView() {
           }
           return next;
         });
+        setCommentDrafts((prev) => {
+          const next = { ...prev };
+          for (const member of members) {
+            const key = String(member.userId);
+            if (!(key in next)) next[key] = "";
+          }
+          for (const s of scores) {
+            next[String(s.userId)] = s.comment ?? "";
+          }
+          return next;
+        });
       })
       .catch(() => {
         // 조회 실패 시 멤버별 기본값(비공개/빈 입력)만이라도 채워서 화면이 항상 렌더된다.
-        setPublicFlags((prev) => {
-          const next = { ...prev };
+        const fillDefaults = (record: Record<string, boolean>) => {
+          const next = { ...record };
           for (const member of members) {
             const key = String(member.userId);
             if (!(key in next)) next[key] = false;
           }
           return next;
-        });
+        };
+        setContributionPublicFlags(fillDefaults);
+        setFinalPublicFlags(fillDefaults);
+        setCommentPublicFlags(fillDefaults);
         setEvaluationDrafts((prev) => {
           const next = { ...prev };
           for (const member of members) {
@@ -257,24 +293,47 @@ export function ContributorsView() {
           }
           return next;
         });
+        setCommentDrafts((prev) => {
+          const next = { ...prev };
+          for (const member of members) {
+            const key = String(member.userId);
+            if (!(key in next)) next[key] = "";
+          }
+          return next;
+        });
       });
   }, [currentProjectId, members]);
 
-  const togglePublic = async (memberId: string) => {
+  // 세 공개 토글 공통 처리 — update에 해당 플래그만 담아 보내므로 다른 두 플래그와
+  // score/reviewerScore/grade/comment는 서버에서 그대로 유지된다(독립성 보장).
+  const toggleFlag = async (
+    memberId: string,
+    flags: Record<string, boolean>,
+    setFlags: Dispatch<SetStateAction<Record<string, boolean>>>,
+    update: (nextValue: boolean) => EvaluationScoreUpdate,
+  ) => {
     if (currentProjectId == null) return;
-    const wasPublic = publicFlags[memberId] ?? false;
+    const wasPublic = flags[memberId] ?? false;
     const nextIsPublic = !wasPublic;
     // 낙관적 업데이트 — 실패하면 원래 값으로 되돌린다.
-    setPublicFlags((prev) => ({ ...prev, [memberId]: nextIsPublic }));
+    setFlags((prev) => ({ ...prev, [memberId]: nextIsPublic }));
     setPublicFlagError(null);
     try {
-      // score를 보내지 않는다(undefined) — 학점 계산기가 저장해 둔 총점을 여기서 덮어쓰면 안 된다.
-      await upsertEvaluationScore(currentProjectId, Number(memberId), undefined, nextIsPublic);
+      await upsertEvaluationScore(currentProjectId, Number(memberId), update(nextIsPublic));
     } catch {
-      setPublicFlags((prev) => ({ ...prev, [memberId]: wasPublic }));
+      setFlags((prev) => ({ ...prev, [memberId]: wasPublic }));
       setPublicFlagError("공개 여부를 저장하지 못했습니다.");
     }
   };
+
+  const toggleContributionPublic = (memberId: string) =>
+    toggleFlag(memberId, contributionPublicFlags, setContributionPublicFlags, (nextValue) => ({
+      contributionPublic: nextValue,
+    }));
+  const toggleFinalPublic = (memberId: string) =>
+    toggleFlag(memberId, finalPublicFlags, setFinalPublicFlags, (nextValue) => ({ finalPublic: nextValue }));
+  const toggleCommentPublic = (memberId: string) =>
+    toggleFlag(memberId, commentPublicFlags, setCommentPublicFlags, (nextValue) => ({ commentPublic: nextValue }));
 
   // 학점 계산기 — 점수 비율(기여 점수 %)은 프로젝트 공통 값으로 서버에 영속화된다.
   const [contributionRatio, setContributionRatio] = useState(40);
@@ -313,20 +372,36 @@ export function ContributorsView() {
     setSavingMemberId(memberId);
     setSaveErrorByMemberId((prev) => ({ ...prev, [memberId]: null }));
     try {
-      await upsertEvaluationScore(
-        currentProjectId,
-        Number(memberId),
-        total,
-        publicFlags[memberId] ?? false,
-        reviewerScoreNum,
-        draft?.grade || undefined,
-      );
+      // finalPublic/contributionPublic/commentPublic은 보내지 않는다(undefined) — 저장 버튼은
+      // 총합/심사자점수/학점만 확정하고, 공개 여부는 별도의 "공개" 토글로만 바뀌어야 한다.
+      await upsertEvaluationScore(currentProjectId, Number(memberId), {
+        score: total,
+        reviewerScore: reviewerScoreNum,
+        grade: draft?.grade || undefined,
+      });
     } catch {
       setSaveErrorByMemberId((prev) => ({ ...prev, [memberId]: "저장하지 못했습니다." }));
     } finally {
       setSavingMemberId(null);
     }
   };
+
+  const handleCommentSave = async (memberId: string) => {
+    if (currentProjectId == null) return;
+    const comment = commentDrafts[memberId] ?? "";
+    setCommentSavingMemberId(memberId);
+    setCommentSaveErrorByMemberId((prev) => ({ ...prev, [memberId]: null }));
+    try {
+      // contributionPublic/finalPublic/commentPublic은 보내지 않는다(undefined) — 코멘트
+      // 내용 저장은 공개 여부를 바꾸지 않는다(별도의 "공개 중" 토글로만 바뀐다).
+      await upsertEvaluationScore(currentProjectId, Number(memberId), { comment });
+    } catch {
+      setCommentSaveErrorByMemberId((prev) => ({ ...prev, [memberId]: "저장하지 못했습니다." }));
+    } finally {
+      setCommentSavingMemberId(null);
+    }
+  };
+
   const [reportOverrides, setReportOverrides] = useState<Record<string, { summary: string; evidence: string[] }>>({});
   const [isRefreshingReport, setIsRefreshingReport] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -401,7 +476,9 @@ export function ContributorsView() {
   const averageScore = mergedReports.length > 0
     ? Math.round(mergedReports.reduce((sum, report) => sum + report.score, 0) / mergedReports.length)
     : 0;
-  const publishedCount = Object.values(publicFlags).filter(Boolean).length;
+  // "공개 완료" 카드는 최종 확정(총합/학점) 기준으로 센다 — 기여 점수만 먼저 공개된
+  // 중간 점검 상태는 아직 "완료"로 보지 않는다.
+  const publishedCount = Object.values(finalPublicFlags).filter(Boolean).length;
   const completedTasks = mergedReports.reduce((sum, report) => sum + report.todoDone, 0);
   const totalTasks = mergedReports.reduce((sum, report) => sum + report.todoTotal, 0);
   const statusMeta = EVAL_STATUS_META[resolveEvalStatus(project?.evalStatus)];
@@ -649,16 +726,16 @@ export function ContributorsView() {
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                togglePublic(report.memberId);
+                                toggleContributionPublic(report.memberId);
                               }}
                               className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full cursor-pointer transition-colors ${
-                                publicFlags[report.memberId]
+                                contributionPublicFlags[report.memberId]
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
                                   : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"
                               }`}
                             >
-                              {publicFlags[report.memberId] ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                              {publicFlags[report.memberId] ? "공개" : "비공개"}
+                              {contributionPublicFlags[report.memberId] ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                              {contributionPublicFlags[report.memberId] ? "공개" : "비공개"}
                             </button>
                           </div>
                         </div>
@@ -761,8 +838,8 @@ export function ContributorsView() {
               </div>
 
               <div className="overflow-x-auto">
-                <div className="min-w-[600px]">
-                  <div className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] px-4 py-3 bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground">
+                <div className="min-w-[680px]">
+                  <div className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px_84px] px-4 py-3 bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground">
                     <div>이름</div>
                     <div className="text-center">기여 점수</div>
                     <div className="text-center">심사자 점수</div>
@@ -779,6 +856,7 @@ export function ContributorsView() {
                       </button>
                     </div>
                     <div className="text-center">학점</div>
+                    <div className="text-center">공개</div>
                     <div className="text-center">저장</div>
                   </div>
 
@@ -788,7 +866,7 @@ export function ContributorsView() {
                       return (
                         <div
                           key={row.memberId}
-                          className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] items-center px-4 py-3"
+                          className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px_84px] items-center px-4 py-3"
                         >
                           <div className="min-w-0">
                             <div className="calculator-row-name text-sm font-bold text-foreground truncate">{row.name}</div>
@@ -837,6 +915,20 @@ export function ContributorsView() {
                           <div className="text-center">
                             <button
                               type="button"
+                              onClick={() => toggleFinalPublic(row.memberId)}
+                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full cursor-pointer transition-colors ${
+                                finalPublicFlags[row.memberId]
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                                  : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"
+                              }`}
+                            >
+                              {finalPublicFlags[row.memberId] ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                              {finalPublicFlags[row.memberId] ? "공개" : "비공개"}
+                            </button>
+                          </div>
+                          <div className="text-center">
+                            <button
+                              type="button"
                               disabled={row.total == null || savingMemberId === row.memberId}
                               onClick={() => handleGradeCalculatorSave(row.memberId, row.total)}
                               className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -859,24 +951,36 @@ export function ContributorsView() {
                   <h3 className="text-sm font-bold text-foreground">심사 코멘트</h3>
                 </div>
                 <textarea
-                  value={memo}
-                  onChange={(event) => setMemo(event.target.value)}
+                  value={commentDrafts[selectedMember.memberId] ?? ""}
+                  onChange={(event) =>
+                    setCommentDrafts((prev) => ({ ...prev, [selectedMember.memberId]: event.target.value }))
+                  }
                   rows={4}
                   placeholder={`${selectedMember.name}에게 남길 평가 코멘트를 입력하세요.`}
                   className="w-full resize-none rounded-lg border border-border bg-input-background px-3 py-2 text-xs outline-none focus:border-blue-400"
                 />
+                {commentSaveErrorByMemberId[selectedMember.memberId] && (
+                  <p className="mt-1 text-[10px] font-semibold text-red-600">
+                    {commentSaveErrorByMemberId[selectedMember.memberId]}
+                  </p>
+                )}
                 <div className="flex items-center justify-between gap-2 mt-3">
                   <button
                     type="button"
-                    onClick={() => togglePublic(selectedMember.memberId)}
+                    onClick={() => toggleCommentPublic(selectedMember.memberId)}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                   >
-                    {publicFlags[selectedMember.memberId] ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                    {publicFlags[selectedMember.memberId] ? "공개 중" : "비공개"}
+                    {commentPublicFlags[selectedMember.memberId] ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    {commentPublicFlags[selectedMember.memberId] ? "공개 중" : "비공개"}
                   </button>
-                  <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors">
+                  <button
+                    type="button"
+                    disabled={commentSavingMemberId === selectedMember.memberId}
+                    onClick={() => handleCommentSave(selectedMember.memberId)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <BarChart3 className="w-3.5 h-3.5" />
-                    저장
+                    {commentSavingMemberId === selectedMember.memberId ? "저장 중" : "저장"}
                   </button>
                 </div>
               </section>

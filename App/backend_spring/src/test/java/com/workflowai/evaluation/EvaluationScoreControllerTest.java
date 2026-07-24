@@ -49,7 +49,7 @@ class EvaluationScoreControllerTest {
         when(evaluationScoreRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         EvaluationScoreRequest request = new EvaluationScoreRequest(
-            1L, 3L, new BigDecimal("77.20"), false, new BigDecimal("90.00"), "A+"
+            1L, 3L, new BigDecimal("77.20"), null, false, null, new BigDecimal("90.00"), "A+", null
         );
 
         mockMvc().perform(post("/api/v1/projects/1/evaluations")
@@ -62,29 +62,78 @@ class EvaluationScoreControllerTest {
     }
 
     @Test
-    void upsertKeepsExistingScoreReviewerScoreAndGradeWhenTogglingPublicOnly() throws Exception {
-        // 메인 테이블의 공개/비공개 토글은 score/reviewerScore/grade 없이 호출된다 —
-        // 이미 학점 계산기에서 저장해 둔 총점(score)/심사자점수/학점을 덮어쓰면 안 된다.
-        // (회귀 테스트: 과거 버그 — 공개 토글이 기여 점수를 score로 다시 보내 총점을 덮어썼다)
+    void upsertKeepsExistingScoreReviewerScoreAndGradeWhenTogglingContributionPublicOnly() throws Exception {
+        // 왼쪽 기여도 테이블의 공개/비공개 토글은 contributionPublic만 보내고 나머지는 전부
+        // null이어야 한다 — 이미 학점 계산기에서 저장해 둔 총점(score)/심사자점수/학점/
+        // finalPublic/commentPublic을 덮어쓰면 안 된다.
+        // (회귀 테스트: 과거 버그 — 공개 토글이 기여 점수를 score로 다시 보내 총점을 덮어썼다.
+        //  세 공개 플래그 분리 이후에는 서로 다른 화면의 토글이 다른 플래그를 건드리면 안 된다.)
         EvaluationScore existing = new EvaluationScore(1L, 3L, new BigDecimal("77.20"), false);
         existing.setReviewerScore(new BigDecimal("90.00"));
         existing.setGrade("A+");
+        existing.setFinalPublic(true);
+        existing.setCommentPublic(true);
         when(projectMemberRepository.existsByProjectIdAndUserId(1L, 3L)).thenReturn(true);
         when(evaluationScoreRepository.findByProjectIdAndUserId(1L, 3L)).thenReturn(Optional.of(existing));
         when(evaluationScoreRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         EvaluationScoreRequest request = new EvaluationScoreRequest(
-            1L, 3L, null, true, null, null
+            1L, 3L, null, true, null, null, null, null, null
         );
 
         mockMvc().perform(post("/api/v1/projects/1/evaluations")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.isPublic").value(true))
+            .andExpect(jsonPath("$.data.contributionPublic").value(true))
+            .andExpect(jsonPath("$.data.finalPublic").value(true))
+            .andExpect(jsonPath("$.data.commentPublic").value(true))
             .andExpect(jsonPath("$.data.score").value(77.20))
             .andExpect(jsonPath("$.data.reviewerScore").value(90.00))
             .andExpect(jsonPath("$.data.grade").value("A+"));
+    }
+
+    @Test
+    void upsertTogglingFinalPublicDoesNotAffectContributionOrCommentPublic() throws Exception {
+        // 학점 계산기의 공개/비공개 토글은 finalPublic만 보내야 하고, 기존 contributionPublic/
+        // commentPublic 값은 그대로 유지되어야 한다 — 세 토글의 독립성 검증.
+        EvaluationScore existing = new EvaluationScore(1L, 3L, new BigDecimal("77.20"), true);
+        existing.setCommentPublic(true);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 3L)).thenReturn(true);
+        when(evaluationScoreRepository.findByProjectIdAndUserId(1L, 3L)).thenReturn(Optional.of(existing));
+        when(evaluationScoreRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EvaluationScoreRequest request = new EvaluationScoreRequest(
+            1L, 3L, null, null, true, null, null, null, null
+        );
+
+        mockMvc().perform(post("/api/v1/projects/1/evaluations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.contributionPublic").value(true))
+            .andExpect(jsonPath("$.data.finalPublic").value(true))
+            .andExpect(jsonPath("$.data.commentPublic").value(true));
+    }
+
+    @Test
+    void upsertSavesCommentAndTogglesCommentPublicIndependently() throws Exception {
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 3L)).thenReturn(true);
+        when(evaluationScoreRepository.findByProjectIdAndUserId(1L, 3L)).thenReturn(Optional.empty());
+        when(evaluationScoreRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EvaluationScoreRequest request = new EvaluationScoreRequest(
+            1L, 3L, null, null, null, true, null, null, "팀장으로서 팀을 잘 이끌어주고 있습니다."
+        );
+
+        mockMvc().perform(post("/api/v1/projects/1/evaluations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.commentPublic").value(true))
+            .andExpect(jsonPath("$.data.comment").value("팀장으로서 팀을 잘 이끌어주고 있습니다."))
+            .andExpect(jsonPath("$.data.contributionPublic").value(false))
+            .andExpect(jsonPath("$.data.finalPublic").value(false));
     }
 
     @Test
@@ -92,7 +141,7 @@ class EvaluationScoreControllerTest {
         when(projectMemberRepository.existsByProjectIdAndUserId(1L, 999L)).thenReturn(false);
 
         EvaluationScoreRequest request = new EvaluationScoreRequest(
-            1L, 999L, new BigDecimal("50.00"), false, null, null
+            1L, 999L, new BigDecimal("50.00"), false, null, null, null, null, null
         );
 
         mockMvc().perform(post("/api/v1/projects/1/evaluations")
@@ -105,7 +154,7 @@ class EvaluationScoreControllerTest {
     @Test
     void upsertReturns400WhenScoreOutOfRange() throws Exception {
         EvaluationScoreRequest request = new EvaluationScoreRequest(
-            1L, 3L, new BigDecimal("150.00"), false, null, null
+            1L, 3L, new BigDecimal("150.00"), false, null, null, null, null, null
         );
 
         mockMvc().perform(post("/api/v1/projects/1/evaluations")
@@ -118,7 +167,7 @@ class EvaluationScoreControllerTest {
     @Test
     void upsertReturns400WhenReviewerScoreOutOfRange() throws Exception {
         EvaluationScoreRequest request = new EvaluationScoreRequest(
-            1L, 3L, null, false, new BigDecimal("-1"), null
+            1L, 3L, null, false, null, null, new BigDecimal("-1"), null, null
         );
 
         mockMvc().perform(post("/api/v1/projects/1/evaluations")
@@ -131,7 +180,7 @@ class EvaluationScoreControllerTest {
     @Test
     void upsertReturns400WhenGradeNotInAllowedList() throws Exception {
         EvaluationScoreRequest request = new EvaluationScoreRequest(
-            1L, 3L, null, false, null, "S+"
+            1L, 3L, null, false, null, null, null, "S+", null
         );
 
         mockMvc().perform(post("/api/v1/projects/1/evaluations")
@@ -149,7 +198,7 @@ class EvaluationScoreControllerTest {
         when(evaluationScoreRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         EvaluationScoreRequest request = new EvaluationScoreRequest(
-            1L, 3L, new BigDecimal("60.00"), false, null, "A"
+            1L, 3L, new BigDecimal("60.00"), false, null, null, null, "A", null
         );
 
         mockMvc().perform(post("/api/v1/projects/1/evaluations")

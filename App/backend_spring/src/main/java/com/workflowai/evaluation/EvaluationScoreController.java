@@ -52,17 +52,29 @@ public class EvaluationScoreController {
         }
         EvaluationScore entity = evaluationScoreRepository.findByProjectIdAndUserId(projectId, request.userId())
             .orElseGet(() -> new EvaluationScore(projectId, request.userId(), BigDecimal.ZERO, false));
-        entity.setPublic(request.isPublic());
-        // score/reviewerScore/grade는 모두 null이면 기존 값을 그대로 유지한다 — 공개/비공개만
-        // 토글하는 호출(학점 계산기 미경유)이 score를 보내지 않아도 기존에 저장된 총점을 덮어쓰지 않는다.
+        // score/공개 플래그 3종/reviewerScore/grade/comment는 모두 null이면 기존 값을 그대로
+        // 유지한다 — 세 공개 플래그(기여 점수/총합·학점/코멘트)는 서로 독립적으로 토글되므로,
+        // 한쪽만 토글하는 호출이 다른 두 화면이 저장한 값이나 공개 상태를 덮어쓰면 안 된다.
         if (request.score() != null) {
             entity.setScore(request.score());
+        }
+        if (request.contributionPublic() != null) {
+            entity.setContributionPublic(request.contributionPublic());
+        }
+        if (request.finalPublic() != null) {
+            entity.setFinalPublic(request.finalPublic());
+        }
+        if (request.commentPublic() != null) {
+            entity.setCommentPublic(request.commentPublic());
         }
         if (request.reviewerScore() != null) {
             entity.setReviewerScore(request.reviewerScore());
         }
         if (request.grade() != null) {
             entity.setGrade(request.grade());
+        }
+        if (request.comment() != null) {
+            entity.setComment(request.comment());
         }
         EvaluationScore saved = evaluationScoreRepository.save(entity);
         return ResponseEntity.ok(ApiResponse.ok(EvaluationScoreResponse.from(saved)));

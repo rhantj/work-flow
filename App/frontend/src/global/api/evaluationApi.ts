@@ -4,33 +4,42 @@ export interface EvaluationScoreDto {
   projectId: number;
   userId: number;
   score: number;
-  isPublic: boolean;
+  contributionPublic: boolean;
+  finalPublic: boolean;
+  commentPublic: boolean;
   reviewerScore: number | null;
   grade: string | null;
+  comment: string | null;
 }
 
-/**
- * 심사자가 팀원 최종 평가 점수를 확정하거나 공개 여부를 토글할 때 호출한다. 심사자만 호출 가능.
- * score/reviewerScore/grade는 모두 생략(undefined)하면 서버가 기존 값을 그대로 유지한다 —
- * 공개/비공개만 토글할 때는 score를 반드시 생략해야 학점 계산기가 저장한 총점을 덮어쓰지 않는다.
- */
-export function upsertEvaluationScore(
-  projectId: number,
-  userId: number,
-  score: number | undefined,
-  isPublic: boolean,
-  reviewerScore?: number,
-  grade?: string,
-) {
+// upsertEvaluationScore에 전달할 값들 — score/contributionPublic/finalPublic/commentPublic/
+// reviewerScore/grade/comment는 모두 생략(undefined)하면 서버가 기존 값을 그대로 유지한다.
+// 세 공개 플래그(contributionPublic/finalPublic/commentPublic)는 서로 독립적으로 토글되므로,
+// 한쪽 화면의 토글이 다른 화면이 저장한 값이나 공개 상태를 덮어쓰지 않도록 건드릴 필드만 넘긴다.
+export interface EvaluationScoreUpdate {
+  score?: number;
+  contributionPublic?: boolean;
+  finalPublic?: boolean;
+  commentPublic?: boolean;
+  reviewerScore?: number;
+  grade?: string;
+  comment?: string;
+}
+
+/** 심사자가 팀원 최종 평가 점수/공개 여부/코멘트를 확정하거나 토글할 때 호출한다. 심사자만 호출 가능. */
+export function upsertEvaluationScore(projectId: number, userId: number, update: EvaluationScoreUpdate) {
   return apiFetch<EvaluationScoreDto>(`/projects/${projectId}/evaluations`, {
     method: "POST",
     body: JSON.stringify({
       projectId,
       userId,
-      score: score ?? null,
-      isPublic,
-      reviewerScore: reviewerScore ?? null,
-      grade: grade ?? null,
+      score: update.score ?? null,
+      contributionPublic: update.contributionPublic ?? null,
+      finalPublic: update.finalPublic ?? null,
+      commentPublic: update.commentPublic ?? null,
+      reviewerScore: update.reviewerScore ?? null,
+      grade: update.grade ?? null,
+      comment: update.comment ?? null,
     }),
   });
 }
@@ -59,11 +68,19 @@ export function upsertEvaluationSettings(projectId: number, contributionRatio: n
 }
 
 export interface MyEvaluationDto {
-  revealed: boolean;
+  contributionRevealed: boolean;
   score: number | null;
+  finalRevealed: boolean;
+  reviewerScore: number | null;
+  grade: string | null;
+  commentRevealed: boolean;
+  comment: string | null;
 }
 
-/** 마이페이지에서 로그인한 본인의 공개된 평가 결과를 조회한다. 비공개면 revealed=false, score=null. */
+/**
+ * 마이페이지에서 로그인한 본인의 공개된 평가 결과를 조회한다. 기여 점수/총합·학점/심사 코멘트는
+ * 서로 독립적으로 공개되므로, 각 revealed 플래그를 개별로 확인해야 한다.
+ */
 export function getMyEvaluation(projectId: number) {
   return apiFetch<MyEvaluationDto>(`/projects/${projectId}/evaluations/me`);
 }

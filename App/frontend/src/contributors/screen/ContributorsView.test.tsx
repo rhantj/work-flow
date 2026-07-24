@@ -94,7 +94,8 @@ describe("ContributorsView drilldown panels", () => {
     ]);
     vi.mocked(getEvaluationScores).mockResolvedValue([]);
     vi.mocked(upsertEvaluationScore).mockResolvedValue({
-      projectId: 1, userId: 1, score: 60, isPublic: true, reviewerScore: null, grade: null,
+      projectId: 1, userId: 1, score: 60, contributionPublic: true, finalPublic: false,
+      commentPublic: false, reviewerScore: null, grade: null, comment: null,
     });
     vi.mocked(getEvaluationSettings).mockResolvedValue({ projectId: 1, contributionRatio: 40 });
     vi.mocked(upsertEvaluationSettings).mockResolvedValue({ projectId: 1, contributionRatio: 40 });
@@ -150,7 +151,7 @@ describe("ContributorsView drilldown panels", () => {
     expect(fetchContributionScore).toHaveBeenCalledTimes(1);
   });
 
-  it("공개 배지를 클릭하면 upsertEvaluationScore를 호출해 서버에 공개 여부를 저장한다 (score는 보내지 않는다)", async () => {
+  it("왼쪽 테이블의 공개 배지를 클릭하면 contributionPublic만 담아 upsertEvaluationScore를 호출한다 (다른 필드는 건드리지 않는다)", async () => {
     renderView();
     const user = userEvent.setup();
 
@@ -159,8 +160,8 @@ describe("ContributorsView drilldown panels", () => {
     const toggleButton = await within(row).findByRole("button", { name: /비공개/ });
     await user.click(toggleButton);
 
-    // score를 undefined로 보내야 학점 계산기가 저장한 총점을 덮어쓰지 않는다 (회귀 테스트).
-    await waitFor(() => expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, undefined, true));
+    // contributionPublic만 보내야 학점 계산기가 저장한 총점/공개 상태를 덮어쓰지 않는다 (회귀 테스트).
+    await waitFor(() => expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, { contributionPublic: true }));
     expect(await within(row).findByRole("button", { name: /^공개$/ })).toBeInTheDocument();
   });
 
@@ -206,7 +207,8 @@ describe("ContributorsView 학점 계산기", () => {
     vi.mocked(fetchTasks).mockResolvedValue([]);
     vi.mocked(getEvaluationScores).mockResolvedValue([]);
     vi.mocked(upsertEvaluationScore).mockResolvedValue({
-      projectId: 1, userId: 1, score: 78, isPublic: false, reviewerScore: 90, grade: "A+",
+      projectId: 1, userId: 1, score: 78, contributionPublic: false, finalPublic: false,
+      commentPublic: false, reviewerScore: 90, grade: "A+", comment: null,
     });
     vi.mocked(getEvaluationSettings).mockResolvedValue({ projectId: 1, contributionRatio: 40 });
     vi.mocked(upsertEvaluationSettings).mockResolvedValue({ projectId: 1, contributionRatio: 70 });
@@ -228,7 +230,7 @@ describe("ContributorsView 학점 계산기", () => {
     await waitFor(() => expect(within(aside).getByText("78.00")).toBeInTheDocument());
   });
 
-  it("학점을 선택하고 저장 버튼을 누르면 upsertEvaluationScore가 총합/심사자점수/학점을 담아 호출된다", async () => {
+  it("학점을 선택하고 저장 버튼을 누르면 upsertEvaluationScore가 총합/심사자점수/학점만 담아 호출된다 (공개 플래그는 건드리지 않는다)", async () => {
     renderView();
     const user = userEvent.setup();
 
@@ -246,7 +248,7 @@ describe("ContributorsView 학점 계산기", () => {
     await user.click(saveButton);
 
     await waitFor(() =>
-      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, 78, false, 90, "A+"),
+      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, { score: 78, reviewerScore: 90, grade: "A+" }),
     );
   });
 
@@ -267,9 +269,11 @@ describe("ContributorsView 학점 계산기", () => {
     expect(within(gradeSelect).getByRole("option", { name: "D", exact: true })).toHaveValue("D");
   });
 
-  it("학점 계산기로 저장한 뒤 메인 테이블의 공개 토글을 눌러도 총점을 덮어쓰지 않는다 (회귀 테스트)", async () => {
-    // 과거 버그: 공개 토글이 기여 점수(report.score)를 그대로 score로 재전송해,
-    // 학점 계산기에서 저장한 최종 총점(78.00)이 기여 점수(60)로 되돌아갔다.
+  it("학점 계산기로 저장한 뒤 왼쪽 테이블의 기여 점수 공개 토글을 눌러도 총점/학점 공개 상태를 덮어쓰지 않는다 (회귀 테스트)", async () => {
+    // 과거 버그 1: 공개 토글이 기여 점수(report.score)를 그대로 score로 재전송해 총점을 덮어썼다.
+    // 과거 버그 2: 공개 플래그가 하나뿐이라 기여 점수/총합·학점/코멘트 공개가 함께 움직였다.
+    // 세 공개 플래그 분리 이후에는 어느 토글도 다른 두 플래그나 score/reviewerScore/grade를
+    // 건드리지 않아야 한다.
     renderView();
     const user = userEvent.setup();
 
@@ -282,7 +286,7 @@ describe("ContributorsView 학점 계산기", () => {
     const saveButton = within(aside).getByRole("button", { name: "저장" });
     await user.click(saveButton);
     await waitFor(() =>
-      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, 78, false, 90, undefined),
+      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, { score: 78, reviewerScore: 90, grade: undefined }),
     );
 
     vi.mocked(upsertEvaluationScore).mockClear();
@@ -292,9 +296,51 @@ describe("ContributorsView 학점 계산기", () => {
     const toggleButton = await within(row).findByRole("button", { name: /비공개/ });
     await user.click(toggleButton);
 
-    // score 자리에 undefined가 전달되어야 서버가 기존 총점(78.00)을 그대로 유지한다.
+    // contributionPublic만 전달되어야 서버가 기존 총점(78.00)/finalPublic을 그대로 유지한다.
     await waitFor(() =>
-      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, undefined, true),
+      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, { contributionPublic: true }),
+    );
+  });
+
+  it("학점 계산기 테이블의 공개 토글은 finalPublic만 담아 호출되고, 왼쪽 테이블 토글과 독립적이다", async () => {
+    renderView();
+    const user = userEvent.setup();
+
+    const heading = await screen.findByText("학점 계산기");
+    const aside = heading.closest(".grade-calculator-card") as HTMLElement;
+    const toggleButton = await within(aside).findByRole("button", { name: /비공개/ });
+    await user.click(toggleButton);
+
+    await waitFor(() =>
+      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, { finalPublic: true }),
+    );
+    // 왼쪽 테이블의 공개 배지는 학점 계산기 토글과 별개로 여전히 "비공개" 상태를 유지한다.
+    const nameCell = await screen.findByText("김민준", { selector: ".text-sm:not(.calculator-row-name)" });
+    const row = nameCell.closest('[role="button"]') as HTMLElement;
+    expect(await within(row).findByRole("button", { name: /^비공개$/ })).toBeInTheDocument();
+  });
+
+  it("심사 코멘트 저장은 comment만 담아 호출되고, 코멘트 공개 토글은 commentPublic만 담아 호출된다", async () => {
+    renderView();
+    const user = userEvent.setup();
+
+    await screen.findByText("학점 계산기");
+    const commentSection = screen.getByText("심사 코멘트").closest("section") as HTMLElement;
+    const commentInput = within(commentSection).getByPlaceholderText(/에게 남길 평가 코멘트를 입력하세요\./);
+    await user.type(commentInput, "훌륭합니다");
+
+    const saveButton = within(commentSection).getByRole("button", { name: "저장" });
+    await user.click(saveButton);
+    await waitFor(() =>
+      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, { comment: "훌륭합니다" }),
+    );
+
+    vi.mocked(upsertEvaluationScore).mockClear();
+
+    const toggleButton = within(commentSection).getByRole("button", { name: /비공개/ });
+    await user.click(toggleButton);
+    await waitFor(() =>
+      expect(upsertEvaluationScore).toHaveBeenCalledWith(1, 1, { commentPublic: true }),
     );
   });
 
