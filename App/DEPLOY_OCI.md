@@ -265,17 +265,19 @@ Flyway 마이그레이션에는 없었다 — db/init을 거치지 않았거나 
 > db/init(로컬/OCI compose) 또는 docs/db/migrations 001~010(기존 운영 DB) 중 하나로 base
 > 테이블을 먼저 갖춘 뒤에 Flyway를 켤 것.
 
-> 🚨 **`SPRING_FLYWAY_ENABLED`는 이제 운영에서도 기본 `true`다 — `main`에 머지되는 순간
-> 다음 배포에서 자동으로 실행된다.** 더 이상 `.env`에서 수동으로 켜는 단계가 안전판 역할을
-> 하지 않으므로, 아래 검증 절차는 **머지/배포 전에 미리** 끝내야 한다. 특히
-> `.github/workflows/deploy-oci.yml`의 스키마 사전검사는 마이그레이션 009/010
-> (`rag_assignee_sync_failures` 테이블 / `meetings.analysis_job_id` 컬럼)만 확인하고, 그
+> 🚨 **`.github/workflows/deploy-oci.yml`의 스키마 사전검사는 마이그레이션 009/010
+> (`rag_assignee_sync_failures` 테이블 / `meetings.analysis_job_id` 컬럼)만 확인한다.** 그
 > 이후 Flyway로만 추가된 컬럼(`users.field_tags`/`profile_image_path`/`affiliation`/
-> `github_username`/`terms_agreed_at` 등, `db/migration/V20260723_*`)은 확인하지 않는다.
-> **자동 사전검사 통과를 "마이그레이션이 안전하다"는 신호로 믿지 말 것** — 새 Flyway
-> 마이그레이션 파일을 추가할 때마다 아래 절차로 운영 DB 스냅샷에 미리 검증해야 한다.
+> `github_username`/`terms_agreed_at` 등, `db/migration/V20260723_*`)은 이 사전검사가 전혀
+> 확인하지 않는다. 즉 이 컬럼들이 아직 없는 기존 운영 DB에 (Flyway를 켠 채) 새 백엔드를
+> 배포하면 자동 사전검사는 통과하지만, 컨테이너 교체 직후 JPA `ddl-auto=validate`가 컬럼
+> 부재로 기동에 실패하고 자동 롤백까지 이어질 수 있다. **자동 사전검사 통과를 "스키마가
+> 준비됐다"는 신호로 믿지 말 것** — 아래 절차로 직접 검증해야 한다.
 
-**새 Flyway 마이그레이션을 운영(OCI) DB에 처음 반영하기 전 검증 절차 (필수, 머지 전에 수행):**
+**운영(OCI) DB에서 최초로 켜기 전 검증 절차 (필수):** `docker-compose.prod.yml`은
+`SPRING_FLYWAY_ENABLED`를 다시 기본 `false`로 되돌려서, 로컬에서 기본으로 켜지는 것과 달리
+운영에서는 자동으로 켜지지 않는다. 아래를 거친 뒤에만 `.env`에 `SPRING_FLYWAY_ENABLED=true`를
+추가해 명시적으로 켤 것.
 
 1. `ls backend_spring/src/main/resources/db/migration/`로 이 시점에 실제로 존재하는
    마이그레이션 파일 전체 목록을 뽑고, 그중 **baseline-version(현재 `20260721_1`)보다
@@ -293,8 +295,8 @@ Flyway 마이그레이션에는 없었다 — db/init을 거치지 않았거나 
    기록돼 있는지, 그 외 예상 못한 행이 없는지 눈으로 확인한다.
 5. `\d users`(또는 동등한 방법)로 `field_tags`/`profile_image_path`/`affiliation`/
    `github_username`/`terms_agreed_at` 컬럼이 실제로 생겼는지 확인한다.
-6. 위 확인이 끝난 뒤에만 `main`에 머지한다 — 배포되는 즉시 운영 DB에도 같은 결과로
-   자동 반영된다는 뜻이므로, 이 검증이 사실상 유일한 안전판이다.
+6. 위 확인이 끝난 뒤에만 실제 운영 `.env`에 `SPRING_FLYWAY_ENABLED=true`를 추가하고
+   재배포한다.
 
 새 스키마 변경이 필요하면 `docs/db/migrations`에 번호를 추가하지 말고 `db/migration/`에
 `V20260723_1__avatar_and_field_tags_columns.sql`처럼 `V<날짜>_<순번>__설명.sql` 형식으로
