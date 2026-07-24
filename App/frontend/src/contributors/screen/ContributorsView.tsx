@@ -67,10 +67,29 @@ function percent(value: number, total: number) {
   return Math.round((value / total) * 100);
 }
 
-// 학점 계산기 드롭다운 옵션 — 학교마다 표기 관례가 달라(A+/A0/A- 계열, Pass/Fail 트랙)
-// 백엔드 CHECK 제약(chk_evaluation_scores_grade)과 동일한 목록을 유지해야 한다.
+// 학점 계산기 드롭다운 옵션 — 학교마다 표기 관례가 달라(A0 계열/A 계열 모두 지원, Pass/Fail 트랙)
+// value는 백엔드 CHECK 제약(chk_evaluation_scores_grade)과 동일한 저장값이고,
+// label만 화면 표시용으로 다르게 보여준다(P→Pass, F→Fail).
 const GRADE_OPTIONS = [
-  "A+", "A0", "A-", "B+", "B0", "B-", "C+", "C0", "C-", "D+", "D0", "D-", "F", "P", "NP",
+  { value: "A+", label: "A+" },
+  { value: "A", label: "A" },
+  { value: "A0", label: "A0" },
+  { value: "A-", label: "A-" },
+  { value: "B+", label: "B+" },
+  { value: "B", label: "B" },
+  { value: "B0", label: "B0" },
+  { value: "B-", label: "B-" },
+  { value: "C+", label: "C+" },
+  { value: "C", label: "C" },
+  { value: "C0", label: "C0" },
+  { value: "C-", label: "C-" },
+  { value: "D+", label: "D+" },
+  { value: "D", label: "D" },
+  { value: "D0", label: "D0" },
+  { value: "D-", label: "D-" },
+  { value: "F", label: "Fail" },
+  { value: "P", label: "Pass" },
+  { value: "NP", label: "NP" },
 ] as const;
 
 type TotalSortOrder = "asc" | "desc" | null;
@@ -801,8 +820,8 @@ export function ContributorsView() {
                           >
                             <option value="">-</option>
                             {GRADE_OPTIONS.map((grade) => (
-                              <option key={grade} value={grade}>
-                                {grade}
+                              <option key={grade.value} value={grade.value}>
+                                {grade.label}
                               </option>
                             ))}
                           </select>

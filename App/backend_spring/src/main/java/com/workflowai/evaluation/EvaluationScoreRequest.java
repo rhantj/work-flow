@@ -17,6 +17,9 @@ public record EvaluationScoreRequest(
     @DecimalMin("0") @DecimalMax("100") BigDecimal score,
     boolean isPublic,
     @DecimalMin("0") @DecimalMax("100") BigDecimal reviewerScore,
-    @Pattern(regexp = "^(A\\+|A0|A-|B\\+|B0|B-|C\\+|C0|C-|D\\+|D0|D-|F|P|NP)$", message = "학점 형식이 올바르지 않습니다.")
+    @Pattern(
+        regexp = "^(A\\+|A|A0|A-|B\\+|B|B0|B-|C\\+|C|C0|C-|D\\+|D|D0|D-|F|P|NP)$",
+        message = "학점 형식이 올바르지 않습니다."
+    )
     String grade
 ) {}

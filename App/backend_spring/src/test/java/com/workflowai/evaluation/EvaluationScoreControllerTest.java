@@ -142,6 +142,24 @@ class EvaluationScoreControllerTest {
     }
 
     @Test
+    void upsertAcceptsAGradeVariantWithoutTrailingZero() throws Exception {
+        // A0 대신 A만 쓰는 학교 표기(A/B/C/D)도 허용해야 한다.
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 3L)).thenReturn(true);
+        when(evaluationScoreRepository.findByProjectIdAndUserId(1L, 3L)).thenReturn(Optional.empty());
+        when(evaluationScoreRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EvaluationScoreRequest request = new EvaluationScoreRequest(
+            1L, 3L, new BigDecimal("60.00"), false, null, "A"
+        );
+
+        mockMvc().perform(post("/api/v1/projects/1/evaluations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.grade").value("A"));
+    }
+
+    @Test
     void listReturnsReviewerScoreAndGradeFields() throws Exception {
         EvaluationScore saved = new EvaluationScore(1L, 3L, new BigDecimal("77.20"), true);
         saved.setReviewerScore(new BigDecimal("90.00"));

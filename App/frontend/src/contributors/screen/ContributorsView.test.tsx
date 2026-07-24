@@ -250,6 +250,23 @@ describe("ContributorsView 학점 계산기", () => {
     );
   });
 
+  it("P/F는 Pass/Fail로 표시되고, A0 대신 A만 쓰는 학교 표기도 선택할 수 있다", async () => {
+    renderView();
+
+    const heading = await screen.findByText("학점 계산기");
+    const aside = heading.closest("aside") as HTMLElement;
+    const gradeSelect = within(aside).getByRole("combobox") as HTMLSelectElement;
+
+    // 저장값(value)은 그대로 P/F이지만 화면 표시(label)는 Pass/Fail이어야 한다.
+    expect(within(gradeSelect).getByRole("option", { name: "Pass" })).toHaveValue("P");
+    expect(within(gradeSelect).getByRole("option", { name: "Fail" })).toHaveValue("F");
+    // A0 계열 학교뿐 아니라 A만 쓰는 학교 표기(A/B/C/D)도 옵션에 있어야 한다.
+    expect(within(gradeSelect).getByRole("option", { name: "A", exact: true })).toHaveValue("A");
+    expect(within(gradeSelect).getByRole("option", { name: "B", exact: true })).toHaveValue("B");
+    expect(within(gradeSelect).getByRole("option", { name: "C", exact: true })).toHaveValue("C");
+    expect(within(gradeSelect).getByRole("option", { name: "D", exact: true })).toHaveValue("D");
+  });
+
   it("학점 계산기로 저장한 뒤 메인 테이블의 공개 토글을 눌러도 총점을 덮어쓰지 않는다 (회귀 테스트)", async () => {
     // 과거 버그: 공개 토글이 기여 점수(report.score)를 그대로 score로 재전송해,
     // 학점 계산기에서 저장한 최종 총점(78.00)이 기여 점수(60)로 되돌아갔다.
