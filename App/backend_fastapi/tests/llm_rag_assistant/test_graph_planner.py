@@ -4,9 +4,50 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from llm_rag_assistant.app.graph.planner import parse_plan, plan_actions
+from llm_rag_assistant.app.graph.planner import _build_system_prompt, parse_plan, plan_actions
 
 _HISTORY = [{"role": "user", "content": "내 업무가 뭐야?"}]
+
+
+def test_system_prompt_includes_today_for_relative_dates() -> None:
+    # 오늘 날짜를 프롬프트에 넣지 않으면 모델이 "7월 30일"의 연도를 임의로 채운다.
+    prompt = _build_system_prompt("2026-07-24")
+    assert "2026-07-24" in prompt
+    assert "set_due_date" in prompt
+
+
+@pytest.mark.asyncio
+async def test_plan_actions_injects_today_into_system_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import date
+
+    import llm_rag_assistant.app.graph.planner as planner
+
+    class _FixedDate(date):
+        @classmethod
+        def today(cls) -> "date":
+            return date(2026, 7, 24)
+
+    monkeypatch.setattr(planner, "date", _FixedDate)
+    monkeypatch.setattr(
+        planner, "get_settings", MagicMock(return_value=MagicMock(hf_token="x", hf_rag_generation_model="m"))
+    )
+    monkeypatch.setattr(planner, "HuggingFaceEndpoint", MagicMock())
+
+    captured: dict = {}
+
+    async def _ainvoke(messages):
+        captured["system"] = messages[0].content
+        return MagicMock(content='{"actions":[]}')
+
+    chat = MagicMock()
+    chat.ainvoke = _ainvoke
+    monkeypatch.setattr(planner, "ChatHuggingFace", MagicMock(return_value=chat))
+
+    await plan_actions("WF-195 마감일 7월 30일로 지정해줘", [])
+
+    assert "2026-07-24" in captured["system"]
 
 
 def test_parse_plan_reads_valid_json() -> None:

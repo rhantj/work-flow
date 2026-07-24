@@ -1,4 +1,4 @@
-import { updateTaskPosition } from "../../../board/libs/utils/taskApi";
+import { updateTaskPosition, updateTask } from "../../../board/libs/utils/taskApi";
 import { createTaskComment } from "../../../board/libs/utils/taskCommentApi";
 import { fetchChecklist, updateChecklistItem } from "../../../board/libs/utils/checklistApi";
 import type { TaskStatus } from "../../../board/libs/types/task";
@@ -13,6 +13,14 @@ const VALID_STATUSES: TaskStatus[] = ["todo", "inprogress", "blocked", "done"];
 
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : "요청을 처리하지 못했습니다.";
+}
+
+// 형식(YYYY-MM-DD)뿐 아니라 실제 존재하는 날짜인지 확인한다(예: 2026-99-99, 2026-02-30 거부).
+function isValidCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
 }
 
 /**
@@ -62,8 +70,18 @@ export async function executeAction(card: ActionCard, projectId: number): Promis
         await updateChecklistItem(taskId, matches[0].id, { done }, projectId);
         return { ok: true };
       }
+      case "set_due_date": {
+        const date = String(card.args.date ?? "").trim();
+        // 그래프(state.py)와 같은 형식·달력 검증. 백엔드를 우회한 잘못된 값이 나가지 않게 한다.
+        if (!isValidCalendarDate(date)) {
+          return { ok: false, error: "마감일이 올바른 날짜가 아닙니다." };
+        }
+        await updateTask(taskId, { dueDate: date }, projectId);
+        return { ok: true };
+      }
       default:
-        // 팀장 전용 도구는 3단계에서 추가한다. 그때까지 카드가 오더라도 실행하지 않는다.
+        // 나머지 팀장 전용 도구(rename_task·change_assignee·delete_task)는 아직 미구현이다.
+        // 그래프 SUPPORTED_TOOLS에도 없어 카드 자체가 오지 않지만, 방어적으로 거부한다.
         return { ok: false, error: "아직 지원하지 않는 작업입니다." };
     }
   } catch (error) {
