@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 _SEARCH_TOP_K = 5
 _TITLE_MAX_LEN = 60
 # "WF-195", "FS-6" 같은 명시적 업무 코드. 있으면 임베딩보다 이 토큰의 정확 일치를 우선한다.
-_CODE_PATTERN = re.compile(r"[A-Za-z]{2,}-\d+")
+# 앞뒤 경계(lookaround)로 더 긴 코드의 일부를 잘라내지 않게 한다: "WF-195A"에서 "WF-195"를
+# 추출하면 실제로는 다른 업무를 지칭한 것을 WF-195로 오인해 엉뚱한 업무를 변경할 수 있다.
+_CODE_PATTERN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]{2,}-\d+(?![A-Za-z0-9])")
 # 1등과 2등의 유사도 차이가 이보다 작으면 "확실하다"고 볼 수 없어 사용자에게 되묻는다.
 # 임의로 하나를 골랐다가 엉뚱한 업무를 수정하는 것이 되묻는 것보다 훨씬 나쁘다.
 _AMBIGUITY_MARGIN = 0.05

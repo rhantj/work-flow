@@ -125,6 +125,26 @@ async def test_explicit_code_with_multiple_matches_asks_user() -> None:
 
 
 @pytest.mark.asyncio
+async def test_longer_code_is_not_truncated_to_a_shorter_one() -> None:
+    """WF-195A를 WF-195로 잘라 조회하면 안 된다. 코드로 못 잡으면 임베딩으로 넘어간다."""
+    embed_rows = [_row(88, "WF-195A 관련 업무", 0.61)]
+    with patch(
+        "llm_rag_assistant.app.graph.task_resolver.find_task_chunks_by_code",
+        new=AsyncMock(),
+    ) as by_code, patch(
+        "llm_rag_assistant.app.graph.task_resolver.embed_text", new=AsyncMock(return_value=[0.1])
+    ), patch(
+        "llm_rag_assistant.app.graph.task_resolver.search_similar_chunks",
+        new=AsyncMock(return_value=embed_rows),
+    ) as by_embedding:
+        match = await resolve_task_ref(object(), 1, "WF-195A 완료로 바꿔줘")
+
+    by_code.assert_not_called()  # "WF-195A"에서 코드를 추출하지 않는다.
+    by_embedding.assert_awaited_once()
+    assert match.task_id == 88
+
+
+@pytest.mark.asyncio
 async def test_missing_code_does_not_fall_back_to_embedding() -> None:
     """존재하지 않는 코드를 유사한 다른 업무로 억지 매칭하지 않는다(못 찾음으로 처리)."""
     with patch(
