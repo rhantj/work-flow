@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -28,12 +29,12 @@ public record SignupRequest(
     @Schema(description = "가입 유형: MEMBER(일반 회원) 또는 REVIEWER(심사자, 승인 대기)", example = "MEMBER")
     String roleType,
 
-    // Boolean(래퍼 타입)이라 요청 JSON에 이 필드가 없으면 null로 바인딩된다. @AssertTrue는
-    // null을 통과시키므로(false만 검증 실패), 이 필드를 모르는 구버전 클라이언트의 요청도
-    // 컨트롤러 검증 단계에서 막히지 않는다 — 실제 동의 여부 판단은 AuthService.signup에서
-    // null(누락)과 false(명시적 거부)를 구분해서 처리한다.
-    @AssertTrue(message = "이용약관 및 개인정보처리방침에 동의해주세요.")
-    @Schema(description = "이용약관/개인정보처리방침 동의 여부. 누락 시 구버전 클라이언트로 간주해 통과되지만 동의 시각은 기록되지 않는다. 명시적으로 false면 회원가입이 거부된다", example = "true")
+    // Boolean(래퍼 타입)이라 요청 JSON에 이 필드가 없으면 null로 바인딩된다. @AssertTrue만으로는
+    // null을 통과시키므로(false만 검증 실패), 필드 누락으로 동의 없는 가입이 뚫리는 것을 막기
+    // 위해 @NotNull을 함께 건다 — null과 false 모두 400으로 거부된다.
+    @NotNull(message = "약관 동의는 필수입니다.")
+    @AssertTrue(message = "약관 동의는 필수입니다.")
+    @Schema(description = "이용약관/개인정보처리방침 동의 여부. true가 아니면(null/false) 회원가입이 거부된다", example = "true")
     Boolean termsAgreed
 ) {
 }

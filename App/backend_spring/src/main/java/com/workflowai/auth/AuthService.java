@@ -80,10 +80,11 @@ public class AuthService {
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
             throw new InvalidSignupInputException("비밀번호는 " + MIN_PASSWORD_LENGTH + "자 이상이어야 합니다.");
         }
-        // 하위 호환성: termsAgreed가 없는(null) 요청은 구버전 클라이언트로 간주해 통과시키되
-        // DB에는 동의 시각을 기록하지 않는다(null 유지). 명시적으로 false를 보낸 경우에만
-        // 동의 거부로 판단해 가입을 막는다 — "누락"과 "명시적 거부"를 다르게 취급한다.
-        if (Boolean.FALSE.equals(termsAgreed)) {
+        // 컨트롤러의 @Valid(SignupRequest의 @NotNull+@AssertTrue)가 이미 걸러내지만, 이 메서드를
+        // 다른 경로(테스트, 향후 다른 컨트롤러/배치 등)에서 직접 호출해도 동의 없는 가입이 뚫리지
+        // 않도록 서비스 계층에서도 같은 규칙을 다시 확인한다 — null(누락)과 false(명시적 거부)
+        // 모두 거부한다.
+        if (!Boolean.TRUE.equals(termsAgreed)) {
             throw new InvalidSignupInputException("이용약관 및 개인정보처리방침에 동의해주세요.");
         }
         if (userRepository.existsByEmail(normalizedEmail)) {
@@ -93,9 +94,7 @@ public class AuthService {
         String passwordHash = passwordEncoder.encode(password);
         boolean isReviewerApplication = ROLE_TYPE_REVIEWER.equals(normalizedRoleType);
         User newUser = new User(normalizedEmail, normalizedName, PROVIDER_LOCAL, normalizedEmail, passwordHash);
-        if (Boolean.TRUE.equals(termsAgreed)) {
-            newUser.setTermsAgreedAt(LocalDateTime.now());
-        }
+        newUser.setTermsAgreedAt(LocalDateTime.now());
         if (isReviewerApplication) {
             newUser.setReviewerStatus(REVIEWER_STATUS_PENDING);
         }
