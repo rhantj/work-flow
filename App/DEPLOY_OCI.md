@@ -265,6 +265,15 @@ Flyway 마이그레이션에는 없었다 — db/init을 거치지 않았거나 
 > db/init(로컬/OCI compose) 또는 docs/db/migrations 001~010(기존 운영 DB) 중 하나로 base
 > 테이블을 먼저 갖춘 뒤에 Flyway를 켤 것.
 
+> 🚨 **`.github/workflows/deploy-oci.yml`의 스키마 사전검사는 마이그레이션 009/010
+> (`rag_assignee_sync_failures` 테이블 / `meetings.analysis_job_id` 컬럼)만 확인한다.** 그
+> 이후 Flyway로만 추가된 컬럼(`users.field_tags`/`profile_image_path`/`affiliation`/
+> `github_username`/`terms_agreed_at` 등, `db/migration/V20260723_*`)은 이 사전검사가 전혀
+> 확인하지 않는다. 즉 이 컬럼들이 아직 없는 기존 운영 DB에 새 백엔드를 배포하면 자동
+> 사전검사는 통과하지만, 컨테이너 교체 직후 JPA `ddl-auto=validate`가 컬럼 부재로 기동에
+> 실패하고 자동 롤백까지 이어질 수 있다. **자동 사전검사 통과를 "스키마가 준비됐다"는
+> 신호로 믿지 말 것** — 아래 절차로 직접 검증해야 한다.
+
 **운영(OCI) DB에서 최초로 켜기 전 검증 절차 (필수):** `docker-compose.prod.yml`은
 `SPRING_FLYWAY_ENABLED`를 다시 기본 `false`로 되돌려서, 로컬에서 기본으로 켜지는 것과 달리
 운영에서는 자동으로 켜지지 않는다. 아래를 거친 뒤에만 `.env`에 `SPRING_FLYWAY_ENABLED=true`를
