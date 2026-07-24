@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
@@ -309,19 +310,23 @@ public class MeController {
     }
 
     /**
-     * 매 업로드마다 고유한 파일명(avatars/{userId}-{nanoTime}.{ext})으로 저장한다 — 같은 이름을
-     * 재사용하면 DB 저장이 실패했을 때 되돌리려고 지우는 파일이 방금 막 덮어쓴 "이전" 파일과
-     * 같아져 기존 사진까지 유실된다. 고유한 이름을 쓰면 새 파일 쓰기가 기존 파일에 전혀
+     * 매 업로드마다 고유한 파일명(avatars/{userId}-{timestamp}-{UUID}.{ext})으로 저장한다 — 같은
+     * 이름을 재사용하면 DB 저장이 실패했을 때 되돌리려고 지우는 파일이 방금 막 덮어쓴 "이전"
+     * 파일과 같아져 기존 사진까지 유실된다. 고유한 이름을 쓰면 새 파일 쓰기가 기존 파일에 전혀
      * 영향을 주지 않으므로, DB 반영 성공 여부에 따라 새 파일과 이전 파일 중 하나만 안전하게
-     * 지우면 된다(호출부 참고). ATOMIC_MOVE는 요구하지 않는다 — 이를 지원하지 않는 파일시스템
-     * (일부 컨테이너/네트워크 볼륨)에서는 AtomicMoveNotSupportedException으로 업로드가 항상
-     * 실패하는데, 같은 디렉터리 안에서는 REPLACE_EXISTING만으로도 이 용도에 충분하다.
+     * 지우면 된다(호출부 참고). System.nanoTime()은 JVM마다 기준점이 달라 인스턴스 간 유일성이
+     * 보장되지 않으므로(다중 인스턴스 배포 시 이론상 같은 유저가 서로 다른 인스턴스에 동시
+     * 업로드하면 충돌 가능), UUID.randomUUID()로 유일성을 보장한다 — timestamp는 충돌 방지용이
+     * 아니라 파일 생성 시각을 파일명에서 바로 알아볼 수 있게 하는 용도로만 남긴다. ATOMIC_MOVE는
+     * 요구하지 않는다 — 이를 지원하지 않는 파일시스템(일부 컨테이너/네트워크 볼륨)에서는
+     * AtomicMoveNotSupportedException으로 업로드가 항상 실패하는데, 같은 디렉터리 안에서는
+     * REPLACE_EXISTING만으로도 이 용도에 충분하다.
      */
     private String storeAvatar(Long userId, MultipartFile file, String extension) throws IOException {
         Path dir = Path.of(uploadsDir, "avatars").toAbsolutePath().normalize();
         Files.createDirectories(dir);
 
-        String fileName = userId + "-" + System.nanoTime() + "." + extension;
+        String fileName = userId + "-" + System.currentTimeMillis() + "-" + UUID.randomUUID() + "." + extension;
         Path target = dir.resolve(fileName);
 
         Path tmp = dir.resolve(fileName + ".tmp");
@@ -342,7 +347,7 @@ public class MeController {
      * DB 값이 손상/변조됐을 가능성까지 방어적으로 차단하기 위해 avatars 디렉터리를 벗어나는
      * 경로는 지우지 않는다 (MeetingAnalysisService의 zip-slip 가드와 동일한 패턴). 여기에 더해
      * 파일명이 userId 소유가 맞는지도 확인한다 — storeAvatar가 만드는 파일명은 항상
-     * "{userId}-{nanoTime}.{ext}" 형식이므로, 이 조건은 정상 경로에서는 항상 성립한다. 이걸
+     * "{userId}-{timestamp}-{UUID}.{ext}" 형식이므로, 이 조건은 정상 경로에서는 항상 성립한다. 이걸
      * 확인하는 이유는 profile_image_path가 (버그나 DB 직접 조작으로) 다른 유저의 경로를 가리키게
      * 되는 이상 상황이 생기더라도, 그 값을 그대로 믿고 지워서 남의 아바타 파일을 삭제하는 사고를
      * 막기 위해서다.
