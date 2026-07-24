@@ -1,5 +1,8 @@
 package com.workflowai.meeting;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -13,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -137,5 +142,38 @@ class MeetingAnalysisControllerTest {
             .andExpect(jsonPath("$.data.status").value("SAVED"));
 
         verify(meetingAnalysisService).confirmSave("demo-project", "42");
+    }
+
+    @Test
+    void createVersionReturns409OnlyWhenTitleUniqueConstraintViolated() throws Exception {
+        when(meetingAnalysisService.createVersion(eq("demo-project"), eq("42"), any()))
+            .thenThrow(new DataIntegrityViolationException(
+                "insert failed",
+                new RuntimeException("duplicate key value violates unique constraint \"uq_meetings_original_id_title\"")
+            ));
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/meetings/42/versions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"transcript\":\"내용\",\"triggerAnalysis\":false}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("VERSION_TITLE_CONFLICT"));
+    }
+
+    @Test
+    void createVersionPropagatesUnrelatedDataIntegrityViolation() {
+        when(meetingAnalysisService.createVersion(eq("demo-project"), eq("42"), any()))
+            .thenThrow(new DataIntegrityViolationException(
+                "insert failed",
+                new RuntimeException("insert or update on table \"meetings\" violates foreign key constraint \"fk_meetings_edited_by\"")
+            ));
+        MeetingAnalysisController controller = new MeetingAnalysisController(meetingAnalysisService);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        assertThatThrownBy(() -> mockMvc.perform(post("/api/v1/projects/demo-project/meetings/42/versions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"transcript\":\"내용\",\"triggerAnalysis\":false}")))
+            .hasCauseInstanceOf(DataIntegrityViolationException.class);
     }
 }

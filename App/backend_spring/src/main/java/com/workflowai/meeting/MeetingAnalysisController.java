@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -240,7 +241,12 @@ public class MeetingAnalysisController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(400).body(ApiResponse.fail("INVALID_TRANSCRIPT", e.getMessage()));
         } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.status(409).body(ApiResponse.fail("VERSION_TITLE_CONFLICT", "동시 수정 요청으로 버전 제목이 충돌했습니다. 다시 시도해주세요."));
+            // 다른 무결성 위반(FK 등)까지 제목 충돌로 은폐하지 않도록, 유니크 인덱스 이름이 확인될 때만 409로 응답한다.
+            String rootMessage = String.valueOf(NestedExceptionUtils.getMostSpecificCause(e).getMessage());
+            if (rootMessage.contains("uq_meetings_original_id_title")) {
+                return ResponseEntity.status(409).body(ApiResponse.fail("VERSION_TITLE_CONFLICT", "동시 수정 요청으로 버전 제목이 충돌했습니다. 다시 시도해주세요."));
+            }
+            throw e;
         }
     }
 }
