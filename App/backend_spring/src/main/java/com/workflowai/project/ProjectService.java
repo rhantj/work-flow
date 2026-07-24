@@ -246,7 +246,7 @@ public class ProjectService {
     @Transactional
     public ProjectResponse finalizeEvaluation(Long projectId) {
         Project project = getProjectOrThrow(projectId);
-        project.setEvalStatus("PUBLISHED");
+        project.setEvalStatus(EvalStatus.PUBLISHED);
         return toResponse(project);
     }
 
@@ -308,7 +308,7 @@ public class ProjectService {
             project.getCreatedBy(),
             memberCount,
             taskProgress,
-            project.getEvalStatus()
+            project.getEvalStatus().name()
         );
     }
 
