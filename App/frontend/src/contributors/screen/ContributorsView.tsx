@@ -5,11 +5,13 @@ import {
   ArrowLeft,
   ArrowUpDown,
   Award,
+  BarChart3,
   Calculator,
   CheckCircle2,
   Download,
   Eye,
   EyeOff,
+  MessageSquare,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -99,6 +101,8 @@ export function ContributorsView() {
   const { currentProjectId } = useAuth();
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [query, setQuery] = useState("");
+  // 심사 코멘트 — 선택된 팀원에게 남길 메모(현재는 로컬 입력만, 서버 저장 연동 없음).
+  const [memo, setMemo] = useState("");
   // 프로젝트 상세(제목, eval_status 등) — 실제 API 응답. 실패하면 null 유지(제목/배지 미표시).
   const [project, setProject] = useState<ProjectResponse | null>(null);
   useEffect(() => {
@@ -731,117 +735,149 @@ export function ContributorsView() {
             )}
           </main>
 
-          <aside className="bg-card border border-border rounded-lg shadow-sm overflow-hidden min-w-0">
-            <div className="px-4 py-4 border-b border-border space-y-3">
-              <div className="flex items-center gap-2">
-                <Calculator className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-bold text-foreground">학점 계산기</h3>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>점수 비율: 기여</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={contributionRatio}
-                  onChange={(event) => setContributionRatio(Number(event.target.value))}
-                  onBlur={(event) => handleRatioCommit(Number(event.target.value))}
-                  className="w-14 rounded-md border border-border bg-input-background px-2 py-1 text-center text-xs outline-none focus:border-blue-400"
-                />
-                <span>% / 심사자 {100 - contributionRatio}%(자동)</span>
-              </div>
-              {ratioError && <p className="text-xs font-semibold text-red-600">{ratioError}</p>}
-            </div>
-
-            <div className="overflow-x-auto">
-              <div className="min-w-[600px]">
-                <div className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] px-4 py-3 bg-muted/40 border-b border-border text-xs font-bold text-muted-foreground">
-                  <div>이름</div>
-                  <div className="text-center">기여</div>
-                  <div className="text-center">심사자</div>
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCalculatorSort((prev) => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"))
-                      }
-                      className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
-                    >
-                      총합
-                      <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <div className="text-center">학점</div>
-                  <div className="text-center">저장</div>
+          <aside className="space-y-4 min-w-0">
+            <div className="grade-calculator-card bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+              <div className="px-4 py-4 border-b border-border space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-sm font-bold text-foreground">학점 계산기</h3>
                 </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>점수 비율: 기여</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={contributionRatio}
+                    onChange={(event) => setContributionRatio(Number(event.target.value))}
+                    onBlur={(event) => handleRatioCommit(Number(event.target.value))}
+                    className="w-14 rounded-md border border-border bg-input-background px-2 py-1 text-center text-xs outline-none focus:border-blue-400"
+                  />
+                  <span>% / 심사자 {100 - contributionRatio}%(자동)</span>
+                </div>
+                {ratioError && <p className="text-xs font-semibold text-red-600">{ratioError}</p>}
+              </div>
 
-                <div className="divide-y divide-border">
-                  {calculatorRows.map((row) => {
-                    const saveError = saveErrorByMemberId[row.memberId];
-                    return (
-                      <div
-                        key={row.memberId}
-                        className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] items-center px-4 py-3"
+              <div className="overflow-x-auto">
+                <div className="min-w-[600px]">
+                  <div className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] px-4 py-3 bg-muted/40 border-b border-border text-xs font-bold text-muted-foreground">
+                    <div>이름</div>
+                    <div className="text-center">기여</div>
+                    <div className="text-center">심사자</div>
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCalculatorSort((prev) => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"))
+                        }
+                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
                       >
-                        <div className="min-w-0 pr-2">
-                          <div className="calculator-row-name text-sm font-bold text-foreground truncate">{row.name}</div>
-                          {saveError && <div className="text-[10px] font-semibold text-red-600">{saveError}</div>}
+                        총합
+                        <ArrowUpDown className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="text-center">학점</div>
+                    <div className="text-center">저장</div>
+                  </div>
+
+                  <div className="divide-y divide-border">
+                    {calculatorRows.map((row) => {
+                      const saveError = saveErrorByMemberId[row.memberId];
+                      return (
+                        <div
+                          key={row.memberId}
+                          className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] items-center px-4 py-3"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="calculator-row-name text-sm font-bold text-foreground truncate">{row.name}</div>
+                            {saveError && <div className="text-[10px] font-semibold text-red-600">{saveError}</div>}
+                          </div>
+                          <div className="text-center text-sm font-semibold text-foreground">{row.score}</div>
+                          <div className="text-center">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={row.draft.reviewerScore}
+                              onChange={(event) =>
+                                setEvaluationDrafts((prev) => ({
+                                  ...prev,
+                                  [row.memberId]: { ...row.draft, reviewerScore: event.target.value },
+                                }))
+                              }
+                              placeholder="-"
+                              className="w-20 rounded-md border border-border bg-input-background px-1.5 py-1.5 text-center text-sm outline-none focus:border-blue-400"
+                            />
+                          </div>
+                          <div className="text-center text-sm font-bold text-foreground">
+                            {row.total != null ? row.total.toFixed(2) : "-"}
+                          </div>
+                          <div className="text-center">
+                            <select
+                              value={row.draft.grade}
+                              onChange={(event) =>
+                                setEvaluationDrafts((prev) => ({
+                                  ...prev,
+                                  [row.memberId]: { ...row.draft, grade: event.target.value },
+                                }))
+                              }
+                              className="w-20 rounded-md border border-border bg-input-background px-1 py-1.5 text-center text-sm outline-none focus:border-blue-400"
+                            >
+                              <option value="">-</option>
+                              {GRADE_OPTIONS.map((grade) => (
+                                <option key={grade.value} value={grade.value}>
+                                  {grade.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="text-center">
+                            <button
+                              type="button"
+                              disabled={row.total == null || savingMemberId === row.memberId}
+                              onClick={() => handleGradeCalculatorSave(row.memberId, row.total)}
+                              className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {savingMemberId === row.memberId ? "저장 중" : "저장"}
+                            </button>
+                          </div>
                         </div>
-                        <div className="text-center text-sm font-semibold text-foreground">{row.score}</div>
-                        <div className="text-center">
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            value={row.draft.reviewerScore}
-                            onChange={(event) =>
-                              setEvaluationDrafts((prev) => ({
-                                ...prev,
-                                [row.memberId]: { ...row.draft, reviewerScore: event.target.value },
-                              }))
-                            }
-                            placeholder="-"
-                            className="w-20 rounded-md border border-border bg-input-background px-1.5 py-1.5 text-center text-sm outline-none focus:border-blue-400"
-                          />
-                        </div>
-                        <div className="text-center text-sm font-bold text-foreground">
-                          {row.total != null ? row.total.toFixed(2) : "-"}
-                        </div>
-                        <div className="text-center">
-                          <select
-                            value={row.draft.grade}
-                            onChange={(event) =>
-                              setEvaluationDrafts((prev) => ({
-                                ...prev,
-                                [row.memberId]: { ...row.draft, grade: event.target.value },
-                              }))
-                            }
-                            className="w-20 rounded-md border border-border bg-input-background px-1 py-1.5 text-center text-sm outline-none focus:border-blue-400"
-                          >
-                            <option value="">-</option>
-                            {GRADE_OPTIONS.map((grade) => (
-                              <option key={grade.value} value={grade.value}>
-                                {grade.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="text-center">
-                          <button
-                            type="button"
-                            disabled={row.total == null || savingMemberId === row.memberId}
-                            onClick={() => handleGradeCalculatorSave(row.memberId, row.total)}
-                            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {savingMemberId === row.memberId ? "저장 중" : "저장"}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {selectedMember != null && (
+              <section className="bg-card border border-border rounded-lg p-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageSquare className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-sm font-bold text-foreground">심사 코멘트</h3>
+                </div>
+                <textarea
+                  value={memo}
+                  onChange={(event) => setMemo(event.target.value)}
+                  rows={4}
+                  placeholder={`${selectedMember.name}에게 남길 평가 코멘트를 입력하세요.`}
+                  className="w-full resize-none rounded-lg border border-border bg-input-background px-3 py-2 text-xs outline-none focus:border-blue-400"
+                />
+                <div className="flex items-center justify-between gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => togglePublic(selectedMember.memberId)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+                  >
+                    {publicFlags[selectedMember.memberId] ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    {publicFlags[selectedMember.memberId] ? "공개 중" : "비공개"}
+                  </button>
+                  <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors">
+                    <BarChart3 className="w-3.5 h-3.5" />
+                    저장
+                  </button>
+                </div>
+              </section>
+            )}
           </aside>
         </section>
       </div>

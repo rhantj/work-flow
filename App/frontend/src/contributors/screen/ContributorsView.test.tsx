@@ -217,7 +217,7 @@ describe("ContributorsView 학점 계산기", () => {
     const user = userEvent.setup();
 
     const heading = await screen.findByText("학점 계산기");
-    const aside = heading.closest("aside") as HTMLElement;
+    const aside = heading.closest(".grade-calculator-card") as HTMLElement;
     // 기여 점수(60)가 학점 계산기 행에 표시된다.
     expect(await within(aside).findByText("60")).toBeInTheDocument();
 
@@ -233,7 +233,7 @@ describe("ContributorsView 학점 계산기", () => {
     const user = userEvent.setup();
 
     const heading = await screen.findByText("학점 계산기");
-    const aside = heading.closest("aside") as HTMLElement;
+    const aside = heading.closest(".grade-calculator-card") as HTMLElement;
 
     const reviewerScoreInput = within(aside).getByPlaceholderText("-");
     await user.type(reviewerScoreInput, "90");
@@ -254,7 +254,7 @@ describe("ContributorsView 학점 계산기", () => {
     renderView();
 
     const heading = await screen.findByText("학점 계산기");
-    const aside = heading.closest("aside") as HTMLElement;
+    const aside = heading.closest(".grade-calculator-card") as HTMLElement;
     const gradeSelect = within(aside).getByRole("combobox") as HTMLSelectElement;
 
     // 저장값(value)은 그대로 P/F이지만 화면 표시(label)는 Pass/Fail이어야 한다.
@@ -274,7 +274,7 @@ describe("ContributorsView 학점 계산기", () => {
     const user = userEvent.setup();
 
     const heading = await screen.findByText("학점 계산기");
-    const aside = heading.closest("aside") as HTMLElement;
+    const aside = heading.closest(".grade-calculator-card") as HTMLElement;
     const reviewerScoreInput = within(aside).getByPlaceholderText("-");
     await user.type(reviewerScoreInput, "90");
     await waitFor(() => expect(within(aside).getByText("78.00")).toBeInTheDocument());
@@ -303,7 +303,7 @@ describe("ContributorsView 학점 계산기", () => {
     const user = userEvent.setup();
 
     const heading = await screen.findByText("학점 계산기");
-    const aside = heading.closest("aside") as HTMLElement;
+    const aside = heading.closest(".grade-calculator-card") as HTMLElement;
     await waitFor(() => expect(getEvaluationSettings).toHaveBeenCalledWith(1));
 
     const ratioInput = within(aside).getByDisplayValue("40");
@@ -340,7 +340,7 @@ describe("ContributorsView 학점 계산기", () => {
     const user = userEvent.setup();
 
     const heading = await screen.findByText("학점 계산기");
-    const aside = heading.closest("aside") as HTMLElement;
+    const aside = heading.closest(".grade-calculator-card") as HTMLElement;
     await waitFor(() => expect(within(aside).getByText("김민준")).toBeInTheDocument());
 
     // 두 행 모두 심사자 점수를 입력해 총합을 확정시킨다 —
