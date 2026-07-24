@@ -351,7 +351,9 @@ export function ContributorsView() {
           meetings: attendance?.meetingsAttended ?? 0,
           aiSummary: override?.summary ?? "아직 AI 분석 요약이 생성되지 않았습니다. \"리포트 새로고침\"을 눌러 생성해주세요.",
           evidence: override?.evidence ?? [],
-          score: scoreData ? Math.round(scoreData.contributionScore) : 0,
+          // 소수 둘째 자리까지 유지 — 학점 계산기 총합 계산의 정밀도를 위해 반올림하지 않는다.
+          // 표시할 때는 각 자리에서 필요에 맞게 포맷한다(toFixed(2) 또는 Math.round).
+          score: scoreData ? scoreData.contributionScore : 0,
           categories: scoreData
             ? { task: scoreData.taskComponent, meeting: scoreData.meetingComponent, workload: scoreData.workloadComponent }
             : { task: 0, meeting: 0, workload: 0 },
@@ -596,7 +598,7 @@ export function ContributorsView() {
                             </div>
                           </div>
                           <div className="text-center">
-                            <div className="text-lg font-bold" style={{ color: tone.color }}>{report.score}</div>
+                            <div className="text-lg font-bold" style={{ color: tone.color }}>{report.score.toFixed(2)}</div>
                             <div className="text-[10px] font-semibold" style={{ color: tone.color }}>{tone.label}</div>
                           </div>
                           <button
@@ -703,7 +705,7 @@ export function ContributorsView() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-3xl font-bold" style={{ color: selectedTone.color }}>{selectedMember.score}</div>
+                        <div className="text-3xl font-bold" style={{ color: selectedTone.color }}>{selectedMember.score.toFixed(2)}</div>
                         <div
                           className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                           style={{ color: selectedTone.color, background: selectedTone.bg }}
@@ -740,7 +742,7 @@ export function ContributorsView() {
               <div className="px-4 py-4 border-b border-border space-y-3">
                 <div className="flex items-center gap-2">
                   <Calculator className="w-4 h-4 text-blue-600" />
-                  <h3 className="text-sm font-bold text-foreground">학점 계산기</h3>
+                  <h3 className="text-base font-bold text-foreground">학점 계산기</h3>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>점수 비율: 기여</span>
@@ -760,17 +762,17 @@ export function ContributorsView() {
 
               <div className="overflow-x-auto">
                 <div className="min-w-[600px]">
-                  <div className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] px-4 py-3 bg-muted/40 border-b border-border text-xs font-bold text-muted-foreground">
+                  <div className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] px-4 py-3 bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground">
                     <div>이름</div>
-                    <div className="text-center">기여</div>
-                    <div className="text-center">심사자</div>
+                    <div className="text-center">기여 점수</div>
+                    <div className="text-center">심사자 점수</div>
                     <div className="text-center">
                       <button
                         type="button"
                         onClick={() =>
                           setCalculatorSort((prev) => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"))
                         }
-                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold hover:text-foreground transition-colors cursor-pointer"
                       >
                         총합
                         <ArrowUpDown className="w-3 h-3" />
@@ -788,11 +790,12 @@ export function ContributorsView() {
                           key={row.memberId}
                           className="grid grid-cols-[minmax(96px,1fr)_84px_100px_100px_100px_84px] items-center px-4 py-3"
                         >
-                          <div className="min-w-0 pr-2">
+                          <div className="min-w-0">
                             <div className="calculator-row-name text-sm font-bold text-foreground truncate">{row.name}</div>
+                            <div className="text-[11px] text-muted-foreground truncate">{row.role}</div>
                             {saveError && <div className="text-[10px] font-semibold text-red-600">{saveError}</div>}
                           </div>
-                          <div className="text-center text-sm font-semibold text-foreground">{row.score}</div>
+                          <div className="text-center text-sm font-semibold text-foreground">{row.score.toFixed(2)}</div>
                           <div className="text-center">
                             <input
                               type="number"

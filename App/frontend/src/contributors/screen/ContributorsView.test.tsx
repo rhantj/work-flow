@@ -218,8 +218,8 @@ describe("ContributorsView 학점 계산기", () => {
 
     const heading = await screen.findByText("학점 계산기");
     const aside = heading.closest(".grade-calculator-card") as HTMLElement;
-    // 기여 점수(60)가 학점 계산기 행에 표시된다.
-    expect(await within(aside).findByText("60")).toBeInTheDocument();
+    // 기여 점수(60)가 소수 둘째 자리까지 학점 계산기 행에 표시된다.
+    expect(await within(aside).findByText("60.00")).toBeInTheDocument();
 
     const reviewerScoreInput = within(aside).getByPlaceholderText("-");
     await user.type(reviewerScoreInput, "90");
