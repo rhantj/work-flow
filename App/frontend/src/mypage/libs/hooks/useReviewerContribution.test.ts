@@ -27,7 +27,7 @@ vi.mock("../../../meetings/libs/utils/meetingAiApi", () => ({
   fetchAttendanceSummary: vi.fn(),
 }));
 
-function makeMember(userId: number, name: string, role: string): MemberResponse {
+function makeMember(userId: number, name: string, role: MemberResponse["role"]): MemberResponse {
   return { userId, name, email: `${name}@univ.ac.kr`, role };
 }
 
@@ -141,5 +141,63 @@ describe("useReviewerContribution", () => {
     });
     await waitFor(() => expect(result.current.loadState).toBe("ready"));
     expect(result.current.rows[0].name).toBe("김민준");
+  });
+
+  it("성공 후 reload()가 실패하면 이전 성공 데이터를 남기지 않고 rows를 비운다", async () => {
+    vi.mocked(getProjectMembers)
+      .mockResolvedValueOnce([makeMember(1, "김민준", "팀장")])
+      .mockRejectedValueOnce(new Error("네트워크 오류"));
+    vi.mocked(fetchContributionReport).mockResolvedValue(makeReport(1, "김민준"));
+    vi.mocked(fetchContributionScore).mockResolvedValue(makeScoreResult("1"));
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+    vi.mocked(fetchAttendanceSummary).mockResolvedValue([]);
+
+    const { result } = renderHook(() => useReviewerContribution(7));
+
+    await waitFor(() => expect(result.current.loadState).toBe("ready"));
+    expect(result.current.rows).toHaveLength(1);
+
+    act(() => {
+      result.current.reload();
+    });
+
+    await waitFor(() => expect(result.current.loadState).toBe("error"));
+    expect(result.current.rows).toEqual([]);
+  });
+
+  it("projectId가 빠르게 바뀌면 늦게 도착한 이전 projectId 응답을 무시하고 최신 데이터만 반영한다", async () => {
+    const resolvers = new Map<number, (members: MemberResponse[]) => void>();
+    vi.mocked(getProjectMembers).mockImplementation(
+      (projectId: number) =>
+        new Promise<MemberResponse[]>((resolve) => {
+          resolvers.set(projectId, resolve);
+        }),
+    );
+    vi.mocked(fetchContributionReport).mockResolvedValue([]);
+    vi.mocked(fetchContributionScore).mockResolvedValue({ members: [], note: null, teamMeanCompletion: null });
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+    vi.mocked(fetchAttendanceSummary).mockResolvedValue([]);
+
+    const { result, rerender } = renderHook(
+      ({ projectId }: { projectId: number }) => useReviewerContribution(projectId),
+      { initialProps: { projectId: 1 } },
+    );
+
+    expect(result.current.loadState).toBe("loading");
+
+    rerender({ projectId: 2 });
+
+    await act(async () => {
+      resolvers.get(2)!([makeMember(2, "이서연", "팀원")]);
+    });
+    await waitFor(() => expect(result.current.loadState).toBe("ready"));
+
+    await act(async () => {
+      resolvers.get(1)!([makeMember(1, "김민준", "팀장")]);
+    });
+
+    expect(result.current.loadState).toBe("ready");
+    expect(result.current.rows).toHaveLength(1);
+    expect(result.current.rows[0].name).toBe("이서연");
   });
 });

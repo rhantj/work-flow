@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getProjectMembers } from "../../../global/api/projectsApi";
 import { fetchContributionReport, fetchContributionScore } from "../../../contributors/libs/utils/contributorsApi";
 import { fetchTasks } from "../../../board/libs/utils/taskApi";
@@ -24,13 +24,16 @@ export interface ReviewerContributionRow {
 export function useReviewerContribution(projectId: number | null) {
   const [rows, setRows] = useState<ReviewerContributionRow[]>([]);
   const [loadState, setLoadState] = useState<ReviewerContributionLoadState>("loading");
+  const requestIdRef = useRef(0);
 
   const load = useCallback(() => {
     if (projectId === null) {
+      requestIdRef.current += 1;
       setRows([]);
       setLoadState("ready");
       return;
     }
+    const requestId = (requestIdRef.current += 1);
     setLoadState("loading");
     Promise.all([
       getProjectMembers(projectId),
@@ -40,6 +43,7 @@ export function useReviewerContribution(projectId: number | null) {
       fetchAttendanceSummary(String(projectId)),
     ])
       .then(([members, reports, scoreResult, tasks, attendance]) => {
+        if (requestIdRef.current !== requestId) return;
         const reportByUserId = new Map(reports.map((r) => [String(r.userId), r]));
         const scoreByUserId = new Map(scoreResult.members.map((s) => [s.assigneeId, s]));
         const attendanceByUserId = new Map(attendance.map((a) => [String(a.userId), a]));
@@ -72,7 +76,11 @@ export function useReviewerContribution(projectId: number | null) {
         setRows(merged);
         setLoadState("ready");
       })
-      .catch(() => setLoadState("error"));
+      .catch(() => {
+        if (requestIdRef.current !== requestId) return;
+        setRows([]);
+        setLoadState("error");
+      });
   }, [projectId]);
 
   useEffect(() => {
