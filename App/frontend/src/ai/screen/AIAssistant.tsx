@@ -4,7 +4,11 @@ import { buildChatInit, QUICK_QUESTIONS } from "../libs/mock/chat";
 import { useRagQuery } from "../libs/hooks/useRagQuery";
 import { useAuth } from "../../global/hooks/useAuth";
 import type { ChatMsg, RagSource } from "../libs/types/chat";
+import type { ActionCard } from "../libs/types/command";
 import type { OpenAIAssistantEventDetail } from "../libs/utils/openAIAssistant";
+import { ConfirmActionCard } from "../components/ConfirmActionCard";
+import { executeAction } from "../libs/utils/actionExecutor";
+import { sendResume } from "../libs/utils/assistantApi";
 
 const NO_PROJECT_MESSAGE = "아직 연결된 프로젝트가 없습니다. 프로젝트를 만들고 회의록을 업로드한 뒤 다시 질문해주세요.";
 
@@ -41,6 +45,9 @@ function isChatMsg(value: unknown): value is ChatMsg {
   if (msg.role !== "user" && msg.role !== "assistant") return false;
   if (typeof msg.content !== "string") return false;
   if (msg.sources !== undefined && (!Array.isArray(msg.sources) || !msg.sources.every(isRagSource))) return false;
+  // 세션 복원 시 깨진 카드가 들어오면 조용히 무시한다(카드는 있거나, 객체이거나 둘 중 하나).
+  if (msg.card !== undefined && (typeof msg.card !== "object" || msg.card === null)) return false;
+  if (msg.threadId !== undefined && typeof msg.threadId !== "string") return false;
   return true;
 }
 
@@ -112,6 +119,9 @@ export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
   // (그사이 계정/프로젝트가 전환됨) 다른 세션의 대화창에 답변이 섞이지 않도록 무시한다.
   const askedForKeyRef = useRef<string | null>(null);
   const handledRequestIdRef = useRef<number | null>(null);
+  const [cardBusy, setCardBusy] = useState(false);
+  // 같은 카드(step_id)를 연타·재시도로 두 번 실행하지 않도록 진행 중인 step을 기억한다.
+  const pendingStepIdRef = useRef<string | null>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -136,7 +146,15 @@ export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
   useEffect(() => {
     if (askedForKeyRef.current !== sessionKey) return;
     if (status === "success" && answer) {
-      setMessages(prev => [...prev, { role: "assistant", content: answer.content, sources: answer.sources }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content: answer.content,
+          sources: answer.sources,
+          ...(answer.card ? { card: answer.card, threadId: answer.threadId ?? undefined } : {}),
+        },
+      ]);
     }
     if (status === "error" && error) {
       setMessages(prev => [...prev, { role: "assistant", content: error }]);
@@ -167,6 +185,45 @@ export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
     handledRequestIdRef.current = pendingQuestion.requestId;
     send(question);
   }, [loading, pendingQuestion, send]);
+
+  const clearCard = useCallback((stepId: string) => {
+    setMessages(prev =>
+      prev.map(m => (m.card?.stepId === stepId ? { ...m, card: undefined, threadId: undefined } : m))
+    );
+  }, []);
+
+  const confirmCard = useCallback(async (card: ActionCard, threadId: string) => {
+    if (currentProjectId == null || pendingStepIdRef.current === card.stepId) return;
+    // 실행 버튼 연타·재시도로 같은 작업이 두 번 나가지 않게 한다.
+    pendingStepIdRef.current = card.stepId;
+    setCardBusy(true);
+    // 실제 쓰기는 기존 업무보드 API로만 나간다(AI 전용 쓰기 경로 없음).
+    const executed = await executeAction(card, currentProjectId);
+    try {
+      const next = await sendResume(currentProjectId, threadId, card.stepId, executed.ok, executed.error);
+      setMessages(prev => [
+        ...prev.map(m => (m.card?.stepId === card.stepId ? { ...m, card: undefined, threadId: undefined } : m)),
+        {
+          role: "assistant",
+          content: next.content,
+          ...(next.card ? { card: next.card, threadId: next.threadId ?? undefined } : {}),
+        },
+      ]);
+    } catch {
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: "결과를 전달하지 못했습니다. 업무 보드에서 확인해주세요." },
+      ]);
+    } finally {
+      setCardBusy(false);
+    }
+  }, [currentProjectId]);
+
+  const cancelCard = useCallback((card: ActionCard) => {
+    // 서버에 알릴 필요는 없다 - 체크포인트는 TTL로 만료된다.
+    clearCard(card.stepId);
+    setMessages(prev => [...prev, { role: "assistant", content: "취소했습니다." }]);
+  }, [clearCard]);
 
   return (
     <div className="fixed right-0 top-0 h-full w-[380px] shadow-2xl flex flex-col z-50" style={{ background: "#FFFFFF", fontFamily: "'Inter', 'Noto Sans KR', sans-serif", borderLeft: "1px solid var(--border)" }}>
@@ -218,6 +275,14 @@ export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
                     </span>
                   ))}
                 </div>
+              )}
+              {m.card && m.threadId && (
+                <ConfirmActionCard
+                  card={m.card}
+                  disabled={cardBusy}
+                  onConfirm={() => confirmCard(m.card!, m.threadId!)}
+                  onCancel={() => cancelCard(m.card!)}
+                />
               )}
             </div>
           </div>
