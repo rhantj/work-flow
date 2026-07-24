@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 
 from langgraph.checkpoint.memory import InMemorySaver
@@ -186,13 +187,19 @@ def _build() -> StateGraph:
 
 
 # 체크포인트는 승인 대기 중인 임시 상태다. 내구성이 필요 없어(유실 시 "요청이 만료되었습니다"로
-# 안내하고 사용자가 다시 말하면 된다) 프로세스 메모리에 보관한다. 만료(30분)는 Spring의
-# 스레드 소유권 TTL이 강제하므로, 버려진 스레드의 체크포인트가 메모리에 남아도 재개는 소유권
-# 검사에서 막힌다. 다중 워커로 확장하면 재개가 다른 워커로 가 체크포인트를 못 찾을 수 있어,
-# 그때는 공유 백엔드(Postgres 등) 체크포인터로 옮겨야 한다.
+# 안내하고 사용자가 다시 말하면 된다) 프로세스 메모리에 보관한다. 재개·만료 시 스레드를 삭제해
+# InMemorySaver 메모리가 무한히 늘지 않게 한다(아래 _discard_thread/_sweep_expired_threads).
+# 다중 워커로 확장하면 재개가 다른 워커로 가 체크포인트를 못 찾으므로, 그때는 공유 백엔드
+# (Postgres 등) 체크포인터로 옮겨야 한다. 현재 uvicorn은 단일 워커로 뜬다.
 _compiled = None
-# 최초 동시 요청이 각자 그래프를 컴파일하지 않도록 이중 검사 잠금으로 한 번만 만든다.
+# get_graph의 임계구역에는 await가 없어(compile은 동기) 단일 스레드 asyncio에서 원자적이지만,
+# 향후 비동기 초기화가 추가돼도 중복 컴파일이 없도록 이중 검사 잠금을 둔다.
 _graph_lock = asyncio.Lock()
+
+# 승인 대기(confirm) 스레드의 생성 시각(monotonic). 재개되면 즉시 삭제하고, 재개 없이(취소·무시)
+# 만료되면 다음 command의 sweep이 삭제한다. 만료 기준은 Spring 스레드 소유권 TTL과 같은 30분.
+_CHECKPOINT_TTL_SECONDS = 30 * 60
+_pending_threads: dict[str, float] = {}
 
 
 async def get_graph():
@@ -232,13 +239,38 @@ def _to_outcome(result: dict, thread_id: str) -> GraphOutcome:
     )
 
 
+async def _discard_thread(graph, thread_id: str) -> None:
+    """스레드 체크포인트와 추적 항목을 지운다(InMemorySaver 메모리 누적 방지)."""
+    _pending_threads.pop(thread_id, None)
+    try:
+        await graph.checkpointer.adelete_thread(thread_id)
+    except Exception:
+        logger.warning("체크포인트 정리 실패: thread_id=%s", thread_id, exc_info=True)
+
+
+async def _sweep_expired_threads(graph) -> None:
+    """재개되지 않고 만료된 승인 대기 스레드의 체크포인트를 정리한다(취소·무시된 카드 등)."""
+    now = time.monotonic()
+    expired = [tid for tid, ts in _pending_threads.items() if now - ts > _CHECKPOINT_TTL_SECONDS]
+    for thread_id in expired:
+        await _discard_thread(graph, thread_id)
+
+
 async def start_command(pool, state: dict) -> GraphOutcome:
     _pool_holder["pool"] = pool
     graph = await get_graph()
+    await _sweep_expired_threads(graph)
     thread_id = uuid.uuid4().hex
     config = {"configurable": {"thread_id": thread_id}}
     result = await graph.ainvoke(state, config=config)
-    return _to_outcome(result, thread_id)
+    outcome = _to_outcome(result, thread_id)
+    if outcome.type == "confirm":
+        # 승인 대기 스레드만 체크포인트가 의미 있다. 재개 또는 만료 sweep 때 정리한다.
+        _pending_threads[thread_id] = time.monotonic()
+    else:
+        # 즉시 끝난 발화는 재개될 일이 없으니 체크포인트를 바로 버린다.
+        await _discard_thread(graph, thread_id)
+    return outcome
 
 
 def _pending_step_id(snapshot) -> str | None:
@@ -256,14 +288,20 @@ async def resume_command(thread_id: str, execution_result: dict) -> GraphOutcome
     config = {"configurable": {"thread_id": thread_id}}
     snapshot = await graph.aget_state(config)
     if not snapshot or not snapshot.next:
+        # 이미 만료·소비된 스레드다. 남은 체크포인트가 있으면 정리한다.
+        await _discard_thread(graph, thread_id)
         return GraphOutcome(type="done", message=_THREAD_EXPIRED_MESSAGE, thread_id=thread_id)
 
     # 넘어온 실행 결과가 지금 대기 중인 바로 그 단계의 것인지 확인한다. step_id가 다르거나
     # 대기 단계를 특정하지 못하면(fail-closed) 잘못됐거나 재전송된 결과이므로 진행시키지 않는다.
     # 이 그래프의 유일한 정지점은 step_id를 실은 interrupt라 정상 상황에서 expected는 항상 있다.
+    # 여기선 스레드를 지우지 않는다(정상 재시도로 올바른 결과가 다시 올 수 있음. 방치되면 sweep이 처리).
     expected = _pending_step_id(snapshot)
     if expected is None or execution_result.get("step_id") != expected:
         return GraphOutcome(type="done", message=_STEP_MISMATCH_MESSAGE, thread_id=thread_id)
 
     result = await graph.ainvoke(Command(resume=execution_result), config=config)
-    return _to_outcome(result, thread_id)
+    outcome = _to_outcome(result, thread_id)
+    # 재개된 스레드는 종료 상태다. 체크포인트를 지워 메모리를 회수한다.
+    await _discard_thread(graph, thread_id)
+    return outcome
