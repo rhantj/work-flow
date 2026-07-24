@@ -48,6 +48,9 @@ import org.springframework.web.multipart.MultipartFile;
 public class MeetingAnalysisService {
     private static final Logger log = LoggerFactory.getLogger(MeetingAnalysisService.class);
     private static final Set<String> AUDIO_FILE_EXTENSIONS = Set.of(".mp3", ".wav", ".m4a", ".ogg");
+    // 전역 멀티파트 한도(100MB)보다 낮게 둔다 - STT 단계에서 파일 전체를 메모리에 올리므로(Files.readAllBytes),
+    // 큐 워커의 OOM 위험을 줄이기 위해 오디오는 더 보수적인 한도를 별도로 둔다.
+    private static final long MAX_AUDIO_FILE_SIZE_BYTES = 30L * 1024 * 1024;
 
     private final MeetingAnalysisJobPublisher meetingAnalysisJobPublisher;
     private final DemoDataService demoDataService;
@@ -122,10 +125,16 @@ public class MeetingAnalysisService {
         // 음성 파일은 STT에 수 초~수십 초가 걸려 업로드 요청 안에서 동기 처리하면 타임아웃 위험이 크다.
         // 여기서는 텍스트를 비워두고, 실제 추출은 비동기 분석 큐(MeetingAnalysisRunner)에서 수행한다.
         boolean isAudioUpload = fileName != null && isAudioFile(fileName.toLowerCase());
+        if (isAudioUpload) {
+            validateAudioFileSize(file);
+        }
         String text = isAudioUpload ? "" : extractText(file);
         String resolvedTitle = defaultString(title, "회의록 AI 분석 회의");
         String resolvedDate = defaultString(meetingDate, LocalDate.now().toString());
-        String resolvedSourceType = defaultString(sourceType, "document");
+        // sourceType은 프론트가 넘겨주지 않거나 "document" 기본값으로 올 수 있는데, 파일 확장자로 오디오임이
+        // 이미 확인됐다면 여기서 강제로 "audio"로 정규화해야 한다. 그래야 비동기 큐(MeetingAnalysisRunner)가
+        // source_type만 보고 STT 필요 여부를 판단할 때 누락 없이 정확히 오디오로 인식한다.
+        String resolvedSourceType = isAudioUpload ? "audio" : defaultString(sourceType, "document");
 
         UUID jobId = UUID.randomUUID();
         Meeting newMeeting = new Meeting(
@@ -958,6 +967,14 @@ public class MeetingAnalysisService {
     /** 음성 파일은 analyze()에서 STT를 건너뛰고 비동기 큐(MeetingAnalysisRunner)로 넘기므로 extractText()가 호출되지 않는다. */
     private boolean isAudioFile(String lowerCaseFileName) {
         return AUDIO_FILE_EXTENSIONS.stream().anyMatch(lowerCaseFileName::endsWith);
+    }
+
+    private void validateAudioFileSize(MultipartFile file) {
+        if (file.getSize() > MAX_AUDIO_FILE_SIZE_BYTES) {
+            throw new IllegalArgumentException(
+                "음성 파일 크기는 " + (MAX_AUDIO_FILE_SIZE_BYTES / (1024 * 1024)) + "MB를 초과할 수 없습니다."
+            );
+        }
     }
 
     private String extractTextFromStoredFile(Meeting meeting) {
