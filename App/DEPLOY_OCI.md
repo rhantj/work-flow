@@ -266,9 +266,8 @@ Flyway 마이그레이션에는 없었다 — db/init을 거치지 않았거나 
 > 테이블을 먼저 갖춘 뒤에 Flyway를 켤 것.
 
 **운영(OCI) DB에서 최초로 켜기 전 검증 절차 (필수):** `docker-compose.prod.yml`은
-`SPRING_FLYWAY_ENABLED`를 다시 기본 `false`로 되돌려서, 로컬에서 기본으로 켜지는 것과 달리
-운영에서는 자동으로 켜지지 않는다. 아래를 거친 뒤에만 `.env`에 `SPRING_FLYWAY_ENABLED=true`를
-추가해 명시적으로 켤 것.
+`SPRING_FLYWAY_ENABLED`가 기본 `true`로 설정되어 있어 자동으로 마이그레이션이 적용되지만,
+프로덕션 배포 전 반드시 아래 절차에 따라 동작을 검증해야 합니다.
 
 1. `ls backend_spring/src/main/resources/db/migration/`로 이 시점에 실제로 존재하는
    마이그레이션 파일 전체 목록을 뽑고, 그중 **baseline-version(현재 `20260721_1`)보다
@@ -280,28 +279,24 @@ Flyway 마이그레이션에는 없었다 — db/init을 거치지 않았거나 
    (`V20260721_1`은 여기서만 언급되고 별도의 `Successfully applied` 로그는 남기지 않는다),
    그 뒤에 1번에서 적어둔 baseline 초과 버전 파일들이 **전부** `Successfully applied`로
    적용되는지 확인한다 — 그 DB에 해당 컬럼들이 없었다는 뜻이니 정상이다. 1번 목록에 없는
-   마이그레이션이 추가로 적용된다면 원인을 먼저 파악할 것.
+   마이그레이션이 적용된다면 원인을 먼저 파악할 것.
 4. `SELECT * FROM flyway_schema_history ORDER BY installed_rank;`로 baseline 행(version
-   `20260721_1`, type `BASELINE`) 정확히 하나와, 1번에서 적어둔 파일들이 type `SUCCESS`로
+   `20260721_1`, type `BASELINE`) 정확히 하나와, 1번에서 적어둔 파일들이 type은 `SQL`로, success는 `true`(또는 `1`)로
    기록돼 있는지, 그 외 예상 못한 행이 없는지 눈으로 확인한다.
 5. `\d users`(또는 동등한 방법)로 `field_tags`/`profile_image_path`/`affiliation`/
-   `github_username` 컬럼이 실제로 생겼는지 확인한다.
-6. 위 확인이 끝난 뒤에만 실제 운영 `.env`에 `SPRING_FLYWAY_ENABLED=true`를 추가하고
-   재배포한다.
+   `github_username`/`terms_agreed_at` 컬럼이 실제로 생겼는지 확인한다.
+6. 위 확인이 끝난 후, 운영 환경에 새 빌드 이미지를 배포하면 기동 시 신규 스키마가 안전하게 반영된다.
 
 새 스키마 변경이 필요하면 `docs/db/migrations`에 번호를 추가하지 말고 `db/migration/`에
 `V20260723_1__avatar_and_field_tags_columns.sql`처럼 `V<날짜>_<순번>__설명.sql` 형식으로
 추가할 것 — `baseline-version`은 건드리지 않는다.
 
-## 8-1. (선택, 1회) 레거시 users.field 정리
+## 8-1. (보류) 레거시 users.field 정리
 
-011(`docs/db/migrations/011_drop_legacy_field.sql`)은 `users.field`를 `field_legacy_removed`로
-이름만 바꿔 보관한다(진짜 `DROP` 아님, 문제 생기면 `RENAME COLUMN field_legacy_removed TO
-field`로 즉시 원복 가능). 위 8절의 자동 for 루프에도, Flyway가 관리하는 `db/migration/`에도
-**일부러 넣지 않았다** — 이미 데이터가 있고 구버전 인스턴스가 떠 있을 수도 있는 **기존 DB**를
-대상으로 실행하면, 그 컬럼명을 참조하는 구버전 인스턴스가 즉시 오류를 낼 수 있는 파괴적
-변경이기 때문이다. Flyway를 켜도 이 단계는 여전히 사람이 체크리스트를 직접 확인한 뒤 별도로,
-**딱 한 번만** 수동 실행해야 한다.
+> [!WARNING]
+> **하위 호환성 유지 및 롤백 안전성을 위해 이번 배포 주기에서는 `011_drop_legacy_field.sql`을 실행하지 않고 보류합니다.**
+> 새 애플리케이션 코드는 `field_tags`만 사용하고 레거시 `field` 컬럼은 전혀 참조하지 않지만, 배포 도중 구버전 인스턴스가 기동되어 있거나 장애 시 구버전으로 즉시 롤백해야 하는 경우 `field` 컬럼이 없으면 구버전 인스턴스가 오작동하여 전체 서비스 장애로 이어집니다.
+> 두 컬럼(`field`, `field_tags`)이 DB에 공존하는 상태가 가장 안전하며, 신규 버전 배포 완료 및 안정성이 검증된 다음 릴리스 주기에서 Flyway 마이그레이션 등을 통해 자동 정리할 예정입니다.
 
 > ⚠️ **`db/init/09_drop_legacy_field.sql`은 이것과 다르다 — 자동으로 실행된다.** `db/init`은
 > `docker-entrypoint-initdb.d`로 매핑돼 있어, **완전히 빈 Postgres 볼륨을 처음 만들 때만**
@@ -311,27 +306,6 @@ field`로 즉시 원복 가능). 위 8절의 자동 for 루프에도, Flyway가 
 > 위험은 오직 **이미 운영 중인, 데이터가 있는 DB**에 뒤늦게 적용할 때(=011의 시나리오)만
 > 발생한다. 반대로 이미 데이터가 있는 볼륨을 재사용해 컨테이너만 재기동하면 Postgres는
 > `docker-entrypoint-initdb.d`를 다시 실행하지 않으므로 09도 다시 돌지 않는다.
-
-체크리스트 (모두 확인한 뒤 실행할 것):
-
-- [ ] `field_tags` 기반 코드(현재 버전)가 배포된 지 최소 한 배포 주기 이상 지났고, 그동안
-      아바타/개인정보 관련 오류가 없었다.
-- [ ] `field`를 참조하는 구버전 인스턴스가 하나도 남아있지 않다(현재 OCI는 단일 컨테이너라
-      `docker compose up -d --build`로 컨테이너가 통째로 교체되므로 일반적으로는 문제 없지만,
-      다중 인스턴스로 확장했다면 전체 인스턴스 교체 완료를 확인할 것).
-
-```bash
-cd work-flow
-docker exec -i workflow-db psql -U postgres -d workflow < docs/db/migrations/011_drop_legacy_field.sql
-```
-
-이후 재배포에서 이 파일을 다시 실행해도(재실행 대비 idempotent) field가 이미 없으면 아무
-일도 하지 않는다. 다만 이 단계를 건너뛴 채로 구버전으로 **롤백**했다가(수동으로 006을 다시
-적용하는 등, `field` 컬럼이 재생성돼 구버전이 값을 다시 기록할 수 있는 상태) 신버전으로
-재배포한 뒤 011을 실행하면, 값이 남아있는 `field`를 그냥 지우지 않는다 — 자동으로
-`field_needs_manual_review` 컬럼으로 옮겨 보관하고 Postgres 로그에 `WARNING`을 남긴다. 이
-컬럼이 보이면 롤백 기간에 실제로 쓰인 데이터가 있다는 뜻이므로, `field_tags`로 수동 병합할지
-검토한 뒤 정리할 것 — 자동으로는 절대 삭제하지 않는다.
 
 ## 9. 검증
 
