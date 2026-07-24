@@ -261,7 +261,7 @@ describe("MyPage reviewer view — contribution tabs", () => {
     renderMyPage();
 
     await waitFor(() => expect(screen.getAllByText("AI 기반 식단 추천 앱").length).toBeGreaterThan(0));
-    await userEvent.click(screen.getByRole("button", { name: "기여도 리포트" }));
+    await userEvent.click(await screen.findByRole("button", { name: "기여도 리포트" }));
 
     await waitFor(() => expect(screen.getByText("김민준")).toBeInTheDocument());
     expect(screen.getByText(/AI 요약:/)).toBeInTheDocument();
@@ -274,7 +274,7 @@ describe("MyPage reviewer view — contribution tabs", () => {
     renderMyPage();
 
     await waitFor(() => expect(screen.getAllByText("AI 기반 식단 추천 앱").length).toBeGreaterThan(0));
-    await userEvent.click(screen.getByRole("button", { name: "AI 평가 근거" }));
+    await userEvent.click(await screen.findByRole("button", { name: "AI 평가 근거" }));
 
     await waitFor(() => expect(screen.getByText("AI 분석 요약")).toBeInTheDocument());
     expect(screen.getByText("To-Do #3")).toBeInTheDocument();
@@ -295,10 +295,20 @@ describe("MyPage reviewer view — contribution tabs", () => {
     renderMyPage();
 
     await waitFor(() => expect(screen.getAllByText("AI 기반 식단 추천 앱").length).toBeGreaterThan(0));
-    await userEvent.click(screen.getByRole("button", { name: "기여도 리포트" }));
+    await userEvent.click(await screen.findByRole("button", { name: "기여도 리포트" }));
 
     await waitFor(() => expect(screen.getByText("기여도 리포트를 불러오지 못했습니다.")).toBeInTheDocument());
     await userEvent.click(screen.getByRole("button", { name: /다시 시도/ }));
     await waitFor(() => expect(screen.getByText("김민준")).toBeInTheDocument());
+  });
+
+  it("does not fetch contribution data while the default 팀 요약 tab is active", async () => {
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getAllByText("AI 기반 식단 추천 앱").length).toBeGreaterThan(0));
+    expect(getProjectMembers).not.toHaveBeenCalled();
+    expect(fetchContributionReport).not.toHaveBeenCalled();
+    expect(fetchContributionScore).not.toHaveBeenCalled();
+    expect(fetchAttendanceSummary).not.toHaveBeenCalled();
   });
 });

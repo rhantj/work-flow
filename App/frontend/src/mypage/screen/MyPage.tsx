@@ -303,7 +303,8 @@ function ReviewerMyPage({ name, email, onLogout }: { name: string; email: string
   }, [projects, selectedProjectId]);
 
   const team = projects.find(p => p.projectId === selectedProjectId) ?? null;
-  const { rows: contribRows, loadState: contribLoadState, reload: reloadContrib } = useReviewerContribution(team?.projectId ?? null);
+  const contribProjectId = panelTab === "contrib" || panelTab === "ai-evidence" ? (team?.projectId ?? null) : null;
+  const { rows: contribRows, loadState: contribLoadState, reload: reloadContrib } = useReviewerContribution(contribProjectId);
   const evalCounts = {
     pending: projects.filter(p => p.evalStatus === "pending").length,
     evaluating: projects.filter(p => p.evalStatus === "evaluating").length,
