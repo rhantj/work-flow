@@ -1,9 +1,19 @@
 # AI 어시스턴트 단위 테스트 표
 
-- 작성일: 2026-07-24
+- 작성일: 2026-07-24 (업무 조작 1단계 추가 반영)
 - 브랜치: `feature/ai_assistent`
-- 총 111개 (FastAPI 94 / Spring 7 / 프론트 10)
 - **굵은 항목** = 멀티턴 작업(Task 4–8)에서 추가된 테스트
+- ★ 표시 = 업무 조작 1단계(명령 분류·엔드포인트)에서 추가
+
+> 이 표는 손으로 관리하는 기능 단위 인벤토리다. RAG 어시스턴트 및 명령 기능에 한정하며,
+> 백필/재임베딩 스크립트 테스트(test_backfill_*, test_reembed_*)는 제외한다.
+> 파일 전체 pytest 수집 수(174개)와 다른 이유는, 여기서는 파라미터 케이스를
+> 의미 단위로 묶어 세고 스크립트 테스트를 빼기 때문이다.
+
+## 이 기능 범위 테스트 수
+
+- 명령 분류·엔드포인트 계층(★): FastAPI 10 / Spring(AssistantController) 8 / 프론트 useRagQuery +2
+- 기존 RAG 계층: 아래 표 참조
 
 ## 요약
 
@@ -20,10 +30,16 @@
 | FastAPI | chat_router(ingest) | 4 |
 | FastAPI | embedding_service | 3 |
 | FastAPI | chunking | 3 |
-| Spring | RagControllerTest | 7 |
-| 프론트 | useRagQuery | 4 |
+| Spring | RagControllerTest | 13 |
+| Spring | AssistantControllerTest ★ | 8 |
+| FastAPI | command_classifier ★ | 5 |
+| FastAPI | assistant_router ★ | 5 |
+| FastAPI | chat_service 빈질문 초크포인트 ★ | 1 |
+| 프론트 | useRagQuery | 6 |
 | 프론트 | AIAssistant | 6 |
-| **합계** | | **111** |
+
+> 위 표는 의미 단위 큐레이션이라 파일별 pytest 수집 수와 정확히 일치하지 않는다.
+> 정확한 수집 수는 `pytest tests/llm_rag_assistant/ --co -q`로 확인한다(현재 174개).
 
 ## FastAPI — chat_service (파이프라인·캐시·개인화·멀티턴)
 
@@ -147,9 +163,54 @@
 | **queryForwardsHistoryToFastApi** | history가 FastApiRagClient까지 전달 |
 | **queryRejectsHistoryExceedingMaxMessages** | 7개 초과 시 400 INVALID_HISTORY |
 | **queryRejectsHistoryMessageExceedingMaxContentLength** | 1001자 초과 시 400 |
+| **queryRejectsHistoryWithNullElementInsteadOf500** | history:[null]은 400(500 방지) |
+| ★ queryRejectsBlankQuestionAsBadRequestNot503 | 빈/null 질문은 400 INVALID_QUESTION(503 위장·불필요 LLM 차단) |
+| **queryRejectsHistoryMessageWithNullContent** | content null은 400 |
+| **queryRejectsHistoryMessageWithInvalidRole** | role이 user/assistant 아니면 400(인젝션 방어) |
 | **queryAcceptsNullHistory** | null 히스토리 200, 빈 리스트로 정규화 |
 | queryFillsUserIdFromAuthenticatedSessionNotRequestBody | user_id를 세션값으로 덮어씀(위조 방지) |
+| queryReturns503WhenFastApiCallFails | 다운스트림 장애만 503 |
+| queryDoesNotMaskUnexpectedBugsAs503 | 우리 쪽 버그는 500으로 노출(503 뭉갬 방지) |
 | queryReturns429WhenRateLimited | 레이트리밋 429 |
+
+## Spring — AssistantControllerTest ★ (명령 엔드포인트)
+
+| 테스트 | 검증 내용 |
+|---|---|
+| commandFillsUserIdAndRoleFromSessionNotRequestBody | user_id·role을 세션·DB 멤버십으로 채움(바디 참칭 무시) |
+| leaderRoleIsForwardedAsLeader | LEADER 역할이 FastAPI로 그대로 전달 |
+| missingMembershipIsRejected | 멤버 아니면 403 NOT_PROJECT_MEMBER |
+| rejectsHistoryWithNullElementInsteadOf500 | history:[null]은 400 |
+| rejectsBlankQuestionInsteadOfCallingLlm | 공백 질문은 400, FastAPI 미호출 |
+| rejectsNullQuestionAsBadRequestNot503 | null 질문은 400(503 위장 방지) |
+| invalidInputDoesNotConsumeRateBudget | 잘못된 입력은 rate 예산 미소모(검증이 rate limit보다 먼저) |
+| returns503WhenFastApiCallFails | 다운스트림 장애만 503 ASSISTANT_UNAVAILABLE |
+
+## FastAPI — command_classifier ★ (규칙 선별)
+
+| 테스트 | 검증 내용 |
+|---|---|
+| plain_questions_are_not_command_candidates | 평범한 질문은 명령 후보 아님 |
+| imperative_requests_are_command_candidates | 명령형 발화는 후보로 잡음 |
+| query_requests_are_not_command_candidates | "알려줘/보여줘" 조회 요청 제외 |
+| adnominal_forms_are_not_commands | "완료된/추가된" 관형형은 명령 아님(오탐 방지) |
+| real_commands_survive_the_adnominal_filter | 실제 명령은 필터 통과 |
+
+## FastAPI — assistant_router ★ (명령 라우터)
+
+| 테스트 | 검증 내용 |
+|---|---|
+| question_goes_through_existing_rag_pipeline | 질문은 기존 RAG로 전달 |
+| question_path_receives_history_as_dicts | history가 dict로 서비스에 전달 |
+| command_candidate_still_gets_rag_answer_with_note | 명령 후보도 RAG 답변+안내(오탐해도 무회귀) |
+| question_answer_has_no_command_note | 순수 질문엔 안내 문구 없음 |
+| invalid_user_role_is_rejected | user_role이 enum 밖이면 422 |
+
+## FastAPI — chat_service ★ (빈 질문 초크포인트)
+
+| 테스트 | 검증 내용 |
+|---|---|
+| short_circuits_blank_question_without_llm | 빈/공백 질문은 임베딩·검색·생성 미호출로 즉시 끊음 |
 
 ## 프론트
 

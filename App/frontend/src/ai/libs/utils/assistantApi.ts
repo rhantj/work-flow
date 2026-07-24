@@ -88,3 +88,23 @@ export async function sendCommand(
   });
   return toResult(data);
 }
+
+export async function sendResume(
+  projectId: number,
+  threadId: string,
+  stepId: string,
+  ok: boolean,
+  error?: string
+): Promise<AssistantResult> {
+  const data = await apiFetch<RawAssistantResponse>("/ai/assistant/resume", {
+    method: "POST",
+    body: JSON.stringify({
+      project_id: projectId,
+      thread_id: threadId,
+      step_id: stepId,
+      ok,
+      error: error ?? null,
+    }),
+  });
+  return toResult(data);
+}

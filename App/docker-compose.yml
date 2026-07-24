@@ -26,10 +26,22 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    # 코어 Redis의 상위호환. 어시스턴트 LangGraph 체크포인터(langgraph-checkpoint-redis)가
+    # RediSearch/RedisJSON 모듈을 요구해 alpine에서 교체. 스트림·캐시 등 기존 사용은 그대로 동작한다.
+    image: redis/redis-stack-server:7.2.0-v11
     container_name: workflow-redis
     command:
       - redis-server
+      # redis-stack-server 엔트리포인트를 bare redis-server로 덮으면 모듈이 안 올라오므로 직접 로드한다.
+      - --loadmodule
+      - /opt/redis-stack/lib/redisearch.so
+      - --loadmodule
+      - /opt/redis-stack/lib/rejson.so
+      # bare redis-server 오버라이드로 redis-stack 기본 설정(protected-mode no)이 사라져
+      # 다른 컨테이너(fastapi/spring) 연결이 DENIED된다. 호스트 포트는 127.0.0.1로만 노출돼
+      # 있어 docker 내부망 한정 접근이므로 protected-mode를 끈다(기존 alpine 동작 복원).
+      - --protected-mode
+      - 'no'
       - --appendonly
       - 'yes'
       - --appendfsync
@@ -161,6 +173,10 @@ services:
       LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-}
     ports:
       - '8000:8000'
+    volumes:
+      # HF 임베딩 모델(bge-m3, 약 2.2GB)을 named volume에 유지한다. 없으면 재빌드/재생성마다
+      # 기동 시 preload가 2.2GB를 새로 받느라 startup이 수십 분~수시간 막힌다(2026-07-24 실측).
+      - hf-cache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -188,3 +204,4 @@ services:
 volumes:
   db-data:
   redis-data:
+  hf-cache:
