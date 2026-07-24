@@ -7,8 +7,8 @@ import type { ChatMsg, RagSource } from "../libs/types/chat";
 import type { ActionCard } from "../libs/types/command";
 import type { OpenAIAssistantEventDetail } from "../libs/utils/openAIAssistant";
 import { ConfirmActionCard } from "../components/ConfirmActionCard";
-import { executeAction } from "../libs/utils/actionExecutor";
-import { sendResume } from "../libs/utils/assistantApi";
+import type { ExecutionResult } from "../libs/utils/actionExecutor";
+import { confirmAction } from "../libs/utils/confirmAction";
 
 const NO_PROJECT_MESSAGE = "아직 연결된 프로젝트가 없습니다. 프로젝트를 만들고 회의록을 업로드한 뒤 다시 질문해주세요.";
 
@@ -122,6 +122,8 @@ export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
   const [cardBusy, setCardBusy] = useState(false);
   // 같은 카드(step_id)를 연타·재시도로 두 번 실행하지 않도록 진행 중인 step을 기억한다.
   const pendingStepIdRef = useRef<string | null>(null);
+  // 쓰기는 성공했으나 resume 전달이 실패한 실행 결과. 재시도 시 재실행 없이 resume만 다시 보낸다.
+  const executedResultsRef = useRef<Map<string, ExecutionResult>>(new Map());
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -193,14 +195,22 @@ export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
   }, []);
 
   const confirmCard = useCallback(async (card: ActionCard, threadId: string) => {
+    // 진행 중인 같은 step은 연타를 막는다. finally에서 풀리므로 실패 후 재시도는 허용된다.
     if (currentProjectId == null || pendingStepIdRef.current === card.stepId) return;
-    // 실행 버튼 연타·재시도로 같은 작업이 두 번 나가지 않게 한다.
     pendingStepIdRef.current = card.stepId;
     setCardBusy(true);
-    // 실제 쓰기는 기존 업무보드 API로만 나간다(AI 전용 쓰기 경로 없음).
-    const executed = await executeAction(card, currentProjectId);
     try {
-      const next = await sendResume(currentProjectId, threadId, card.stepId, executed.ok, executed.error);
+      // 실제 쓰기는 기존 업무보드 API로만 나가고(AI 전용 쓰기 경로 없음), 이미 실행된
+      // 단계는 재실행하지 않고 resume만 다시 보낸다(중복 쓰기 방지).
+      const outcome = await confirmAction(card, threadId, currentProjectId, executedResultsRef.current);
+      if (outcome.status === "resume_failed") {
+        setMessages(prev => [
+          ...prev,
+          { role: "assistant", content: "결과를 전달하지 못했습니다. 다시 시도하거나 업무 보드에서 확인해주세요." },
+        ]);
+        return;
+      }
+      const next = outcome.answer;
       setMessages(prev => [
         ...prev.map(m => (m.card?.stepId === card.stepId ? { ...m, card: undefined, threadId: undefined } : m)),
         {
@@ -209,18 +219,15 @@ export function AIAssistant({ onClose, pendingQuestion }: AIAssistantProps) {
           ...(next.card ? { card: next.card, threadId: next.threadId ?? undefined } : {}),
         },
       ]);
-    } catch {
-      setMessages(prev => [
-        ...prev,
-        { role: "assistant", content: "결과를 전달하지 못했습니다. 업무 보드에서 확인해주세요." },
-      ]);
     } finally {
+      pendingStepIdRef.current = null;
       setCardBusy(false);
     }
   }, [currentProjectId]);
 
   const cancelCard = useCallback((card: ActionCard) => {
     // 서버에 알릴 필요는 없다 - 체크포인트는 TTL로 만료된다.
+    executedResultsRef.current.delete(card.stepId);
     clearCard(card.stepId);
     setMessages(prev => [...prev, { role: "assistant", content: "취소했습니다." }]);
   }, [clearCard]);
