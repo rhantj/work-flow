@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from core.cache import get_redis_client
 from llm_rag_assistant.app.routers.chat_router import router as rag_router
+from llm_rag_assistant.app.routers.assistant_router import router as assistant_router
 from llm_rag_assistant.app.services.embedding_service import preload_embedding_model
 from ml_workload_score.app.routers.workload_router import router as workload_router
 from ai_contribution_report.app.routers.contribution_router import router as contribution_report_router
@@ -68,6 +69,7 @@ app.add_middleware(
 )
 
 app.include_router(rag_router)
+app.include_router(assistant_router)
 app.include_router(workload_router)
 app.include_router(contribution_report_router)
 app.include_router(delay_risk_router)
