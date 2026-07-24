@@ -1,11 +1,14 @@
 package com.workflowai.project;
 
+import com.workflowai.dashboard.entity.Milestone;
+import com.workflowai.dashboard.repository.MilestoneRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.workflowai.rag.RagIngestService;
 import com.workflowai.task.Task;
 import com.workflowai.task.TaskRepository;
 import com.workflowai.user.UserRepository;
@@ -31,6 +34,8 @@ class ProjectServiceTest {
     @Mock private ProjectMemberRepository projectMemberRepository;
     @Mock private UserRepository userRepository;
     @Mock private TaskRepository taskRepository;
+    @Mock private RagIngestService ragIngestService;
+    @Mock private MilestoneRepository milestoneRepository;
 
     private ProjectService projectService;
 
@@ -47,7 +52,9 @@ class ProjectServiceTest {
             projectMemberRepository,
             userRepository,
             taskRepository,
-            transactionOperations
+            milestoneRepository,
+            transactionOperations,
+            ragIngestService
         );
     }
 
@@ -169,7 +176,7 @@ class ProjectServiceTest {
     void finalizeEvaluation_setsEvalStatusToPublished() {
         Project project = new Project("제목", "캡스톤디자인", "설명");
         ReflectionTestUtils.setField(project, "id", 10L);
-        ReflectionTestUtils.setField(project, "evalStatus", "EVALUATING");
+        ReflectionTestUtils.setField(project, "evalStatus", EvalStatus.EVALUATING);
         when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
         when(projectMemberRepository.countByProjectId(10L)).thenReturn(2L);
         when(taskRepository.findByProjectIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
@@ -177,7 +184,7 @@ class ProjectServiceTest {
         ProjectResponse response = projectService.finalizeEvaluation(10L);
 
         assertThat(response.evalStatus()).isEqualTo("PUBLISHED");
-        assertThat(project.getEvalStatus()).isEqualTo("PUBLISHED");
+        assertThat(project.getEvalStatus()).isEqualTo(EvalStatus.PUBLISHED);
     }
 
     @Test
@@ -186,6 +193,15 @@ class ProjectServiceTest {
 
         assertThatThrownBy(() -> projectService.finalizeEvaluation(999L))
             .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void delete_removesProjectRagSources() {
+        projectService.delete(10L);
+
+        verify(projectRepository).deleteById(10L);
+        verify(ragIngestService).recordDeleteProjectIntent(10L);
+        verify(ragIngestService).deleteProjectSourcesBestEffort(10L);
     }
 
     @Test
@@ -200,5 +216,29 @@ class ProjectServiceTest {
 
         assertThat(response.inviteCode()).isNotBlank();
         verify(projectRepository, org.mockito.Mockito.times(2)).saveAndFlush(any(Project.class));
+    }
+
+    @Test
+    void update_rejectsRangeThatWouldExcludeExistingMilestone() {
+        Project project = new Project("프로젝트", "team", LocalDate.of(2026, 8, 7), "");
+        project.setStartDate(LocalDate.of(2026, 7, 1));
+        ReflectionTestUtils.setField(project, "id", 1L);
+        Milestone milestone = new Milestone(
+            1L,
+            "핵심기능 개발",
+            LocalDate.of(2026, 7, 10),
+            LocalDate.of(2026, 7, 31)
+        );
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(milestoneRepository.findByProjectIdOrderByDueDateAsc(1L)).thenReturn(List.of(milestone));
+
+        UpdateProjectRequest request = new UpdateProjectRequest(
+            null, null, null, LocalDate.of(2026, 7, 15), null,
+            null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> projectService.update(1L, request))
+            .isInstanceOf(ProjectScheduleException.class)
+            .hasMessageContaining("마일스톤 일정은 프로젝트 기간");
     }
 }

@@ -7,12 +7,15 @@ import com.workflowai.rag.RagIngestService;
 import com.workflowai.user.User;
 import com.workflowai.user.UserRepository;
 import java.time.LocalDate;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -63,13 +66,71 @@ public class MeetingAnalysisPersistence {
 
     @Transactional
     public void saveAnalysisSuccess(Long meetingId, MeetingAnalysisResult result, String analysisSource) {
-        Meeting meeting = meetingRepository.findById(meetingId).orElseThrow(
+        persistAnalysisSuccess(meetingId, result, analysisSource, null, false);
+    }
+
+    @Transactional
+    public boolean claimJob(Long meetingId, UUID jobId) {
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElse(null);
+        if (meeting == null || isTerminal(meeting.getAnalysisStatus())) {
+            return false;
+        }
+        if (meeting.getAnalysisJobId() == null) {
+            meeting.setAnalysisJobId(jobId);
+            meetingRepository.save(meeting);
+            return true;
+        }
+        return Objects.equals(meeting.getAnalysisJobId(), jobId);
+    }
+
+    @Transactional
+    public void saveAnalysisSuccessForJob(
+        Long meetingId,
+        MeetingAnalysisResult result,
+        String analysisSource,
+        UUID jobId
+    ) {
+        persistAnalysisSuccess(meetingId, result, analysisSource, jobId, true);
+    }
+
+    private void persistAnalysisSuccess(
+        Long meetingId,
+        MeetingAnalysisResult result,
+        String analysisSource,
+        UUID jobId,
+        boolean fenced
+    ) {
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElseThrow(
             () -> new IllegalStateException("Meeting not found: " + meetingId));
+        if (fenced && !Objects.equals(meeting.getAnalysisJobId(), jobId)) {
+            log.info("이전 세대 회의 분석 성공 저장 생략. meetingId={}", meetingId);
+            return;
+        }
+        if ("completed".equalsIgnoreCase(meeting.getAnalysisStatus())
+            || (!fenced && "failed".equalsIgnoreCase(meeting.getAnalysisStatus()))) {
+            log.info("중복 회의 분석 저장 생략. meetingId={}, status={}", meetingId, meeting.getAnalysisStatus());
+            return;
+        }
 
         MeetingAnalysis analysis = meetingAnalysisRepository.save(new MeetingAnalysis(
             meetingId, result.summary(), result.decisions(), result.risks(), result.keywords(), analysisSource
         ));
-        ragIngestService.ingestBestEffort(meeting.getProjectId(), "meeting", analysis.getMeetingId(), buildMeetingIngestContent(result));
+        String meetingRagContent = buildMeetingIngestContent(result);
+        ragIngestService.recordIngestIntent(
+            meeting.getProjectId(),
+            "meeting",
+            analysis.getMeetingId(),
+            meetingRagContent,
+            null
+        );
+        runAfterCommit(() ->
+            ragIngestService.ingestBestEffort(
+                meeting.getProjectId(),
+                "meeting",
+                analysis.getMeetingId(),
+                meetingRagContent
+            )
+        );
 
         Set<Long> attendeeUserIds = meetingAttendeeRepository.findByMeetingId(meetingId).stream()
             .map(MeetingAttendee::getUserId)
@@ -88,9 +149,19 @@ public class MeetingAnalysisPersistence {
                 todo.evidence_text()
             ));
             if (actionItem != null) {
-                ragIngestService.ingestBestEffort(
-                    meeting.getProjectId(), "action_item", actionItem.getId(),
-                    buildActionItemIngestContent(actionItem), actionItem.getFinalAssigneeId()
+                String actionItemRagContent = buildActionItemIngestContent(actionItem);
+                ragIngestService.recordIngestIntent(
+                    meeting.getProjectId(),
+                    "action_item",
+                    actionItem.getId(),
+                    actionItemRagContent,
+                    actionItem.getFinalAssigneeId()
+                );
+                runAfterCommit(() ->
+                    ragIngestService.ingestBestEffort(
+                        meeting.getProjectId(), "action_item", actionItem.getId(),
+                        actionItemRagContent, actionItem.getFinalAssigneeId()
+                    )
                 );
             }
         }
@@ -98,17 +169,62 @@ public class MeetingAnalysisPersistence {
         meeting.setAnalysisStatus("completed");
         meetingRepository.save(meeting);
 
-        if (meeting.getUploadedBy() != null) {
-            notifyBestEffort(
-                meeting.getUploadedBy(), "MEETING_ANALYSIS_COMPLETED", "회의 분석이 완료되었습니다.",
-                "'" + meeting.getTitle() + "' 회의록 분석이 완료되었습니다.", meetingId
-            );
+        notifyAnalysisCompleted(meeting, meetingId);
+    }
+
+    /**
+     * 업로더 본인에게는 항상 알리고, 업로더가 팀장이 아니면 팀장에게도 "역할분배를 진행해달라"는
+     * 별도 알림을 보낸다. 업로더==팀장이면 중복이므로 업로더 알림 1건만 나간다.
+     */
+    private void notifyAnalysisCompleted(Meeting meeting, Long meetingId) {
+        Long uploaderId = meeting.getUploadedBy();
+        if (uploaderId == null) {
+            return;
         }
+        notifyBestEffort(
+            uploaderId, "MEETING_ANALYSIS_COMPLETED", "회의 분석이 완료되었습니다.",
+            "'" + meeting.getTitle() + "' 회의록 분석이 완료되었습니다.", meetingId
+        );
+        String uploaderName = userRepository.findById(uploaderId).map(User::getName).orElse("누군가");
+        projectMemberRepository.findByProjectIdAndRole(meeting.getProjectId(), com.workflowai.project.ProjectRole.LEADER)
+            .map(com.workflowai.project.ProjectMember::getUserId)
+            .filter(leaderId -> !leaderId.equals(uploaderId))
+            .ifPresent(leaderId -> notifyBestEffort(
+                leaderId, "MEETING_ANALYSIS_COMPLETED_NOTIFY_LEADER", "회의록 분석이 완료되었습니다.",
+                uploaderName + "님이 '" + meeting.getTitle() + "' 회의록 분석을 완료했습니다. 역할분배 및 업무등록을 진행해주세요.", meetingId
+            ));
     }
 
     @Transactional
     public void saveAnalysisFailure(Long meetingId, String errorMessage) {
-        meetingRepository.findById(meetingId).ifPresent(meeting -> {
+        persistAnalysisFailure(meetingId, null, false);
+    }
+
+    @Transactional
+    public void saveAnalysisFailureForJob(Long meetingId, String errorMessage, UUID jobId) {
+        persistAnalysisFailure(meetingId, jobId, true);
+    }
+
+    /** afterCommit 호출에서도 이미 커밋된 원 트랜잭션에 합류하지 않도록 새 트랜잭션을 강제한다. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveAnalysisFailureInNewTransaction(Long meetingId, String errorMessage) {
+        persistAnalysisFailure(meetingId, null, false);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveAnalysisFailureInNewTransaction(Long meetingId, String errorMessage, UUID jobId) {
+        persistAnalysisFailure(meetingId, jobId, true);
+    }
+
+    private void persistAnalysisFailure(Long meetingId, UUID jobId, boolean fenced) {
+        meetingRepository.findByIdForUpdate(meetingId).ifPresent(meeting -> {
+            if (fenced && !Objects.equals(meeting.getAnalysisJobId(), jobId)) {
+                log.info("이전 세대 회의 분석 실패 저장 생략. meetingId={}", meetingId);
+                return;
+            }
+            if (isTerminal(meeting.getAnalysisStatus())) {
+                return;
+            }
             meeting.setAnalysisStatus("failed");
             meetingRepository.save(meeting);
             if (meeting.getUploadedBy() != null) {
@@ -118,6 +234,10 @@ public class MeetingAnalysisPersistence {
                 );
             }
         });
+    }
+
+    private boolean isTerminal(String status) {
+        return "completed".equalsIgnoreCase(status) || "failed".equalsIgnoreCase(status);
     }
 
     public static String toSafeErrorMessage(String errorMessage) {
@@ -170,6 +290,19 @@ public class MeetingAnalysisPersistence {
             return;
         }
         sendNotificationSafely(userId, type, title, content, meetingId);
+    }
+
+    private void runAfterCommit(Runnable operation) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    operation.run();
+                }
+            });
+            return;
+        }
+        operation.run();
     }
 
     /**

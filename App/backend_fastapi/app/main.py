@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -20,7 +22,10 @@ from fastapi import FastAPI, File, Form, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from core.cache import get_redis_client
 from llm_rag_assistant.app.routers.chat_router import router as rag_router
+from llm_rag_assistant.app.routers.assistant_router import router as assistant_router
+from llm_rag_assistant.app.graph.assistant_graph import close_graph
 from llm_rag_assistant.app.services.embedding_service import preload_embedding_model
 from ml_workload_score.app.routers.workload_router import router as workload_router
 from ai_contribution_report.app.routers.contribution_router import router as contribution_report_router
@@ -30,14 +35,25 @@ from llm_checklist.app.routers.checklist_router import router as checklist_route
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 DEFAULT_MEETING_ANALYSIS_MODEL = "qwen2.5:1.5b"
 DEFAULT_MEETING_ANALYSIS_TIMEOUT_SECONDS = 20.0
 DEFAULT_MEETING_ANALYSIS_MAX_CHARS = 6000
 DEFAULT_MEETING_ANALYSIS_NUM_PREDICT = 650
+DEFAULT_MEETING_ANALYSIS_KEEP_ALIVE = "5m"
+DEFAULT_OLLAMA_ANALYSIS_TEMPERATURE = 0.1
 DEFAULT_HF_MEETING_ANALYSIS_MODEL = "Qwen/Qwen3-4B-Instruct-2507"
 DEFAULT_HF_MEETING_ANALYSIS_TIMEOUT_SECONDS = 35.0
 DEFAULT_HF_MEETING_ANALYSIS_MAX_TOKENS = 900
+DEFAULT_HF_MEETING_ANALYSIS_TEMPERATURE = 0.1
 HF_CHAT_COMPLETIONS_URL = "https://router.huggingface.co/v1/chat/completions"
+MEETING_ANALYSIS_CACHE_SCHEMA_VERSION = 1
+MEETING_ANALYSIS_CACHE_TTL_SECONDS = 86400
+DEFAULT_WHISPER_MODEL_SIZE = "small"
+DEFAULT_WHISPER_DEVICE = "cpu"
+DEFAULT_WHISPER_COMPUTE_TYPE = "int8"
+DEFAULT_WHISPER_LANGUAGE = "ko"
+AUDIO_FILE_EXTENSIONS = (".mp3", ".wav", ".m4a", ".ogg")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -47,6 +63,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.exception("RAG 임베딩 모델 사전 로드 실패 - 첫 요청 시 재시도됩니다.")
     yield
+    # 명령 그래프 체크포인터가 잡은 Redis 연결을 닫는다.
+    await close_graph()
 
 
 app = FastAPI(title="WorkFlow AI FastAPI", version="0.1.0", lifespan=lifespan)
@@ -60,6 +78,7 @@ app.add_middleware(
 )
 
 app.include_router(rag_router)
+app.include_router(assistant_router)
 app.include_router(workload_router)
 app.include_router(contribution_report_router)
 app.include_router(delay_risk_router)
@@ -121,6 +140,10 @@ class MeetingAnalysisResult(BaseModel):
     meeting_meta: MeetingMeta
 
 
+class AudioTranscribeResult(BaseModel):
+    text: str
+
+
 @app.get("/api/v1/health")
 def health():
     return {"service": "workflow-ai-fastapi", "status": "UP"}
@@ -128,20 +151,122 @@ def health():
 
 @app.post("/api/v1/meetings/analyze-json", response_model=MeetingAnalysisResult)
 def analyze_json(request: AnalyzeRequest):
+    canonical_request = _canonicalize_analysis_request(request)
+    cache_key = _meeting_analysis_cache_key(canonical_request)
+    cache_client = None
+    try:
+        cache_client = get_redis_client()
+    except Exception:
+        logger.warning("회의록 분석 Redis 캐시 클라이언트 생성 실패")
+
+    if cache_client is not None:
+        try:
+            cached_result = cache_client.get(cache_key)
+        except Exception:
+            logger.warning("회의록 분석 Redis 캐시 조회 실패")
+        else:
+            if cached_result is not None:
+                try:
+                    return MeetingAnalysisResult.model_validate_json(cached_result)
+                except Exception:
+                    logger.warning("회의록 분석 Redis 캐시 데이터 검증 실패")
+                    try:
+                        cache_client.delete(cache_key)
+                    except Exception:
+                        logger.warning("회의록 분석 Redis 손상 캐시 삭제 실패")
+
+    result = _analyze_json_uncached(canonical_request)
+    if cache_client is not None:
+        try:
+            cache_client.set(
+                cache_key,
+                result.model_dump_json(),
+                ex=MEETING_ANALYSIS_CACHE_TTL_SECONDS,
+            )
+        except Exception:
+            logger.warning("회의록 분석 Redis 캐시 저장 실패")
+    return result
+
+
+def _canonicalize_analysis_request(request: AnalyzeRequest) -> AnalyzeRequest:
+    return request.model_copy(update={"participants": sorted(request.participants)})
+
+
+def _meeting_analysis_cache_key(request: AnalyzeRequest) -> str:
+    cache_input = {
+        "schema_version": MEETING_ANALYSIS_CACHE_SCHEMA_VERSION,
+        "request": request.model_dump(mode="json"),
+        "provider": os.getenv("MEETING_ANALYSIS_PROVIDER", "auto").lower(),
+        "huggingface_configured": _huggingface_configured(),
+        "ollama": {
+            "host": os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST),
+            "model": os.getenv("MEETING_ANALYSIS_MODEL", DEFAULT_MEETING_ANALYSIS_MODEL),
+            "timeout_seconds": os.getenv(
+                "MEETING_ANALYSIS_TIMEOUT_SECONDS",
+                str(DEFAULT_MEETING_ANALYSIS_TIMEOUT_SECONDS),
+            ),
+            "max_chars": os.getenv("MEETING_ANALYSIS_MAX_CHARS", str(DEFAULT_MEETING_ANALYSIS_MAX_CHARS)),
+            "num_predict": os.getenv(
+                "MEETING_ANALYSIS_NUM_PREDICT",
+                str(DEFAULT_MEETING_ANALYSIS_NUM_PREDICT),
+            ),
+            "keep_alive": os.getenv(
+                "MEETING_ANALYSIS_KEEP_ALIVE",
+                DEFAULT_MEETING_ANALYSIS_KEEP_ALIVE,
+            ),
+            "temperature": os.getenv(
+                "OLLAMA_ANALYSIS_TEMPERATURE",
+                str(DEFAULT_OLLAMA_ANALYSIS_TEMPERATURE),
+            ),
+        },
+        "huggingface": {
+            "endpoint": os.getenv("HF_MEETING_ANALYSIS_ENDPOINT", HF_CHAT_COMPLETIONS_URL),
+            "model": os.getenv("HF_MEETING_ANALYSIS_MODEL", DEFAULT_HF_MEETING_ANALYSIS_MODEL),
+            "timeout_seconds": os.getenv(
+                "HF_MEETING_ANALYSIS_TIMEOUT_SECONDS",
+                str(DEFAULT_HF_MEETING_ANALYSIS_TIMEOUT_SECONDS),
+            ),
+            "max_tokens": os.getenv(
+                "HF_MEETING_ANALYSIS_MAX_TOKENS",
+                str(DEFAULT_HF_MEETING_ANALYSIS_MAX_TOKENS),
+            ),
+            "temperature": os.getenv(
+                "HF_MEETING_ANALYSIS_TEMPERATURE",
+                str(DEFAULT_HF_MEETING_ANALYSIS_TEMPERATURE),
+            ),
+        },
+    }
+    canonical_input = json.dumps(
+        cache_input,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    digest = hashlib.sha256(canonical_input.encode("utf-8")).hexdigest()
+    return f"meeting_analysis:v{MEETING_ANALYSIS_CACHE_SCHEMA_VERSION}:{digest}"
+
+
+def _analyze_json_uncached(request: AnalyzeRequest) -> MeetingAnalysisResult:
     provider = os.getenv("MEETING_ANALYSIS_PROVIDER", "auto").lower()
     if provider in {"auto", "huggingface", "hf"} and _huggingface_configured():
         try:
             return analyze_meeting_with_huggingface(request)
-        except Exception:
-            logger.exception("Hugging Face 회의록 분석 실패, Ollama/규칙 기반 분석으로 대체합니다.")
+        except Exception as exception:
+            logger.warning(
+                "Hugging Face 회의록 분석 실패, Ollama/규칙 기반 분석으로 대체합니다. errorType=%s",
+                type(exception).__name__,
+            )
     elif provider in {"huggingface", "hf"}:
         logger.warning("MEETING_ANALYSIS_PROVIDER=%s 이지만 HF_TOKEN이 없어 Ollama/규칙 기반 분석으로 대체합니다.", provider)
 
     if provider in {"auto", "huggingface", "hf", "ollama"}:
         try:
             return analyze_meeting_with_ollama(request)
-        except Exception:
-            logger.exception("Ollama 회의록 분석 실패, 규칙 기반 분석으로 대체합니다.")
+        except Exception as exception:
+            logger.warning(
+                "Ollama 회의록 분석 실패, 규칙 기반 분석으로 대체합니다. errorType=%s",
+                type(exception).__name__,
+            )
     return analyze_meeting(request)
 
 
@@ -159,7 +284,7 @@ async def analyze_upload(
     if file:
         file_name = file.filename
         raw = await file.read()
-        text = extract_uploaded_text(raw, file_name)
+        text = await asyncio.to_thread(extract_uploaded_text, raw, file_name)
     return analyze_json(
         AnalyzeRequest(
             title=title,
@@ -171,6 +296,18 @@ async def analyze_upload(
             participants=participants,
         )
     )
+
+
+@app.post("/api/v1/meetings/transcribe", response_model=AudioTranscribeResult)
+async def transcribe_audio(file: UploadFile = File(...)):
+    """Spring이 음성 회의록 업로드 시 텍스트만 필요할 때 호출하는 STT 전용 엔드포인트.
+    분석까지 함께 하는 /analyze와 달리, 추출된 텍스트만 반환해 Spring 쪽 기존 분석 파이프라인(큐/폴백/알림)을 그대로 재사용할 수 있게 한다."""
+    raw = await file.read()
+    try:
+        text = await asyncio.to_thread(extract_audio_text, raw)
+    except DocumentTextExtractionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return AudioTranscribeResult(text=text)
 
 
 def resolve_participants(request: AnalyzeRequest) -> List[str]:
@@ -236,12 +373,12 @@ class DocumentTextExtractionError(ValueError):
 
 
 def analyze_meeting_with_ollama(request: AnalyzeRequest) -> MeetingAnalysisResult:
-    host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    host = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST)
     model = os.getenv("MEETING_ANALYSIS_MODEL", DEFAULT_MEETING_ANALYSIS_MODEL)
     timeout_seconds = _get_env_float("MEETING_ANALYSIS_TIMEOUT_SECONDS", DEFAULT_MEETING_ANALYSIS_TIMEOUT_SECONDS)
-    temperature = float(os.getenv("OLLAMA_ANALYSIS_TEMPERATURE", "0.1"))
+    temperature = float(os.getenv("OLLAMA_ANALYSIS_TEMPERATURE", str(DEFAULT_OLLAMA_ANALYSIS_TEMPERATURE)))
     num_predict = int(os.getenv("MEETING_ANALYSIS_NUM_PREDICT", str(DEFAULT_MEETING_ANALYSIS_NUM_PREDICT)))
-    keep_alive = os.getenv("MEETING_ANALYSIS_KEEP_ALIVE", "5m")
+    keep_alive = os.getenv("MEETING_ANALYSIS_KEEP_ALIVE", DEFAULT_MEETING_ANALYSIS_KEEP_ALIVE)
 
     client = ollama.Client(host=host, timeout=timeout_seconds)
     if not _ollama_model_available(client, model):
@@ -272,7 +409,9 @@ def analyze_meeting_with_huggingface(request: AnalyzeRequest) -> MeetingAnalysis
     model = os.getenv("HF_MEETING_ANALYSIS_MODEL", DEFAULT_HF_MEETING_ANALYSIS_MODEL)
     timeout_seconds = _get_env_float("HF_MEETING_ANALYSIS_TIMEOUT_SECONDS", DEFAULT_HF_MEETING_ANALYSIS_TIMEOUT_SECONDS)
     max_tokens = int(os.getenv("HF_MEETING_ANALYSIS_MAX_TOKENS", str(DEFAULT_HF_MEETING_ANALYSIS_MAX_TOKENS)))
-    temperature = float(os.getenv("HF_MEETING_ANALYSIS_TEMPERATURE", "0.1"))
+    temperature = float(
+        os.getenv("HF_MEETING_ANALYSIS_TEMPERATURE", str(DEFAULT_HF_MEETING_ANALYSIS_TEMPERATURE))
+    )
 
     payload = {
         "model": model,
@@ -582,6 +721,8 @@ def extract_uploaded_text(raw: bytes, file_name: Optional[str] = None) -> str:
             return extract_pdf_text(raw)
         if name.endswith(".docx"):
             return extract_docx_text(raw)
+        if name.endswith(AUDIO_FILE_EXTENSIONS):
+            return extract_audio_text(raw)
         return raw.decode("utf-8", errors="ignore").strip()
     except DocumentTextExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -631,6 +772,41 @@ def extract_docx_text(raw: bytes) -> str:
     except Exception as exc:
         logger.exception("DOCX 텍스트 추출 실패")
         raise DocumentTextExtractionError("DOCX 텍스트 추출에 실패했습니다.") from exc
+
+
+_whisper_model = None
+
+
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        from faster_whisper import WhisperModel
+
+        _whisper_model = WhisperModel(
+            os.getenv("WHISPER_MODEL_SIZE", DEFAULT_WHISPER_MODEL_SIZE),
+            device=os.getenv("WHISPER_DEVICE", DEFAULT_WHISPER_DEVICE),
+            compute_type=os.getenv("WHISPER_COMPUTE_TYPE", DEFAULT_WHISPER_COMPUTE_TYPE),
+        )
+    return _whisper_model
+
+
+def extract_audio_text(raw: bytes) -> str:
+    try:
+        model = get_whisper_model()
+        language = os.getenv("WHISPER_LANGUAGE", DEFAULT_WHISPER_LANGUAGE)
+        segments, _ = model.transcribe(BytesIO(raw), language=language)
+        text = " ".join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
+        if not text:
+            raise DocumentTextExtractionError("음성 파일에서 텍스트를 추출하지 못했습니다.")
+        return text
+    except DocumentTextExtractionError:
+        raise
+    except ImportError as exc:
+        logger.exception("음성 인식(STT) 의존성 누락")
+        raise DocumentTextExtractionError("음성 인식에 필요한 서버 의존성이 설치되지 않았습니다.") from exc
+    except Exception as exc:
+        logger.exception("음성 파일 텍스트 추출 실패")
+        raise DocumentTextExtractionError("음성 파일 텍스트 추출에 실패했습니다.") from exc
 
 
 _TITLE_LEADING_PATTERNS = [

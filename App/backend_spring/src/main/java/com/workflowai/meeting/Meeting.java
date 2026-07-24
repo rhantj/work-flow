@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "meetings")
@@ -28,8 +29,14 @@ public class Meeting {
     @Column(name = "file_path")
     private String filePath;
 
+    @Column(columnDefinition = "text")
+    private String transcript;
+
     @Column(name = "analysis_status", nullable = false)
     private String analysisStatus;
+
+    @Column(name = "analysis_job_id")
+    private UUID analysisJobId;
 
     @Column(name = "meeting_date")
     private LocalDate meetingDate;
@@ -45,6 +52,15 @@ public class Meeting {
 
     @Column(name = "file_size")
     private Long fileSize;
+
+    @Column(name = "original_meeting_id")
+    private Long originalMeetingId;
+
+    @Column(name = "edited_by")
+    private Long editedBy;
+
+    @Column(name = "saved_at")
+    private LocalDateTime savedAt;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -77,6 +93,26 @@ public class Meeting {
         this.createdAt = LocalDateTime.now();
     }
 
+    /** 기존 회의록을 원본 훼손 없이 수정할 때 새 버전 레코드를 만든다. 분석 상태는 항상 pending으로 시작한다. */
+    public static Meeting newVersion(Meeting original, String transcript, Long editedBy, String versionTitle) {
+        Meeting version = new Meeting(
+            original.projectId,
+            versionTitle,
+            original.fileType,
+            null,
+            "pending",
+            original.meetingDate,
+            original.meetingType,
+            original.originalFileName,
+            editedBy,
+            null
+        );
+        version.transcript = transcript;
+        version.originalMeetingId = original.originalMeetingId != null ? original.originalMeetingId : original.id;
+        version.editedBy = editedBy;
+        return version;
+    }
+
     public Long getId() {
         return id;
     }
@@ -97,12 +133,28 @@ public class Meeting {
         this.analysisStatus = analysisStatus;
     }
 
+    public UUID getAnalysisJobId() {
+        return analysisJobId;
+    }
+
+    public void setAnalysisJobId(UUID analysisJobId) {
+        this.analysisJobId = analysisJobId;
+    }
+
     public String getFilePath() {
         return filePath;
     }
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
+    }
+
+    public String getTranscript() {
+        return transcript;
+    }
+
+    public void setTranscript(String transcript) {
+        this.transcript = transcript;
     }
 
     public LocalDate getMeetingDate() {
@@ -123,6 +175,23 @@ public class Meeting {
 
     public Long getUploadedBy() {
         return uploadedBy;
+    }
+
+    public Long getOriginalMeetingId() {
+        return originalMeetingId;
+    }
+
+    public Long getEditedBy() {
+        return editedBy;
+    }
+
+    public LocalDateTime getSavedAt() {
+        return savedAt;
+    }
+
+    /** "저장" 확정 — 분석결과 저장확정 및 수정본 저장 양쪽에서 호출된다. */
+    public void markSaved() {
+        this.savedAt = LocalDateTime.now();
     }
 
     public LocalDateTime getCreatedAt() {

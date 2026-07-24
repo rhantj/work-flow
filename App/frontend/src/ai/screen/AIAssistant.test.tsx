@@ -28,7 +28,8 @@ describe("AIAssistant", () => {
 
   it("shows loading indicator then renders answer with source badge", async () => {
     vi.mocked(apiFetch).mockResolvedValue({
-      answer: "실제 RAG 답변",
+      type: "answer",
+      message: "실제 RAG 답변",
       sources: [{ source_type: "meeting", source_id: 3, content_snippet: "요약", similarity: 0.8 }],
     });
 
@@ -64,7 +65,7 @@ describe("AIAssistant", () => {
   });
 
   it("automatically sends a pending dashboard question exactly once", async () => {
-    vi.mocked(apiFetch).mockResolvedValue({ answer: "추천 답변", sources: [] });
+    vi.mocked(apiFetch).mockResolvedValue({ type: "answer", message: "추천 답변", sources: [] });
 
     const { rerender } = render(
       <AIAssistant
@@ -83,5 +84,31 @@ describe("AIAssistant", () => {
       />
     );
     expect(apiFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores a saved session whose answer cites an action_item source", async () => {
+    // action_item 출처가 타입 가드에 걸리면 isChatMsg -> isChatSession이 연쇄 실패해
+    // 저장된 대화가 통째로 폐기된다. 멀티턴이 참조할 직전 답변이 사라지는 경로다.
+    sessionStorage.setItem(
+      "ai-assistant-chat-session:anon:1",
+      JSON.stringify({
+        savedAt: Date.now(),
+        messages: [
+          { role: "user", content: "내 업무가 뭐야?" },
+          {
+            role: "assistant",
+            content: "로그인 API 구현 업무가 있습니다",
+            sources: [
+              { sourceType: "action_item", sourceId: 7, contentSnippet: "로그인 API", similarity: 0.9 },
+            ],
+          },
+        ],
+      })
+    );
+
+    render(<AIAssistant onClose={() => {}} />);
+
+    expect(screen.getByText("로그인 API 구현 업무가 있습니다")).toBeInTheDocument();
+    expect(screen.getByText(/출처: 액션아이템 #7/)).toBeInTheDocument();
   });
 });

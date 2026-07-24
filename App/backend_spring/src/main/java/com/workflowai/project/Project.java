@@ -2,6 +2,8 @@ package com.workflowai.project;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -57,9 +59,9 @@ public class Project {
     @Column(name = "created_by")
     private Long createdBy;
 
-    /** 평가 진행 상태(PENDING/EVALUATING/PUBLISHED). "평가 확정" 버튼으로 PUBLISHED 전이. */
+    @Enumerated(EnumType.STRING)
     @Column(name = "eval_status", nullable = false, length = 20)
-    private String evalStatus;
+    private EvalStatus evalStatus = EvalStatus.PENDING;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -116,12 +118,6 @@ public class Project {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
-        // DB DEFAULT('EVALUATING')는 컬럼 자체를 INSERT문에서 생략할 때만 적용된다.
-        // Hibernate는 매핑된 모든 컬럼을 명시적으로 insert하므로 null이면 그대로 null이
-        // 들어갈 수 있어, Java 쪽에서도 기본값을 채워 DB 제약(NOT NULL)에 안전하게 만든다.
-        if (this.evalStatus == null) {
-            this.evalStatus = "EVALUATING";
-        }
     }
 
     @jakarta.persistence.PreUpdate
@@ -205,6 +201,10 @@ public class Project {
         return createdBy;
     }
 
+    public EvalStatus getEvalStatus() {
+        return evalStatus;
+    }
+
     public LocalDate getDeadline() {
         return deadline;
     }
@@ -229,11 +229,7 @@ public class Project {
         return updatedAt;
     }
 
-    public String getEvalStatus() {
-        return evalStatus;
-    }
-
-    public void setEvalStatus(String evalStatus) {
+    public void setEvalStatus(EvalStatus evalStatus) {
         this.evalStatus = evalStatus;
     }
 }

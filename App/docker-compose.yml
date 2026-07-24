@@ -26,10 +26,38 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    # 코어 Redis의 상위호환. 어시스턴트 LangGraph 체크포인터(langgraph-checkpoint-redis)가
+    # RediSearch/RedisJSON 모듈을 요구해 alpine에서 교체. 스트림·캐시 등 기존 사용은 그대로 동작한다.
+    image: redis/redis-stack-server:7.2.0-v11
     container_name: workflow-redis
+    command:
+      - redis-server
+      # redis-stack-server 엔트리포인트를 bare redis-server로 덮으면 모듈이 안 올라오므로 직접 로드한다.
+      - --loadmodule
+      - /opt/redis-stack/lib/redisearch.so
+      - --loadmodule
+      - /opt/redis-stack/lib/rejson.so
+      # bare redis-server 오버라이드로 redis-stack 기본 설정(protected-mode no)이 사라져
+      # 다른 컨테이너(fastapi/spring) 연결이 DENIED된다. 호스트 포트는 127.0.0.1로만 노출돼
+      # 있어 docker 내부망 한정 접근이므로 protected-mode를 끈다(기존 alpine 동작 복원).
+      - --protected-mode
+      - 'no'
+      - --appendonly
+      - 'yes'
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-512mb}
+      - --maxmemory-policy
+      - noeviction
+      - --auto-aof-rewrite-percentage
+      - '50'
+      - --auto-aof-rewrite-min-size
+      - 16mb
     ports:
-      - '6379:6379'
+      - '127.0.0.1:${REDIS_HOST_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -55,6 +83,7 @@ services:
     build: ./backend_spring
     container_name: workflow-backend-spring
     environment:
+      TZ: Asia/Seoul # LocalDateTime.now()가 KST 기준으로 찍히도록(알림 등 타임존 없는 시각 표시 보정)
       DB_HOST: db # application.properties에서 이 이름으로 참조
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092 # KafkaConfig.java의 실제 프로퍼티 키에 맞춰 이름 조정
@@ -66,6 +95,8 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/workflow}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-root}
+      SPRING_FLYWAY_ENABLED: ${SPRING_FLYWAY_ENABLED:-true}
+      SPRING_FLYWAY_BASELINE_VERSION: ${SPRING_FLYWAY_BASELINE_VERSION:-20260721.1}
       WORKFLOW_AI_FASTAPI_URL: http://backend-fastapi:8000
       RAG_INTERNAL_API_KEY: ${RAG_INTERNAL_API_KEY}
       JWT_SECRET: ${JWT_SECRET}
@@ -96,7 +127,12 @@ services:
       dockerfile: App/backend_fastapi/Dockerfile
     container_name: workflow-backend-fastapi
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # 기본은 backend-spring과 동일하게 compose 안의 로컬 db 서비스에 연결한다.
+      # 컨테이너 안에서는 "localhost"가 컨테이너 자기 자신을 가리키므로, 로컬 개발용 .env에
+      # DATABASE_URL=postgresql://...@localhost:5432/workflow처럼 host 실행 기준 값을 넣어뒀다면
+      # ml_workload_score 등 FastAPI DB 조회가 전부 연결 실패로 죽는다(2026-07-24 실측).
+      # Supabase(원격)에 직접 연결하려면 .env의 DATABASE_URL 값으로 이 기본값을 덮어쓴다.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:root@db:5432/workflow}
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # Spring(RagController) 외의 직접 호출로부터 /ai/rag/* 를 보호하는 서비스 간 공유 시크릿.
@@ -122,11 +158,13 @@ services:
       DELAY_RISK_HF_MODEL_REVISION: ${DELAY_RISK_HF_MODEL_REVISION:-}
       DELAY_RISK_HF_MODEL_SHA256: ${DELAY_RISK_HF_MODEL_SHA256:-}
       HF_TOKEN: ${HF_TOKEN:-}
-      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN:-${HF_TOKEN:-}}
       HF_MEETING_ANALYSIS_MODEL: ${HF_MEETING_ANALYSIS_MODEL:-Qwen/Qwen3-4B-Instruct-2507}
       HF_MEETING_ANALYSIS_ENDPOINT: ${HF_MEETING_ANALYSIS_ENDPOINT:-https://router.huggingface.co/v1/chat/completions}
       HF_MEETING_ANALYSIS_TIMEOUT_SECONDS: ${HF_MEETING_ANALYSIS_TIMEOUT_SECONDS:-35}
-      HF_MEETING_ANALYSIS_MAX_TOKENS: ${HF_MEETING_ANALYSIS_MAX_TOKENS:-900}
+      # 900 토큰으로는 요약+결정사항+위험요소+투두 여러 건을 포함한 JSON이 완성되기 전에
+      # 잘려서 파싱 실패(JSONDecodeError: Unterminated string)가 나던 문제 수정.
+      HF_MEETING_ANALYSIS_MAX_TOKENS: ${HF_MEETING_ANALYSIS_MAX_TOKENS:-3000}
       HF_MEETING_ANALYSIS_TEMPERATURE: ${HF_MEETING_ANALYSIS_TEMPERATURE:-0.1}
       # LangSmith 트레이싱 (RAG 챗봇 langchain-huggingface ChatHuggingFace 실행 관찰용)
       LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
@@ -135,6 +173,10 @@ services:
       LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-}
     ports:
       - '8000:8000'
+    volumes:
+      # HF 임베딩 모델(bge-m3, 약 2.2GB)을 named volume에 유지한다. 없으면 재빌드/재생성마다
+      # 기동 시 preload가 2.2GB를 새로 받느라 startup이 수십 분~수시간 막힌다(2026-07-24 실측).
+      - hf-cache:/root/.cache/huggingface
     depends_on:
       db:
         condition: service_healthy
@@ -161,3 +203,5 @@ services:
 
 volumes:
   db-data:
+  redis-data:
+  hf-cache:
