@@ -205,6 +205,37 @@ class MeetingAnalysisServiceTest {
     }
 
     @Test
+    void analyzeNormalizesSourceTypeToAudioFromFileExtensionEvenWhenCallerOmitsIt() {
+        // 프론트가 sourceType을 안 보내거나 기본값("document")으로 보내도, 파일 확장자가 오디오면
+        // 큐(MeetingAnalysisRunner)가 source_type만 보고 STT 필요 여부를 판단하므로 반드시 "audio"로
+        // 정규화돼야 한다. 안 그러면 빈 텍스트로 분석이 그대로 진행되는 버그가 생긴다.
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        when(meetingRepository.save(any(Meeting.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        MockMultipartFile file = new MockMultipartFile("file", "meeting.wav", "audio/wav", "fake-audio-bytes".getBytes());
+
+        service.analyze(
+            "demo-project", file, "음성 회의록", "2026-07-24", "정기회의", "document", List.of("김민준"), null
+        );
+
+        ArgumentCaptor<AiAnalyzeRequest> requestCaptor = ArgumentCaptor.forClass(AiAnalyzeRequest.class);
+        verify(meetingAnalysisJobPublisher).enqueue(any(), requestCaptor.capture(), any(UUID.class));
+        assertThat(requestCaptor.getValue().source_type()).isEqualTo("audio");
+    }
+
+    @Test
+    void analyzeRejectsAudioFileExceedingSizeLimit() {
+        mockMember(1L);
+        MeetingAnalysisService service = newService();
+        byte[] oversized = new byte[31 * 1024 * 1024];
+        MockMultipartFile file = new MockMultipartFile("file", "meeting.wav", "audio/wav", oversized);
+
+        assertThatThrownBy(() -> service.analyze(
+            "demo-project", file, "음성 회의록", "2026-07-24", "정기회의", "audio", List.of("김민준"), null
+        )).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void analyzeEnqueuesOnlyAfterTransactionCommitWhenSynchronizationIsActive() {
         mockMember(1L);
         MeetingAnalysisService service = newService();
