@@ -191,6 +191,43 @@ async def test_resume_with_success_completes_command() -> None:
 
 
 @pytest.mark.asyncio
+async def test_multi_action_plan_resumes_each_step_sequentially() -> None:
+    """액션이 여러 개인 계획은 승인마다 다음 카드를 돌려주고, 마지막에 완료한다.
+
+    회귀 방어: 재개 후 다음 단계가 또 confirm이면 체크포인트를 지우면 안 된다.
+    지우면 후속 승인이 aget_state에서 스레드를 못 찾아 만료 처리된다.
+    """
+    from llm_rag_assistant.app.graph import assistant_graph
+    from llm_rag_assistant.app.graph.assistant_graph import resume_command, start_command
+
+    plan = [
+        Action(tool="change_status", task_ref="WF-250", args={"to": "inprogress"}),
+        Action(tool="change_status", task_ref="WF-251", args={"to": "done"}),
+    ]
+    with patch(
+        "llm_rag_assistant.app.graph.assistant_graph.plan_actions", new=AsyncMock(return_value=plan)
+    ), patch(
+        "llm_rag_assistant.app.graph.assistant_graph.resolve_task_ref",
+        new=AsyncMock(return_value=TaskMatch(task_id=37, title="업무")),
+    ):
+        first = await start_command(object(), _state("두 업무 상태 바꿔줘"))
+        assert first.type == "confirm"
+
+        second = await resume_command(first.thread_id, {"step_id": first.card.step_id, "ok": True})
+        # 첫 승인 후 두 번째 단계가 또 승인을 기다린다. 체크포인트는 유지돼야 한다.
+        assert second.type == "confirm"
+        assert second.card is not None
+        assert second.card.step_id != first.card.step_id
+        assert first.thread_id in assistant_graph._pending_threads
+
+        final = await resume_command(first.thread_id, {"step_id": second.card.step_id, "ok": True})
+
+    assert final.type == "done"
+    assert "2개 작업을 완료했습니다" in final.message
+    assert first.thread_id not in assistant_graph._pending_threads
+
+
+@pytest.mark.asyncio
 async def test_resume_with_failure_reports_it() -> None:
     from llm_rag_assistant.app.graph.assistant_graph import resume_command, start_command
 
