@@ -31,12 +31,13 @@ LIMIT $4
 
 # 업무 코드(WF-195 등)는 별도 컬럼이 아니라 content 본문 토큰이다. 임베딩 유사도로는
 # 제목이 비슷한 다른 업무에 밀려 정확히 못 잡으므로, 코드가 명시되면 본문에서 그 토큰을
-# 단어 경계로 정확히 찾는다. 뒤 경계를 [^0-9]로 잡아 WF-195가 WF-1950에 걸리지 않게 한다.
+# 단어 경계로 정확히 찾는다. 앞뒤 경계를 모두 [^0-9A-Za-z]로 잡아 WF-195가 WF-1950이나
+# WF-195A 같은 더 긴 코드에 걸리지 않게 한다(뒤 경계가 [^0-9]면 WF-195A가 오매칭된다).
 _SEARCH_BY_TASK_CODE_SQL = """
 SELECT source_type, source_id, content
 FROM document_chunks
 WHERE project_id = $1 AND source_type = 'task'
-  AND content ~* ('(^|[^0-9A-Za-z])' || $2 || '([^0-9]|$)')
+  AND content ~* ('(^|[^0-9A-Za-z])' || $2 || '([^0-9A-Za-z]|$)')
 LIMIT $3
 """
 

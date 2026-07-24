@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
@@ -71,9 +72,14 @@ class Action(BaseModel):
         elif self.tool == "rename_task":
             _require_str(args, "title")
         elif self.tool == "set_due_date":
-            date = _require_str(args, "date")
-            if not _DATE_PATTERN.match(date):
+            date_str = _require_str(args, "date")
+            if not _DATE_PATTERN.match(date_str):
                 raise ValueError("set_due_date args.date는 YYYY-MM-DD 형식이어야 합니다")
+            # 형식만 보면 2026-99-99 같은 비존재 날짜가 통과한다. 실제 달력 날짜인지 확인한다.
+            try:
+                date.fromisoformat(date_str)
+            except ValueError:
+                raise ValueError("set_due_date args.date가 존재하지 않는 날짜입니다")
         elif self.tool == "change_assignee":
             _require_str(args, "assignee_name")
         # delete_task는 필수 args 없음

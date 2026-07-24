@@ -142,6 +142,14 @@ describe("executeAction", () => {
     expect(updateTask).not.toHaveBeenCalled();
   });
 
+  it("refuses a well-formed but nonexistent calendar date", async () => {
+    for (const date of ["2026-99-99", "2026-02-30"]) {
+      const result = await executeAction(card({ tool: "set_due_date", args: { date } }), 1);
+      expect(result.ok).toBe(false);
+    }
+    expect(updateTask).not.toHaveBeenCalled();
+  });
+
   it("refuses an empty checklist item instead of matching the first one", async () => {
     // item이 빈 문자열이면 label.includes("")가 항상 참이라 첫 항목을 잘못 토글할 수 있다.
     const result = await executeAction(

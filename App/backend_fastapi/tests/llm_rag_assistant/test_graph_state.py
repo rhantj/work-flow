@@ -87,6 +87,14 @@ def test_set_due_date_accepts_iso_date() -> None:
     assert action.args["date"] == "2026-08-10"
 
 
+def test_set_due_date_rejects_nonexistent_calendar_date() -> None:
+    # 형식은 맞지만 존재하지 않는 날짜는 거부한다.
+    with pytest.raises(ValidationError):
+        Action(tool="set_due_date", task_ref="WF-1", args={"date": "2026-99-99"})
+    with pytest.raises(ValidationError):
+        Action(tool="set_due_date", task_ref="WF-1", args={"date": "2026-02-30"})
+
+
 def test_delete_task_needs_no_args() -> None:
     action = Action(tool="delete_task", task_ref="WF-1", args={})
     assert action.tool == "delete_task"

@@ -15,6 +15,14 @@ function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : "요청을 처리하지 못했습니다.";
 }
 
+// 형식(YYYY-MM-DD)뿐 아니라 실제 존재하는 날짜인지 확인한다(예: 2026-99-99, 2026-02-30 거부).
+function isValidCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
 /**
  * 확인 카드를 기존 업무보드 API 호출로 옮긴다.
  *
@@ -64,9 +72,9 @@ export async function executeAction(card: ActionCard, projectId: number): Promis
       }
       case "set_due_date": {
         const date = String(card.args.date ?? "").trim();
-        // 그래프(state.py)와 같은 형식 검증. 백엔드를 우회한 잘못된 값이 나가지 않게 한다.
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-          return { ok: false, error: "마감일 형식이 올바르지 않습니다." };
+        // 그래프(state.py)와 같은 형식·달력 검증. 백엔드를 우회한 잘못된 값이 나가지 않게 한다.
+        if (!isValidCalendarDate(date)) {
+          return { ok: false, error: "마감일이 올바른 날짜가 아닙니다." };
         }
         await updateTask(taskId, { dueDate: date }, projectId);
         return { ok: true };
