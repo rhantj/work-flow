@@ -37,6 +37,10 @@ services:
       - /opt/redis-stack/lib/redisearch.so
       - --loadmodule
       - /opt/redis-stack/lib/rejson.so
+      # 이미지 WORKDIR이 비어 있어(/) bare redis-server의 기본 dir는 /가 된다.
+      # 명시하지 않으면 AOF/RDB가 redis-data 볼륨(/data) 밖에 쓰여 매 배포마다 유실된다.
+      - --dir
+      - /data
       # bare redis-server 오버라이드로 redis-stack 기본 설정(protected-mode no)이 사라져
       # 다른 컨테이너(fastapi/spring) 연결이 DENIED된다. 호스트 포트는 127.0.0.1로만 노출돼
       # 있어 docker 내부망 한정 접근이므로 protected-mode를 끈다(기존 alpine 동작 복원).
