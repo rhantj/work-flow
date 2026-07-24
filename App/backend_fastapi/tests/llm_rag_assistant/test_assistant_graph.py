@@ -211,6 +211,32 @@ async def test_resume_rejects_mismatched_step_id() -> None:
 
 
 @pytest.mark.asyncio
+async def test_resume_rejects_when_pending_step_cannot_be_determined(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """대기 단계를 특정하지 못하면(step_id 추출 실패) fail-closed로 거부한다."""
+    from llm_rag_assistant.app.graph import assistant_graph
+    from llm_rag_assistant.app.graph.assistant_graph import resume_command, start_command
+
+    plan = [Action(tool="change_status", task_ref="WF-250", args={"to": "done"})]
+    with patch(
+        "llm_rag_assistant.app.graph.assistant_graph.plan_actions", new=AsyncMock(return_value=plan)
+    ), patch(
+        "llm_rag_assistant.app.graph.assistant_graph.resolve_task_ref",
+        new=AsyncMock(return_value=TaskMatch(task_id=37, title="업무")),
+    ):
+        started = await start_command(object(), _state("WF-250 완료로 바꿔줘"))
+        monkeypatch.setattr(assistant_graph, "_pending_step_id", lambda snapshot: None)
+        resumed = await resume_command(
+            started.thread_id, {"step_id": started.card.step_id, "ok": True}
+        )
+
+    assert resumed.type == "done"
+    assert resumed.card is None
+    assert "일치하지 않" in resumed.message or "이미 처리" in resumed.message
+
+
+@pytest.mark.asyncio
 async def test_expired_thread_is_reported() -> None:
     from llm_rag_assistant.app.graph.assistant_graph import resume_command
 

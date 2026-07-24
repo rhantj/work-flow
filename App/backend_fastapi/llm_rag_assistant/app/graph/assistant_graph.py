@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 
@@ -191,6 +192,8 @@ _CHECKPOINT_TTL_MINUTES = 30
 
 _compiled = None
 _checkpointer_cm = None
+# 최초 동시 요청이 각자 체크포인터를 만들어 Redis 연결이 새는 것을 막는다(이중 검사 잠금).
+_graph_lock = asyncio.Lock()
 
 
 async def get_graph():
@@ -198,13 +201,19 @@ async def get_graph():
     global _compiled, _checkpointer_cm
     if _compiled is not None:
         return _compiled
-    settings = get_settings()
-    _checkpointer_cm = AsyncRedisSaver.from_conn_string(
-        settings.redis_url, ttl={"default_ttl": _CHECKPOINT_TTL_MINUTES, "refresh_on_read": False}
-    )
-    checkpointer = await _checkpointer_cm.__aenter__()
-    await checkpointer.asetup()
-    _compiled = _build().compile(checkpointer=checkpointer)
+    async with _graph_lock:
+        # 잠금 대기 중 다른 요청이 이미 만들었을 수 있으므로 다시 확인한다.
+        if _compiled is not None:
+            return _compiled
+        settings = get_settings()
+        checkpointer_cm = AsyncRedisSaver.from_conn_string(
+            settings.redis_url,
+            ttl={"default_ttl": _CHECKPOINT_TTL_MINUTES, "refresh_on_read": False},
+        )
+        checkpointer = await checkpointer_cm.__aenter__()
+        await checkpointer.asetup()
+        _checkpointer_cm = checkpointer_cm
+        _compiled = _build().compile(checkpointer=checkpointer)
     return _compiled
 
 
@@ -251,10 +260,11 @@ async def resume_command(thread_id: str, execution_result: dict) -> GraphOutcome
     if not snapshot or not snapshot.next:
         return GraphOutcome(type="done", message=_THREAD_EXPIRED_MESSAGE, thread_id=thread_id)
 
-    # 넘어온 실행 결과가 지금 대기 중인 바로 그 단계의 것인지 확인한다. step_id가 다르면
-    # 잘못됐거나 재전송된 결과이므로, 그래프를 진행시키지 않고 거부한다.
+    # 넘어온 실행 결과가 지금 대기 중인 바로 그 단계의 것인지 확인한다. step_id가 다르거나
+    # 대기 단계를 특정하지 못하면(fail-closed) 잘못됐거나 재전송된 결과이므로 진행시키지 않는다.
+    # 이 그래프의 유일한 정지점은 step_id를 실은 interrupt라 정상 상황에서 expected는 항상 있다.
     expected = _pending_step_id(snapshot)
-    if expected is not None and execution_result.get("step_id") != expected:
+    if expected is None or execution_result.get("step_id") != expected:
         return GraphOutcome(type="done", message=_STEP_MISMATCH_MESSAGE, thread_id=thread_id)
 
     result = await graph.ainvoke(Command(resume=execution_result), config=config)
