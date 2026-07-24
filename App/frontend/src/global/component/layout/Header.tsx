@@ -12,8 +12,16 @@ import { usePresence } from "../../hooks/usePresence";
 import { useProject } from "../../hooks/useProject";
 import type { ProjectRoleKo } from "../../api/authTypes";
 import { useIsMobile } from "../ui/use-mobile";
+import { stableColorForId } from "../../lib/utils/memberColor";
 
 const NOTIFICATION_POLL_INTERVAL_MS = 30_000;
+
+/** 백엔드 LocalDateTime(오프셋 없음)은 항상 KST(Asia/Seoul, UTC+9) 벽시계 값이므로,
+ * 보는 사람의 브라우저 타임존과 무관하게 정확한 시각으로 파싱하려면 "+09:00"을 명시해야 한다. */
+function parseKstDateTime(dateStr: string): Date {
+  const hasOffset = /[Zz]|[+-]\d{2}:?\d{2}$/.test(dateStr);
+  return new Date(hasOffset ? dateStr : `${dateStr}+09:00`);
+}
 
 const ROLE_COLORS: Record<ProjectRoleKo, string> = {
   "팀장": "#3B5BDB",
@@ -192,7 +200,7 @@ export function Header({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void }) 
                     <div key={n.id} className="px-4 py-2.5 border-b border-border last:border-0 text-xs text-foreground">
                       <div className="font-semibold">{n.title}</div>
                       {n.content && <div className="text-muted-foreground mt-0.5">{n.content}</div>}
-                      <div className="text-[10px] text-muted-foreground mt-0.5">{new Date(n.createdAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{parseKstDateTime(n.createdAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}</div>
                     </div>
                   ))}
                 </div>
@@ -210,7 +218,7 @@ export function Header({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void }) 
                   key={presenceUser.userId}
                   title={`${presenceUser.name} / ${presenceUser.role}`}
                   className="w-8 h-8 rounded-full border-2 border-card flex items-center justify-center text-white text-xs font-semibold"
-                  style={{ background: "#3B5BDB" }}
+                  style={{ background: stableColorForId(presenceUser.userId) }}
                 >
                   {presenceUser.name.slice(0, 1)}
                 </div>

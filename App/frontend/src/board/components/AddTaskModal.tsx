@@ -31,8 +31,10 @@ export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onC
   const [fPriority, setFPriority] = useState<Priority>("medium");
   const [fStatus, setFStatus] = useState<TaskStatus>("todo");
   const [fCriteria, setFCriteria] = useState("");
+  const [catFieldValues, setCatFieldValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [stepError, setStepError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -45,16 +47,44 @@ export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onC
       setFDue("");
       setFPriority("medium");
       setFCriteria("");
+      setCatFieldValues({});
       setSubmitError(null);
+      setStepError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialStatus, projectMembers]);
 
   if (!open) return null;
 
+  const catFields = CAT_MODAL_FIELDS[selCat] ?? CAT_MODAL_FIELDS["other"];
+
+  /** 단계 이동 전 해당 단계의 필수 입력이 비어있지 않은지 검사한다. 비어있으면 에러 메세지를 띄우고 다음 단계로 못 넘어가게 막는다. */
+  const validateStep = (): string | null => {
+    if (step === 0) {
+      if (!selCat) return "카테고리를 선택해주세요.";
+      if (selCat === "other" && !customCat.trim()) return "카테고리명을 입력해주세요.";
+    }
+    if (step === 1) {
+      if (!fTitle.trim()) return "업무명을 입력해주세요.";
+    }
+    if (step === 2) {
+      const blank = catFields.find(([label]) => !(catFieldValues[label] ?? "").trim());
+      if (blank) return `'${blank[0]}' 항목을 입력해주세요.`;
+    }
+    return null;
+  };
+
   const handleNext = async () => {
+    const error = validateStep();
+    if (error) {
+      setStepError(error);
+      return;
+    }
+    setStepError(null);
     if (step === 2) {
       const cat = selCat === "other" ? (customCat.trim() || "other") : selCat;
+      const catFieldSummary = catFields.map(([label]) => `${label}: ${catFieldValues[label]?.trim() ?? ""}`).join("\n");
+      const description = [fDesc.trim(), catFieldSummary].filter(Boolean).join("\n\n");
       setSubmitting(true);
       setSubmitError(null);
       try {
@@ -65,7 +95,7 @@ export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onC
           assigneeId: fAssignee,
           dueDate: fDue || null,
           priority: fPriority,
-          description: fDesc.trim() || undefined,
+          description: description || undefined,
         }, currentProjectId ?? DEMO_PROJECT_ID);
         onCreated(created);
         setStep(step + 1);
@@ -222,10 +252,15 @@ export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onC
               <div>
                 <div className="flex items-center gap-2 mb-4"><CatTag catId={selCat} /><h2 className="text-lg font-bold text-foreground">카테고리 전용 정보</h2></div>
                 <div className="space-y-4">
-                  {(CAT_MODAL_FIELDS[selCat] ?? CAT_MODAL_FIELDS["other"]).map(([label, placeholder]) => (
+                  {catFields.map(([label, placeholder]) => (
                     <div key={label}>
-                      <label className="text-xs font-semibold text-foreground block mb-1.5">{label}</label>
-                      <input placeholder={placeholder} className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                      <label className="text-xs font-semibold text-foreground block mb-1.5">{label} <span className="text-red-500">*</span></label>
+                      <input
+                        value={catFieldValues[label] ?? ""}
+                        onChange={(e) => setCatFieldValues(prev => ({ ...prev, [label]: e.target.value }))}
+                        placeholder={placeholder}
+                        className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                      />
                     </div>
                   ))}
                 </div>
@@ -244,7 +279,21 @@ export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onC
                 <div className="flex gap-3">
                   <button onClick={onClose} className="px-5 py-2 text-sm font-medium border border-border rounded-xl hover:bg-muted transition-colors">보드로 돌아가기</button>
                   <button
-                    onClick={() => { setStep(0); setSelCat(""); setFTitle(""); setFDesc(""); setFCriteria(""); }}
+                    onClick={() => {
+                      setStep(0);
+                      setSelCat("");
+                      setCustomCat("");
+                      setFTitle("");
+                      setFDesc("");
+                      setFAssignee(String(projectMembers[0]?.userId ?? ""));
+                      setFDue("");
+                      setFPriority("medium");
+                      setFStatus(initialStatus);
+                      setFCriteria("");
+                      setCatFieldValues({});
+                      setStepError(null);
+                      setSubmitError(null);
+                    }}
                     className="px-5 py-2 text-sm font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
                     style={{ background: "var(--primary)" }}
                   >
@@ -258,17 +307,17 @@ export function AddTaskModal({ open, initialStatus, projectMembers, onClose, onC
           {/* Modal footer */}
           {step < 3 && (
             <div className="flex flex-col gap-2 px-6 py-4 border-t border-border">
-              {submitError && <div className="text-xs text-red-600">{submitError}</div>}
+              {(stepError || submitError) && <div className="text-xs text-red-600">{stepError ?? submitError}</div>}
               <div className="flex items-center justify-between">
                 <button
-                  onClick={() => (step === 0 ? onClose() : setStep(step - 1))}
+                  onClick={() => { setStepError(null); step === 0 ? onClose() : setStep(step - 1); }}
                   className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-muted-foreground border border-border rounded-xl hover:bg-muted transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4" />{step === 0 ? "취소" : "이전"}
                 </button>
                 <button
                   onClick={handleNext}
-                  disabled={(step === 0 && !selCat) || submitting}
+                  disabled={submitting}
                   className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-40 hover:opacity-90 transition-opacity"
                   style={{ background: "linear-gradient(135deg,#3B5BDB,#4F6EF7)" }}
                 >

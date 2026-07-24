@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AlertTriangle, Calendar, Clock, FileText, Plus, Sparkles, Target } from "lucide-react";
+import { AlertTriangle, Calendar, Clock, Sparkles, Target } from "lucide-react";
 import { AiInsightBox } from "../../../ai/components/AiInsightBox";
 import { openAIAssistant } from "../../../ai/libs/utils/openAIAssistant";
+import { queryRag } from "../../../ai/libs/utils/ragApi";
+import { notifyProgressReportReady } from "../../../global/api/notificationApi";
 import { BackBtn } from "../../../global/component/BackBtn";
 import { DetailStatCard } from "../../../global/component/DetailStatCard";
 import type { TaskStatus } from "../../../board/libs/types/task";
@@ -11,6 +13,7 @@ import { useAuth } from "../../../global/hooks/useAuth";
 import { useDashboardProgress } from "../../libs/hooks/useDashboardProgress";
 import { useDashboardTasks } from "../../libs/hooks/useDashboardTasks";
 import { MilestoneAddPopup } from "../../components/MilestoneAddPopup";
+import { TaskDetailPopup } from "../../components/TaskDetailPopup";
 import {
   ProgressFrequencyChart,
   buildYTicks,
@@ -22,6 +25,7 @@ import {
   Y_TICK_SEGMENTS,
 } from "../../components/ProgressFrequencyChart";
 import {
+  daysUntilDue,
   expectedProgressPercent,
   formatDashboardDueDate,
   formatDDay,
@@ -37,6 +41,10 @@ const MILESTONE_STATUS_MAP: Record<TaskStatus, { cls: string; label: string }> =
   todo: { cls: "bg-slate-100 text-slate-500", label: "예정" },
   blocked: { cls: "bg-red-100 text-red-700", label: "지연" },
 };
+
+// 퍼센트/flex 체인 대신 확정 픽셀 높이를 매 depth마다 그대로 내려써서
+// ResponsiveContainer의 부모 높이 측정 모호성을 없앤다 (ProgressFrequencyChart와 동일한 이유).
+const DAILY_CHART_HEIGHT = 160;
 
 const STATUS_LEGEND = [
   { label: "완료·양호", color: "#10B981" },
@@ -166,12 +174,19 @@ export function DashProgressPage() {
   const { data: progress, loading, error, refetch } = useDashboardProgress(currentProjectId);
   const { data: tasks, loading: tasksLoading } = useDashboardTasks(currentProjectId);
   const [showMilestonePopup, setShowMilestonePopup] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<DashboardTaskDto | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const totalTasks = progress?.totalTasks ?? 0;
   const doneTasks = progress?.doneTasks ?? 0;
   const progressPercent = progress?.progressPercent ?? 0;
   const delayRisks = progress?.delayRisks.filter(risk => isDelayRisk(risk.result)) ?? [];
   const delayRiskTaskIds = new Set(delayRisks.map(risk => risk.taskId));
+  // '지연 업무'는 ML 예측이 아니라, 완료되지 않은 채 마감일이 실제로 지난 업무 수를 그대로 센다.
+  const overdueTaskCount = tasks.filter(task => {
+    const days = daysUntilDue(task.dueDate);
+    return normalizeTaskStatus(task.status) !== "done" && days != null && days < 0;
+  }).length;
   const categories = progress?.categoryBreakdown ?? [];
   const tasksByCategory = new Map<string, DashboardTaskDto[]>();
   tasks.forEach(task => {
@@ -199,7 +214,24 @@ export function DashProgressPage() {
     ...dailyCompletionPoints.map(point => dailyCompletionMembers.reduce((sum, member) => sum + (point[member.key] as number), 0)),
     1
   );
+  const handleGenerateReport = async () => {
+    if (currentProjectId == null || generatingReport) return;
+    openAIAssistant(insightPrompt);
+    setGeneratingReport(true);
+    try {
+      const { answer } = await queryRag(currentProjectId, insightPrompt);
+      await notifyProgressReportReady(answer.length > 200 ? `${answer.slice(0, 200)}...` : answer);
+    } catch {
+      // 알림 전송 실패는 조용히 무시한다 — 보고서 자체는 이미 AI 어시스턴트 패널에 표시된다.
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
   const dailyCompletionScrollRef = useRef<HTMLDivElement>(null);
+  const dailyCompletionSvgRef = useRef<SVGSVGElement>(null);
+  const [dailyHoverIndex, setDailyHoverIndex] = useState<number | null>(null);
+  const [dailyHoverPos, setDailyHoverPos] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     dailyCompletionScrollRef.current?.scrollTo({ left: dailyCompletionScrollRef.current.scrollWidth });
@@ -215,9 +247,8 @@ export function DashProgressPage() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={onGoUrgent} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-red-200 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"><AlertTriangle className="w-3.5 h-3.5" />마감 업무</button>
-          <button onClick={() => openAIAssistant(insightPrompt)} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors"><FileText className="w-3.5 h-3.5" />진행률 보고서</button>
-          <button onClick={() => openAIAssistant(insightPrompt)} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white rounded-lg" style={{ background: "linear-gradient(135deg,#7048E8,#4F6EF7)" }}>
-            <Sparkles className="w-3.5 h-3.5" />AI 요약 요청
+          <button onClick={handleGenerateReport} disabled={generatingReport} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white rounded-lg disabled:opacity-60" style={{ background: "linear-gradient(135deg,#7048E8,#4F6EF7)" }}>
+            <Sparkles className="w-3.5 h-3.5" />{generatingReport ? "생성 중..." : "진행률 보고서"}
           </button>
         </div>
       </div>
@@ -226,7 +257,7 @@ export function DashProgressPage() {
 
       <div className="grid grid-cols-3 gap-3">
         <DetailStatCard label="전체 완료율" value={loading ? "..." : `${progressPercent}%`} sub={loading ? "불러오는 중" : `${doneTasks} / ${totalTasks} 완료`} color="#3B5BDB" icon={Target} />
-        <DetailStatCard label="지연 업무" value={loading ? "..." : `${delayRisks.length}개`} sub="즉시 검토 필요" color="#EF4444" icon={Clock} />
+        <DetailStatCard label="지연 업무" value={loading || tasksLoading ? "..." : `${overdueTaskCount}개`} sub="마감일 경과 · 미완료" color="#EF4444" icon={Clock} />
         <DetailStatCard label="마감 D-day" value={loading ? "..." : projectDDay} sub={formatDashboardDueDate(projectDeadline)} color="#F59E0B" icon={Calendar} />
       </div>
 
@@ -270,12 +301,12 @@ export function DashProgressPage() {
                 </div>
               )}
             </div>
-            <div className="h-40 flex">
+            <div className="flex" style={{ height: DAILY_CHART_HEIGHT }}>
               {loading || tasksLoading ? (
                 <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">데이터를 불러오는 중입니다</div>
               ) : dailyCompletionPoints.length ? (
                 <>
-                  <div className="w-10 shrink-0 relative">
+                  <div className="w-10 shrink-0 relative" style={{ height: DAILY_CHART_HEIGHT }}>
                     <span className="absolute top-0 left-0.5 text-[9px] leading-none text-muted-foreground">(개)</span>
                     <div
                       className="absolute left-0 right-1 flex flex-col justify-between text-right text-[10px] text-muted-foreground"
@@ -284,37 +315,92 @@ export function DashProgressPage() {
                       {buildYTicks(dailyCompletionYMax, Y_TICK_SEGMENTS).map(tick => <span key={tick}>{tick}</span>)}
                     </div>
                   </div>
-                  <div
-                    ref={dailyCompletionScrollRef}
-                    className={chartsFillFullWidth ? "flex-1 h-full relative overflow-hidden" : "flex-1 h-full overflow-x-auto overflow-y-hidden cursor-grab relative"}
-                  >
-                    <span className="absolute bottom-1 right-1 text-[9px] leading-none text-muted-foreground">(일)</span>
-                    <div
-                      style={{
-                        width: chartsFillFullWidth
-                          ? "100%"
-                          : Math.max(dailyCompletionPoints.length * FREQUENCY_POINT_WIDTH, FREQUENCY_WINDOW_DAYS * FREQUENCY_POINT_WIDTH),
-                        height: "100%",
-                      }}
-                    >
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dailyCompletionPoints} margin={{ top: CHART_MARGIN_TOP, right: 8, left: 0, bottom: CHART_MARGIN_BOTTOM }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
-                          <XAxis
-                            dataKey="label"
-                            tick={{ fontSize: 10, fill: "#8892A4" }}
-                            axisLine={{ stroke: "#94A3B8" }}
-                            tickLine={false}
-                          />
-                          <YAxis domain={[0, dailyCompletionYMax]} hide />
-                          <Tooltip content={<DailyCompletionTooltip members={dailyCompletionMembers} />} />
-                          {dailyCompletionMembers.map(member => (
-                            <Bar key={member.key} dataKey={member.key} name={member.name} stackId="daily" fill={member.color} radius={[2, 2, 0, 0]} />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
+                  {(() => {
+                    const n = dailyCompletionPoints.length;
+                    const plotHeight = DAILY_CHART_HEIGHT - CHART_MARGIN_TOP - CHART_MARGIN_BOTTOM;
+                    const bottomY = CHART_MARGIN_TOP + plotHeight;
+                    const pixelWidth = Math.max(n * FREQUENCY_POINT_WIDTH, FREQUENCY_WINDOW_DAYS * FREQUENCY_POINT_WIDTH);
+                    const viewBoxWidth = chartsFillFullWidth ? 1000 : pixelWidth;
+                    const bandWidth = viewBoxWidth / n;
+                    const barWidth = bandWidth * 0.5;
+                    const yFor = (value: number) => {
+                      const ratio = dailyCompletionYMax <= 0 ? 0 : value / dailyCompletionYMax;
+                      return CHART_MARGIN_TOP + (1 - ratio) * plotHeight;
+                    };
+                    const handleDailyMove = (event: ReactMouseEvent<SVGSVGElement>) => {
+                      const svg = dailyCompletionSvgRef.current;
+                      if (!svg || n === 0) return;
+                      const rect = svg.getBoundingClientRect();
+                      const localX = (event.clientX - rect.left) * (viewBoxWidth / rect.width);
+                      const index = Math.min(n - 1, Math.max(0, Math.floor(localX / bandWidth)));
+                      setDailyHoverIndex(index);
+                      // 뷰포트 기준 좌표로 저장 — position:fixed 포털로 그려서 다른 요소에 가려지지 않게 한다.
+                      setDailyHoverPos({ x: event.clientX, y: rect.top + 4 });
+                    };
+                    const hoverPoint = dailyHoverIndex != null ? dailyCompletionPoints[dailyHoverIndex] : null;
+                    return (
+                      <div
+                        ref={dailyCompletionScrollRef}
+                        className={chartsFillFullWidth ? "flex-1 relative overflow-hidden" : "flex-1 overflow-x-auto overflow-y-hidden cursor-grab relative"}
+                        style={{ height: DAILY_CHART_HEIGHT }}
+                      >
+                        <span className="absolute bottom-1 right-1 text-[9px] leading-none text-muted-foreground z-10">(일)</span>
+                        <div style={{ width: chartsFillFullWidth ? "100%" : pixelWidth, height: DAILY_CHART_HEIGHT }}>
+                          <svg
+                            ref={dailyCompletionSvgRef}
+                            width="100%"
+                            height={DAILY_CHART_HEIGHT}
+                            viewBox={`0 0 ${viewBoxWidth} ${DAILY_CHART_HEIGHT}`}
+                            preserveAspectRatio="none"
+                            onMouseMove={handleDailyMove}
+                            onMouseLeave={() => { setDailyHoverIndex(null); setDailyHoverPos(null); }}
+                          >
+                            {buildYTicks(dailyCompletionYMax, Y_TICK_SEGMENTS).map(tick => (
+                              <line key={tick} x1={0} x2={viewBoxWidth} y1={yFor(tick)} y2={yFor(tick)} stroke="rgba(0,0,0,0.06)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+                            ))}
+                            {dailyCompletionPoints.map((point, i) => {
+                              let cumulative = 0;
+                              const cx = i * bandWidth + bandWidth / 2;
+                              return (
+                                <g key={point.dateKey}>
+                                  {dailyCompletionMembers.map(member => {
+                                    const value = point[member.key] as number;
+                                    if (value <= 0) return null;
+                                    const y0 = yFor(cumulative);
+                                    cumulative += value;
+                                    const y1 = yFor(cumulative);
+                                    return (
+                                      <rect key={member.key} x={cx - barWidth / 2} y={y1} width={barWidth} height={Math.max(y0 - y1, 0)} fill={member.color} rx={2} />
+                                    );
+                                  })}
+                                  <text x={cx} y={bottomY + 14} textAnchor="middle" fontSize={10} fill="#8892A4">{point.label}</text>
+                                </g>
+                              );
+                            })}
+                            {dailyHoverIndex != null && (
+                              <rect x={dailyHoverIndex * bandWidth} y={CHART_MARGIN_TOP} width={bandWidth} height={plotHeight} fill="rgba(59,91,219,0.05)" />
+                            )}
+                            {/* x축 라인 — 항상 플롯 영역의 진짜 바닥(bottomY)에 고정 */}
+                            <line x1={0} x2={viewBoxWidth} y1={bottomY} y2={bottomY} stroke="#94A3B8" vectorEffect="non-scaling-stroke" />
+                          </svg>
+                          {hoverPoint && dailyHoverPos && createPortal(
+                            <div
+                              className="fixed pointer-events-none"
+                              style={{ left: dailyHoverPos.x, top: dailyHoverPos.y, transform: "translateX(-50%)", zIndex: 9999 }}
+                            >
+                              <DailyCompletionTooltip
+                                active
+                                label={hoverPoint.label}
+                                members={dailyCompletionMembers}
+                                payload={dailyCompletionMembers.map(member => ({ dataKey: member.key, value: hoverPoint[member.key] as number }))}
+                              />
+                            </div>,
+                            document.body
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">표시할 완료 업무 데이터가 없습니다.</div>
@@ -326,7 +412,7 @@ export function DashProgressPage() {
         <div className="bg-card rounded-xl p-5 border border-border shadow-sm">
           <div className="text-sm font-semibold text-foreground mb-3">단계별 진행 상태</div>
           <div className="space-y-3.5">
-            {categories.map(item => {
+            {!loading && categories.map(item => {
               const pct = item.total === 0 ? 0 : Math.round((item.done / item.total) * 100);
               const categoryTasks = tasksByCategory.get(item.category ?? "") ?? [];
               const riskRatio = categoryTasks.length
@@ -379,7 +465,7 @@ export function DashProgressPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {milestones.map(item => {
+            {!loading && milestones.map(item => {
               const status = MILESTONE_STATUS_MAP[normalizeMilestoneStatus(item.status)];
               return (
                 <tr key={item.id} className="hover:bg-muted/30 transition-colors">
@@ -395,7 +481,16 @@ export function DashProgressPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{item.taskCount > 0 ? `${item.taskCount}개` : "-"}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => navigate("/dashboard/all-tasks")} className="text-[11px] font-medium text-blue-600 hover:text-blue-700">업무 보기</button>
+                    <button
+                      onClick={() => {
+                        const relatedTask = tasks.find(t => item.taskIds.includes(t.id));
+                        if (relatedTask) setDetailTarget(relatedTask);
+                        else navigate("/dashboard/all-tasks");
+                      }}
+                      className="text-[11px] font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      업무 보기
+                    </button>
                   </td>
                 </tr>
               );
@@ -414,6 +509,13 @@ export function DashProgressPage() {
           projectId={currentProjectId}
           onClose={() => setShowMilestonePopup(false)}
           onCreated={() => { setShowMilestonePopup(false); refetch(); }}
+        />
+      )}
+      {detailTarget && currentProjectId != null && (
+        <TaskDetailPopup
+          task={detailTarget}
+          projectId={currentProjectId}
+          onClose={() => setDetailTarget(null)}
         />
       )}
     </div>

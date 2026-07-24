@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { AlertTriangle, Calendar, CheckCircle2, Clock, MessageSquare, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { AiInsightBox } from "../../../ai/components/AiInsightBox";
@@ -8,9 +8,12 @@ import { DetailStatCard } from "../../../global/component/DetailStatCard";
 import { useAuth } from "../../../global/hooks/useAuth";
 import { useDashboardProgress } from "../../libs/hooks/useDashboardProgress";
 import { useDashboardTasks } from "../../libs/hooks/useDashboardTasks";
-import { updateTaskPosition } from "../../../board/libs/utils/taskApi";
+import { updateTaskPosition, requestTaskCompletion } from "../../../board/libs/utils/taskApi";
 import type { DashboardTaskDto } from "../../libs/types/dashboard";
 import { TaskDueDatePopup } from "../../components/TaskDueDatePopup";
+import { TaskDetailPopup } from "../../components/TaskDetailPopup";
+import { AddTaskModal } from "../../../board/components/AddTaskModal";
+import { getProjectMembers, type MemberResponse } from "../../../global/api/projectsApi";
 import {
   daysSince,
   formatDashboardDueDate,
@@ -36,14 +39,30 @@ const STATUS_CHANGE_LABEL: Record<"done" | "blocked", string> = {
 };
 
 export function InProgressPage() {
-  const { currentProjectId } = useAuth();
+  const { currentProjectId, currentProject } = useAuth();
+  const isLeader = currentProject?.role === "팀장";
   const { data: tasks, loading, error, refetch } = useDashboardTasks(currentProjectId);
   const { data: progress } = useDashboardProgress(currentProjectId);
   const navigate = useNavigate();
   const onBack = () => navigate("/dashboard");
   const [dueDateTarget, setDueDateTarget] = useState<DashboardTaskDto | null>(null);
+  const [commentTarget, setCommentTarget] = useState<DashboardTaskDto | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [projectMembers, setProjectMembers] = useState<MemberResponse[]>([]);
+
+  useEffect(() => {
+    if (currentProjectId == null) {
+      setProjectMembers([]);
+      return;
+    }
+    let cancelled = false;
+    getProjectMembers(currentProjectId)
+      .then(result => { if (!cancelled) setProjectMembers(result); })
+      .catch(() => { if (!cancelled) setProjectMembers([]); });
+    return () => { cancelled = true; };
+  }, [currentProjectId]);
   const inProgressTasks = tasks.filter(task => normalizeTaskStatus(task.status) === "inprogress");
   const updateNeededCount = inProgressTasks.filter(task => (daysSince(task.updatedAt) ?? 0) >= 3).length;
   const riskPredictions = progress?.delayRisks.filter(risk => isDelayRisk(risk.result)) ?? [];
@@ -69,6 +88,21 @@ export function InProgressPage() {
     }
   };
 
+  const requestCompletion = async (taskId: string, taskTitle: string) => {
+    if (currentProjectId == null) return;
+    if (!window.confirm(`'${taskTitle}' 업무의 완료 승인을 팀장에게 요청할까요?`)) return;
+    setActionError(null);
+    setPendingTaskId(taskId);
+    try {
+      await requestTaskCompletion(taskId, currentProjectId);
+      alert("완료 요청을 보냈습니다.");
+    } catch {
+      setActionError("완료 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setPendingTaskId(null);
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto p-6 space-y-4" style={{ fontFamily: "'Inter','Noto Sans KR',sans-serif" }}>
       <div className="flex items-start justify-between">
@@ -81,9 +115,11 @@ export function InProgressPage() {
           <button onClick={() => refetch()} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
             <RefreshCw className="w-3.5 h-3.5" /> 새로고침
           </button>
-          <button onClick={() => navigate("/board?openAdd=1")} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white rounded-lg" style={{ background: "var(--primary)" }}>
-            <Plus className="w-3.5 h-3.5" /> 업무 추가
-          </button>
+          {isLeader && (
+            <button onClick={() => setShowAddTask(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white rounded-lg" style={{ background: "var(--primary)" }}>
+              <Plus className="w-3.5 h-3.5" /> 업무 추가
+            </button>
+          )}
         </div>
       </div>
 
@@ -114,7 +150,7 @@ export function InProgressPage() {
       </div>
 
       <div className="space-y-3">
-        {inProgressTasks.map((task, index) => {
+        {!loading && inProgressTasks.map((task, index) => {
           const member = taskAssignee(task, index);
           const statusDays = daysSince(task.updatedAt) ?? 0;
           const isRisk = riskTaskIds.has(task.id);
@@ -174,13 +210,23 @@ export function InProgressPage() {
                 </div>
 
                 <div className="flex items-center flex-wrap gap-2 pt-3 border-t border-border">
-                  <button
-                    onClick={() => changeStatus(task.id, task.title, "done")}
-                    disabled={pendingTaskId === task.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 완료 처리
-                  </button>
+                  {isLeader ? (
+                    <button
+                      onClick={() => changeStatus(task.id, task.title, "done")}
+                      disabled={pendingTaskId === task.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 완료 처리
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => requestCompletion(task.id, task.title)}
+                      disabled={pendingTaskId === task.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 완료 요청
+                    </button>
+                  )}
                   <button
                     onClick={() => changeStatus(task.id, task.title, "blocked")}
                     disabled={pendingTaskId === task.id}
@@ -188,10 +234,12 @@ export function InProgressPage() {
                   >
                     <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> 블로커 전환
                   </button>
-                  <button onClick={() => setDueDateTarget(task)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
-                    <Calendar className="w-3.5 h-3.5" /> 마감 조정
-                  </button>
-                  <button onClick={() => navigate("/board")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
+                  {isLeader && (
+                    <button onClick={() => setDueDateTarget(task)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
+                      <Calendar className="w-3.5 h-3.5" /> 마감 조정
+                    </button>
+                  )}
+                  <button onClick={() => setCommentTarget(task)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors">
                     <MessageSquare className="w-3.5 h-3.5" /> 댓글
                   </button>
                   <button onClick={() => openAIAssistant(`진행 중 업무 '${task.title}'을 점검해줘. 마지막 업데이트는 ${formatRelativeDate(task.updatedAt)}이고 ${statusDays}일째 현재 상태이며, 마감일은 ${formatDashboardDueDate(task.dueDate)}, 지연 예측은 ${isDanger ? "위험" : isRisk ? "주의" : "정상"}이야. 다음 액션을 추천해줘.`)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg ml-auto transition-opacity hover:opacity-80" style={{ background: "rgba(112,72,232,0.12)", color: "#7048E8" }}>
@@ -217,6 +265,21 @@ export function InProgressPage() {
           onChanged={() => { setDueDateTarget(null); refetch(); }}
         />
       )}
+      {commentTarget && currentProjectId != null && (
+        <TaskDetailPopup
+          task={commentTarget}
+          projectId={currentProjectId}
+          focusComments
+          onClose={() => setCommentTarget(null)}
+        />
+      )}
+      <AddTaskModal
+        open={showAddTask}
+        initialStatus="inprogress"
+        projectMembers={projectMembers}
+        onClose={() => setShowAddTask(false)}
+        onCreated={() => { setShowAddTask(false); refetch(); }}
+      />
     </div>
   );
 }

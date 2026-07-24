@@ -131,10 +131,10 @@ public class TaskController {
 
     @Operation(
         summary = "업무 생성",
-        description = "업무보드에서 새 업무를 직접 생성합니다."
+        description = "업무보드에서 새 업무를 직접 생성합니다. 팀장만 생성할 수 있습니다."
     )
     @PostMapping
-    @PreAuthorize("@projectAccess.isMember(#projectId)")
+    @PreAuthorize("@projectAccess.hasRole(#projectId, 'LEADER')")
     @Transactional
     public ResponseEntity<ApiResponse<TaskListItem>> createTask(
         @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId,
@@ -178,7 +178,16 @@ public class TaskController {
             nextAppendPosition(projectDbId, status)
         ));
         activityService.record(projectDbId, createdBy, "TASK_CREATED", task.getId(), "'" + task.getTitle() + "' 업무를 새로 추가했습니다.");
-        if (task.getAssigneeId() != null && !task.getAssigneeId().equals(createdBy)) {
+        // "업무 추가" 알림을 먼저 보낸다 — 팀장/팀원 구분 없이 프로젝트 멤버 전체 대상.
+        // 생성자 본인이어도 "생성했다"는 사실 자체를 알려야 하므로 행위자를 제외하지 않는다.
+        String taskCreatedContent = "'" + task.getTitle() + "' 업무가 새로 추가되었습니다.";
+        projectMemberRepository.findAllByProjectId(projectDbId).stream()
+            .map(com.workflowai.project.ProjectMember::getUserId)
+            .forEach(memberId -> notificationService.notify(
+                memberId, "TASK_CREATED", "새 업무가 추가되었습니다.", taskCreatedContent, "task", task.getId()
+            ));
+        // 그 다음 "업무 배정" 알림 — 담당자에게는 항상 보낸다(생성자가 자기 자신을 담당자로 지정한 경우 포함).
+        if (task.getAssigneeId() != null) {
             notificationService.notify(
                 task.getAssigneeId(), "TASK_ASSIGNED", "새 업무가 배정되었습니다.",
                 "'" + task.getTitle() + "' 업무가 배정되었습니다.", "task", task.getId()
@@ -238,11 +247,11 @@ public class TaskController {
                     notificationContent, "task", task.getId()
                 );
             }
+            // 팀장에게는 행위자 본인이어도 알림을 보낸다 — 팀장이 곧 담당자인 업무를 스스로 처리한 경우까지
+            // 포함해서 "상태가 바뀌었다"는 사실 자체가 기록되어야 하므로, 다른 알림과 달리 actor를 제외하지 않는다.
             projectMemberRepository.findAllByProjectId(projectDbId).stream()
                 .filter(member -> member.getRole() == ProjectRole.LEADER)
                 .map(com.workflowai.project.ProjectMember::getUserId)
-                .filter(leaderId -> !leaderId.equals(moveActorId))
-                .filter(leaderId -> !leaderId.equals(task.getAssigneeId()))
                 .forEach(leaderId -> notificationService.notify(
                     leaderId, "STATUS_CHANGED", "업무 상태가 변경되었습니다.",
                     notificationContent, "task", task.getId()
@@ -298,9 +307,10 @@ public class TaskController {
 
         Long actorId = currentActorId();
         boolean assigneeChanged = !Objects.equals(assigneeBefore, task.getAssigneeId());
+        // dueDate 변경은 바로 아래에서 전용 "마감일 변경" 알림으로 따로 처리하므로,
+        // 여기 포함시키면 "업무 정보 수정" 알림이 중복으로 나가게 되어 제외한다.
         boolean otherFieldsChanged = !Objects.equals(titleBefore, task.getTitle())
             || !Objects.equals(categoryBefore, task.getCategory())
-            || !Objects.equals(dueDateBefore, task.getDueDate())
             || !Objects.equals(priorityBefore, task.getPriority())
             || !Objects.equals(descriptionBefore, task.getDescription());
         if (assigneeChanged) {
@@ -320,6 +330,24 @@ public class TaskController {
                     "'" + task.getTitle() + "' 업무 담당자로 지정되었습니다.", "task", task.getId()
                 );
             }
+            if (assigneeBefore != null && !assigneeBefore.equals(actorId) && !assigneeBefore.equals(task.getAssigneeId())) {
+                notificationService.notify(
+                    assigneeBefore, "TASK_ASSIGNED", "담당하던 업무의 담당자가 변경되었습니다.",
+                    "'" + task.getTitle() + "' 업무 담당자가 변경되었습니다.", "task", task.getId()
+                );
+            }
+            notifyLeaders(projectDbId, actorId, "TASK_ASSIGNED", "업무 담당자가 변경되었습니다.",
+                "'" + task.getTitle() + "' 업무 담당자가 '" + userName(task.getAssigneeId()) + "'(으)로 변경되었습니다.", task.getId());
+        }
+        if (!Objects.equals(dueDateBefore, task.getDueDate())) {
+            String dueDateChangedContent = "'" + task.getTitle() + "' 업무 마감일이 변경되었습니다.";
+            if (task.getAssigneeId() != null && !task.getAssigneeId().equals(actorId)) {
+                notificationService.notify(
+                    task.getAssigneeId(), "TASK_UPDATED", "담당 업무 마감일이 변경되었습니다.",
+                    dueDateChangedContent, "task", task.getId()
+                );
+            }
+            notifyLeaders(projectDbId, actorId, "TASK_UPDATED", "업무 마감일이 변경되었습니다.", dueDateChangedContent, task.getId(), false);
         }
         if (otherFieldsChanged) {
             String ragContent = buildRagContent(task);
@@ -438,7 +466,59 @@ public class TaskController {
                 String.format(messageTemplate, task.getTitle()), "task", task.getId()
             );
         }
+        activityService.record(projectDbId, actorId, "TASK_NUDGE", task.getId(),
+            "'" + task.getTitle() + "' 업무에 리마인드 알림을 보냈습니다.");
+        notifyLeaders(projectDbId, actorId, "TASK_NUDGE", NUDGE_TITLES.get(request.kind()),
+            "'" + task.getTitle() + "' 업무에 리마인드 알림을 보냈습니다.", task.getId());
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @Operation(
+        summary = "업무 완료 요청",
+        description = "팀원 권한 사용자가 담당 업무의 완료 승인을 팀장에게 요청합니다(상태는 바뀌지 않음)."
+    )
+    @PostMapping("/{taskId}/completion-request")
+    @PreAuthorize("@projectAccess.isMember(#projectId)")
+    public ResponseEntity<ApiResponse<Void>> requestCompletion(
+        @Parameter(description = "프로젝트 ID", example = "demo-project") @PathVariable String projectId,
+        @Parameter(description = "업무 ID") @PathVariable Long taskId
+    ) {
+        Long projectDbId = demoDataService.resolveProjectId(projectId);
+        Task task = taskRepository.findById(taskId).orElse(null);
+        if (task == null || !task.getProjectId().equals(projectDbId)) {
+            return ResponseEntity.status(404).body(ApiResponse.fail("TASK_NOT_FOUND", "업무를 찾을 수 없습니다."));
+        }
+        Long actorId = CurrentUser.id();
+        String content = "'" + task.getTitle() + "' 업무의 완료 승인을 요청했습니다.";
+        projectMemberRepository.findAllByProjectId(projectDbId).stream()
+            .filter(member -> member.getRole() == ProjectRole.LEADER)
+            .map(com.workflowai.project.ProjectMember::getUserId)
+            .filter(leaderId -> !leaderId.equals(actorId))
+            .forEach(leaderId -> notificationService.notify(
+                leaderId, "TASK_COMPLETION_REQUEST", "업무 완료 요청",
+                content, "task", task.getId()
+            ));
+        if (task.getAssigneeId() != null && !task.getAssigneeId().equals(actorId)) {
+            notificationService.notify(
+                task.getAssigneeId(), "TASK_COMPLETION_REQUEST", "업무 완료 요청",
+                content, "task", task.getId()
+            );
+        }
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    private void notifyLeaders(Long projectDbId, Long actorId, String type, String title, String content, Long taskId) {
+        notifyLeaders(projectDbId, actorId, type, title, content, taskId, true);
+    }
+
+    /** excludeActor=false면 행위자 본인이 팀장이어도 알림을 보낸다 — "본인이 팀장이면서 이 업무의 담당자라
+     * 스스로 처리했다"는 경우까지 포함해서 그 사실 자체가 기록되어야 하는 알림(상태 변경/마감일 조정 등)에 쓴다. */
+    private void notifyLeaders(Long projectDbId, Long actorId, String type, String title, String content, Long taskId, boolean excludeActor) {
+        projectMemberRepository.findAllByProjectId(projectDbId).stream()
+            .filter(member -> member.getRole() == ProjectRole.LEADER)
+            .map(com.workflowai.project.ProjectMember::getUserId)
+            .filter(leaderId -> !excludeActor || !leaderId.equals(actorId))
+            .forEach(leaderId -> notificationService.notify(leaderId, type, title, content, "task", taskId));
     }
 
     private boolean isLeader(Long projectId, Long userId) {

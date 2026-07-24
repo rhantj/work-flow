@@ -64,6 +64,9 @@ export interface MilestoneProgressDto {
   taskCount: number;
   doneCount: number;
   progressPercent: number;
+  /** 별도 시작일 이력이 없어, 마일스톤 생성 시각을 일정표 타임라인의 시작일 근사치로 쓴다. */
+  createdAt: string | null;
+  taskIds: string[];
 }
 
 export interface CategoryProgressDto {

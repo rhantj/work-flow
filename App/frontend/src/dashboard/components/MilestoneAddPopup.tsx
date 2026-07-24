@@ -46,7 +46,7 @@ export function MilestoneAddPopup({ projectId, onClose, onCreated }: MilestoneAd
               <input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="예: MVP 발표"
+                placeholder="예) 업무보드 완성"
                 className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
               />
             </div>

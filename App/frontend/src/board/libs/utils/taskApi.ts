@@ -111,3 +111,7 @@ export async function sendTaskNudge(taskId: string, kind: NudgeKind, projectId: 
     body: JSON.stringify({ kind }),
   });
 }
+
+export async function requestTaskCompletion(taskId: string, projectId: number = DEMO_PROJECT_ID): Promise<void> {
+  await apiFetch<null>(`/projects/${projectId}/tasks/${taskId}/completion-request`, { method: "POST" });
+}

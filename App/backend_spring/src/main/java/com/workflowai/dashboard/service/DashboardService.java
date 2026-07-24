@@ -285,7 +285,9 @@ public class DashboardService {
             status,
             taskCount,
             doneCount,
-            progressPercent
+            progressPercent,
+            milestone.getCreatedAt() == null ? null : milestone.getCreatedAt().toString(),
+            linkedTasks.stream().map(t -> String.valueOf(t.getId())).toList()
         );
     }
 

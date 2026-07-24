@@ -124,15 +124,22 @@ public class TaskCommentController {
         User author = userRepository.findById(authorDbId).orElse(null);
         String authorName = author != null ? author.getName() : "알 수 없음";
         String authorMockId = author != null ? author.getProviderId() : null;
+        boolean isFeedback = "FEEDBACK".equals(type);
+        String verb = isFeedback ? "피드백을" : "코멘트를";
+        String noun = isFeedback ? "피드백이" : "코멘트가";
+        String notificationContent = "'" + authorName + "'님이 '" + task.getTitle() + "' 업무에 " + verb + " 남겼습니다.";
         if (task.getAssigneeId() != null && !task.getAssigneeId().equals(authorDbId)) {
-            boolean isFeedback = "FEEDBACK".equals(type);
-            String verb = isFeedback ? "피드백을" : "코멘트를";
-            String noun = isFeedback ? "피드백이" : "코멘트가";
             notificationService.notify(
                 task.getAssigneeId(), "TASK_COMMENT", "새 " + noun + " 달렸습니다.",
-                "'" + authorName + "'님이 '" + task.getTitle() + "' 업무에 " + verb + " 남겼습니다.", "task", task.getId()
+                notificationContent, "task", task.getId()
             );
         }
+        // 알림 대상: 업무 담당자 + 댓글 작성자 본인만(팀장 제외).
+        // 댓글 작성자 본인에게도 "등록됨" 확인 알림을 남긴다.
+        notificationService.notify(
+            authorDbId, "TASK_COMMENT", "댓글이 등록되었습니다.",
+            "'" + task.getTitle() + "' 업무에 " + verb + " 남겼습니다.", "task", task.getId()
+        );
         return ResponseEntity.ok(ApiResponse.ok(TaskCommentDto.from(saved, authorName, authorMockId)));
     }
 

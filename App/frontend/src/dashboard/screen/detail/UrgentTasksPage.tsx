@@ -9,7 +9,7 @@ import { PriorityBadge } from "../../../board/components/PriorityBadge";
 import { TaskStatusPill } from "../../../board/components/TaskStatusPill";
 import { useAuth } from "../../../global/hooks/useAuth";
 import { useDashboardTasks } from "../../libs/hooks/useDashboardTasks";
-import { updateTaskPosition } from "../../../board/libs/utils/taskApi";
+import { updateTaskPosition, requestTaskCompletion, sendTaskNudge } from "../../../board/libs/utils/taskApi";
 import { TaskDueDatePopup } from "../../components/TaskDueDatePopup";
 import { TaskAssigneePopup } from "../../components/TaskAssigneePopup";
 import {
@@ -46,7 +46,8 @@ function urgencyKey(daysLeft: number | null) {
 }
 
 export function UrgentTasksPage() {
-  const { currentProjectId } = useAuth();
+  const { currentProjectId, currentProject } = useAuth();
+  const isLeader = currentProject?.role === "팀장";
   const { data: tasks, loading, error, refetch } = useDashboardTasks(currentProjectId);
   const navigate = useNavigate();
   const onBack = () => navigate("/dashboard");
@@ -99,6 +100,35 @@ export function UrgentTasksPage() {
       refetch();
     } catch {
       setActionError("상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setPendingTaskId(null);
+    }
+  };
+
+  const requestCompletion = async (taskId: string, taskTitle: string) => {
+    if (currentProjectId == null) return;
+    if (!window.confirm(`'${taskTitle}' 업무의 완료 승인을 팀장에게 요청할까요?`)) return;
+    setActionError(null);
+    setPendingTaskId(taskId);
+    try {
+      await requestTaskCompletion(taskId, currentProjectId);
+      alert("완료 요청을 보냈습니다.");
+    } catch {
+      setActionError("완료 요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setPendingTaskId(null);
+    }
+  };
+
+  const sendReminder = async (taskId: string) => {
+    if (currentProjectId == null) return;
+    setActionError(null);
+    setPendingTaskId(taskId);
+    try {
+      await sendTaskNudge(taskId, "URGENT", currentProjectId);
+      alert("리마인드 알림을 보냈습니다.");
+    } catch {
+      setActionError("리마인드 알림 전송에 실패했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setPendingTaskId(null);
     }
@@ -159,7 +189,7 @@ export function UrgentTasksPage() {
 
       <div className="flex-1 overflow-hidden flex gap-4 min-h-0">
         <div className="flex-1 overflow-y-auto space-y-3" onScroll={handleScroll}>
-          {GROUPS.map(group => {
+          {!loading && GROUPS.map(group => {
             const grouped = urgentTasks.filter(row => urgencyKey(row.daysLeft) === group.key);
             if (!grouped.length) return null;
             const visibleRows = remainingVisible > 0 ? grouped.slice(0, remainingVisible) : [];
@@ -243,14 +273,30 @@ export function UrgentTasksPage() {
               )}
               <div className="space-y-2 pt-2 border-t border-border">
                 <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">빠른 액션</div>
-                <button onClick={() => alert("미구현된 기능입니다.")} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"><Bell className="w-3.5 h-3.5" />리마인드 알림 보내기</button>
-                <button onClick={() => setAssigneeTarget(selectedRow.task.id)} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors"><UserCog className="w-3.5 h-3.5" />담당자 변경</button>
-                <button onClick={() => setDueDateTarget(selectedRow.task.id)} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors"><Calendar className="w-3.5 h-3.5" />마감일 조정</button>
                 <button
-                  onClick={() => changeStatus(selectedRow.task.id, selectedRow.task.title, "done")}
+                  onClick={() => sendReminder(selectedRow.task.id)}
                   disabled={pendingTaskId === selectedRow.task.id}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
-                ><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />완료 처리</button>
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                ><Bell className="w-3.5 h-3.5" />리마인드 알림 보내기</button>
+                {isLeader && (
+                  <button onClick={() => setAssigneeTarget(selectedRow.task.id)} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors"><UserCog className="w-3.5 h-3.5" />담당자 변경</button>
+                )}
+                {isLeader && (
+                  <button onClick={() => setDueDateTarget(selectedRow.task.id)} className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors"><Calendar className="w-3.5 h-3.5" />마감일 조정</button>
+                )}
+                {isLeader ? (
+                  <button
+                    onClick={() => changeStatus(selectedRow.task.id, selectedRow.task.title, "done")}
+                    disabled={pendingTaskId === selectedRow.task.id}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                  ><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />완료 처리</button>
+                ) : (
+                  <button
+                    onClick={() => requestCompletion(selectedRow.task.id, selectedRow.task.title)}
+                    disabled={pendingTaskId === selectedRow.task.id}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-card text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                  ><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />완료 요청</button>
+                )}
                 <button
                   onClick={() => changeStatus(selectedRow.task.id, selectedRow.task.title, "blocked")}
                   disabled={pendingTaskId === selectedRow.task.id}

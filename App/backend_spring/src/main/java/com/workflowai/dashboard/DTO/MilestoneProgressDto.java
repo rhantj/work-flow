@@ -1,6 +1,7 @@
 package com.workflowai.dashboard.DTO;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 
 @Schema(description = "마일스톤 진행 현황 (연결된 업무의 완료 비율로 계산)")
 public record MilestoneProgressDto(
@@ -10,6 +11,8 @@ public record MilestoneProgressDto(
     @Schema(description = "상태 (done/inprogress/todo)", example = "inprogress") String status,
     @Schema(description = "연결된 업무 수", example = "6") long taskCount,
     @Schema(description = "완료된 업무 수", example = "3") long doneCount,
-    @Schema(description = "진행률 (%)", example = "50") long progressPercent
+    @Schema(description = "진행률 (%)", example = "50") long progressPercent,
+    @Schema(description = "생성일(ISO datetime) — 별도 시작일 이력이 없어 일정표 타임라인의 시작일 근사치로 쓴다", example = "2026-06-01T09:00:00") String createdAt,
+    @Schema(description = "이 마일스톤(task.milestoneId)에 연결된 업무 ID 목록") List<String> taskIds
 ) {
 }
