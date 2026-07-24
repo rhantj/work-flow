@@ -34,6 +34,12 @@ interface SignupDraft {
   professorNo: string;
 }
 
+// 비밀번호는 location.state가 아니라 모듈 스코프 변수에만 잠깐 담아둔다 — 브라우저 세션
+// 히스토리/sessionStorage 어디에도 직렬화되지 않고, 이 탭의 JS 메모리에만 존재하다가 탭을
+// 닫거나 새로고침하면 사라진다. 약관 보기 → 돌아오기(같은 탭 안에서의 리렌더)에서만 값이
+// 살아있으면 되므로 이 정도로 충분하고, location.state에 남기는 것보다 노출 범위가 훨씬 좁다.
+let pendingSignupPassword: string | undefined;
+
 export function SignupScreen() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,9 +50,16 @@ export function SignupScreen() {
   const navState = location.state as { agreed?: boolean; draft?: SignupDraft } | null;
   const [name, setName] = useState(navState?.draft?.name ?? "");
   const [email, setEmail] = useState(navState?.draft?.email ?? "");
-  // 비밀번호는 draft로 복원하지 않는다(위 SignupDraft 설명 참고) — 약관 보기를 눌렀다 돌아오면
-  // 매번 다시 입력해야 한다.
-  const [pw, setPw] = useState("");
+  // /signup/terms에서 돌아온 경우(동의 완료든 "돌아가기"든 draft가 실려 있다)에만
+  // pendingSignupPassword에서 복원한다 — 다른 draft 필드와 동일한 조건이다. 그 외(첫 진입,
+  // 다른 화면에서 옴)에는 항상 빈 값으로 시작한다. 읽자마자 비워서 이 변수가 필요 이상으로
+  // 메모리에 남아있지 않게 한다.
+  const [pw, setPw] = useState(() => {
+    if (!navState?.draft) return "";
+    const restored = pendingSignupPassword ?? "";
+    pendingSignupPassword = undefined;
+    return restored;
+  });
   const [pwConfirm, setPwConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
   // 일반적인 클릭으로는 체크할 수 없다 — /signup/terms에서 약관을 확인하고 돌아올 때만
@@ -300,22 +313,19 @@ export function SignupScreen() {
                 <span className="text-xs text-muted-foreground leading-relaxed">
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      // 비밀번호는 location.state로 넘기지 않는다 — 모듈 스코프 변수에만 잠깐
+                      // 담아둔다(SignupDraft/pendingSignupPassword 선언부 설명 참고).
+                      pendingSignupPassword = pw;
                       navigate("/signup/terms", {
-                        // 비밀번호는 넘기지 않는다 — SignupDraft 선언부 설명 참고.
                         state: { draft: { name, email, isProfessor, professorNo } },
-                      })
-                    }
+                      });
+                    }}
                     className="font-semibold text-blue-600 hover:text-blue-700"
                   >
                     약관 보기
                   </button>
                   를 통해 이용약관 및 개인정보처리방침을 확인하고 동의해주세요.
-                  {agreed && (
-                    <span className="block mt-0.5 text-[11px] text-muted-foreground/80">
-                      약관 확인을 위해 화면을 이동했다 왔습니다 — 비밀번호는 보안을 위해 다시 입력해주세요.
-                    </span>
-                  )}
                 </span>
               </div>
 
