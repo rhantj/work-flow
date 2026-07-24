@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { MyPage } from "./MyPage";
 import { fetchTasks } from "../../board/libs/utils/taskApi";
+import { getMyEvaluation } from "../../global/api/evaluationApi";
 import type { Task } from "../../board/libs/types/task";
 import { useAuth } from "../../global/hooks/useAuth";
 import { fetchReviewerProjects } from "../libs/utils/reviewerApi";
@@ -15,6 +16,10 @@ vi.mock("../../global/hooks/useAuth", () => ({
 
 vi.mock("../../board/libs/utils/taskApi", () => ({
   fetchTasks: vi.fn(),
+}));
+
+vi.mock("../../global/api/evaluationApi", () => ({
+  getMyEvaluation: vi.fn(),
 }));
 
 vi.mock("../libs/utils/reviewerApi", () => ({
@@ -43,6 +48,10 @@ function renderMyPage() {
 describe("MyPage member view", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(getMyEvaluation).mockResolvedValue({
+      contributionRevealed: false, score: null, finalRevealed: false, reviewerScore: null,
+      grade: null, commentRevealed: false, comment: null,
+    });
     vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
       loading: false,
@@ -71,12 +80,15 @@ describe("MyPage member view", () => {
     expect(screen.queryByText("업무 C")).not.toBeInTheDocument();
   });
 
-  it("shows a loading message while tasks are being fetched", () => {
+  it("shows a loading message while tasks are being fetched", async () => {
     vi.mocked(fetchTasks).mockReturnValue(new Promise(() => {}));
 
     renderMyPage();
 
     expect(screen.getByText("업무 정보를 불러오는 중...")).toBeInTheDocument();
+    // getMyEvaluation은 정상적으로 resolve되므로, 그 상태 갱신이 act() 밖에서 일어나
+    // "not wrapped in act" 경고가 뜨지 않도록 테스트 종료 전에 흘려보낸다.
+    await waitFor(() => expect(getMyEvaluation).toHaveBeenCalled());
   });
 
   it("shows an error message with a retry button when the fetch fails, and retries on click", async () => {
@@ -130,6 +142,70 @@ describe("MyPage member view", () => {
 
     await waitFor(() => expect(screen.getByText("담당 중인 업무가 없습니다.")).toBeInTheDocument());
     expect(screen.queryByText("내 활동 타임라인")).not.toBeInTheDocument();
+  });
+
+  it("does not show the public score section when the reviewer hasn't published anything", async () => {
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+    vi.mocked(getMyEvaluation).mockResolvedValue({
+      contributionRevealed: false, score: null, finalRevealed: false, reviewerScore: null,
+      grade: null, commentRevealed: false, comment: null,
+    });
+
+    renderMyPage();
+
+    await waitFor(() => expect(getMyEvaluation).toHaveBeenCalledWith(1));
+    expect(screen.queryByText("공개된 평가 결과")).not.toBeInTheDocument();
+  });
+
+  it("shows the reviewer-published score once revealed, hidden behind a reveal button first", async () => {
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+    vi.mocked(getMyEvaluation).mockResolvedValue({
+      contributionRevealed: true, score: 88, finalRevealed: true, reviewerScore: 90,
+      grade: "A+", commentRevealed: false, comment: null,
+    });
+
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getByText("공개된 평가 결과")).toBeInTheDocument());
+    expect(screen.queryByText("88.00")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /결과 확인하기/ }));
+    // 기여 점수/심사자 점수/학점 세 값이 모두 표시된다.
+    expect(screen.getByText("88.00")).toBeInTheDocument();
+    expect(screen.getByText("90.00")).toBeInTheDocument();
+    expect(screen.getByText("A+")).toBeInTheDocument();
+  });
+
+  it("기여 점수만 공개되고 총합/학점은 아직 비공개일 때, 기여 점수만 표시하고 총합/학점 칸은 '-'로 숨긴다", async () => {
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+    vi.mocked(getMyEvaluation).mockResolvedValue({
+      contributionRevealed: true, score: 76.12, finalRevealed: false, reviewerScore: null,
+      grade: null, commentRevealed: false, comment: null,
+    });
+
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getByText("공개된 평가 결과")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: /결과 확인하기/ }));
+    expect(screen.getByText("76.12")).toBeInTheDocument();
+    // 총합/심사자 점수/학점은 아직 공개되지 않아 "-"로 표시된다.
+    expect(screen.getAllByText("-")).toHaveLength(2);
+  });
+
+  it("심사 코멘트가 공개되면 개인 코멘트/피드백 목록 맨 앞에 심사자 코멘트가 나타난다", async () => {
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+    vi.mocked(getMyEvaluation).mockResolvedValue({
+      contributionRevealed: false, score: null, finalRevealed: false, reviewerScore: null,
+      grade: null, commentRevealed: true, comment: "팀장으로서 팀을 잘 이끌어주고 있습니다.",
+    });
+
+    renderMyPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("팀장으로서 팀을 잘 이끌어주고 있습니다.")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("심사자 코멘트")).toBeInTheDocument();
+    // 코멘트만 공개된 상태이므로 "공개된 평가 결과" 카드는 아직 뜨지 않는다.
+    expect(screen.queryByText("공개된 평가 결과")).not.toBeInTheDocument();
   });
 });
 

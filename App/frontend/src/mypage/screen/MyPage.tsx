@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import { useAuth } from "../../global/hooks/useAuth";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   User, Shield, Settings, Bell, LogOut, Github, ChevronRight,
   FileText, CheckCircle2, Clock, AlertTriangle, Star, Download,
@@ -14,13 +14,14 @@ import { DelivBadge } from "../../deliverables/components/DelivBadge";
 import { SectionTitle } from "../../global/component/SectionTitle";
 import { ProjectSettingsSection } from "./ProjectSettingsSection";
 import {
-  MEMBER_USER, MY_FEEDBACKS, PUBLIC_SCORE,
+  MEMBER_USER, MY_FEEDBACKS,
 } from "../libs/mock/mypage";
 import { CONTRIB_REPORTS } from "../../global/lib/mock/reviewer";
 import { useMyTasks } from "../libs/hooks/useMyTasks";
 import { useReviewerProjects } from "../libs/hooks/useReviewerProjects";
 import { getDueToday, getDueThisWeek } from "../libs/utils/taskWidgets";
 import { getDoneCount, getInProgressCount, getBlockedCount, getTasksByStatus, formatDueDate } from "../../board/libs/utils/taskService";
+import { getMyEvaluation, type MyEvaluationDto } from "../../global/api/evaluationApi";
 
 // ─── local types ──────────────────────────────────────────────────────────────
 export type MyPageRole = "member" | "reviewer";
@@ -38,6 +39,16 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
   const [taskView, setTaskView] = useState<"all"|"today"|"week">("all");
   const [showScore, setShowScore] = useState(false);
   const initials = name ? name[0] : MEMBER_USER.initials;
+
+  // 심사자가 기여도 분석 화면에서 "공개"로 확정한 평가 결과. 비공개 상태면 revealed=false.
+  const [myEvaluation, setMyEvaluation] = useState<MyEvaluationDto | null>(null);
+  useEffect(() => {
+    if (projectId == null) {
+      setMyEvaluation(null);
+      return;
+    }
+    getMyEvaluation(projectId).then(setMyEvaluation).catch(() => setMyEvaluation(null));
+  }, [projectId]);
 
   const { tasks: myTasks, loadState, reload } = useMyTasks(projectId, userId);
   const dueToday = getDueToday(myTasks);
@@ -221,8 +232,10 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
 
               <ProjectSettingsSection />
 
-              {/* Public score (if revealed) */}
-              {PUBLIC_SCORE.revealed && (
+              {/* Public score (if revealed) — 기여 점수/총합·심사자점수·학점은 심사자가 서로 다른
+                  시점에 독립적으로 공개할 수 있다(중간 점검 vs 최종 확정). 기여 점수만 공개됐으면
+                  기여 점수 칸만 보이고 총합/학점 칸은 아직 뜨지 않는다. */}
+              {(myEvaluation?.contributionRevealed || myEvaluation?.finalRevealed) && (
                 <div className="bg-card rounded-xl border border-emerald-300 shadow-sm p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Award className="w-4 h-4 text-emerald-500" />
@@ -230,16 +243,35 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
                   </div>
                   {showScore ? (
                     <div>
-                      <div className="text-center mb-3">
-                        <div className="text-4xl font-bold text-emerald-600">{PUBLIC_SCORE.score}</div>
-                        <div className="text-sm text-muted-foreground">{PUBLIC_SCORE.grade} · {PUBLIC_SCORE.from}</div>
+                      <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                        <div>
+                          <div className="text-2xl font-bold text-foreground">
+                            {myEvaluation?.contributionRevealed && myEvaluation.score != null
+                              ? myEvaluation.score.toFixed(2)
+                              : "-"}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">기여 점수</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-foreground">
+                            {myEvaluation?.finalRevealed && myEvaluation.reviewerScore != null
+                              ? myEvaluation.reviewerScore.toFixed(2)
+                              : "-"}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">심사자 점수</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-emerald-600">
+                            {myEvaluation?.finalRevealed ? myEvaluation.grade ?? "-" : "-"}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">학점</div>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed bg-muted rounded-lg p-2.5">{PUBLIC_SCORE.comment}</p>
                       <button onClick={() => setShowScore(false)} className="mt-2 text-[10px] text-muted-foreground hover:text-foreground w-full text-center">숨기기</button>
                     </div>
                   ) : (
                     <div className="text-center py-2">
-                      <div className="text-xs text-muted-foreground mb-2">{PUBLIC_SCORE.from}이 평가를 공개했습니다.</div>
+                      <div className="text-xs text-muted-foreground mb-2">심사자가 평가를 공개했습니다.</div>
                       <button onClick={() => setShowScore(true)} className="flex items-center gap-1.5 mx-auto text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
                         <Eye className="w-3.5 h-3.5" />결과 확인하기
                       </button>
@@ -247,34 +279,41 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
                   )}
                 </div>
               )}
+
+              {/* 개인 코멘트/피드백 — 공개된 평가 결과 바로 아래, 세로로 긴 목록 형태로 배치.
+                  심사자가 공개한 심사 코멘트는 목록 맨 앞에 별도 항목으로 추가된다. */}
+              <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-border"><SectionTitle>개인 코멘트 / 피드백</SectionTitle></div>
+                <div className="p-4 space-y-3">
+                  {myEvaluation?.commentRevealed && myEvaluation.comment && (
+                    <div className="rounded-xl p-3.5 border border-emerald-200 bg-emerald-50/40">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold bg-emerald-600">심</div>
+                        <span className="text-[11px] font-semibold text-foreground">심사자 코멘트</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{myEvaluation.comment}</p>
+                    </div>
+                  )}
+                  {MY_FEEDBACKS.map((f, i) => (
+                    <div key={i} className={`rounded-xl p-3.5 border ${f.type==="ai"?"border-purple-200 bg-purple-50/40":"border-border bg-muted/30"}`}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold" style={{ background: f.type==="ai"?"#7048E8":"#3B5BDB" }}>
+                          {f.type==="ai"?"AI":f.from[0]}
+                        </div>
+                        <span className="text-[11px] font-semibold text-foreground">{f.from}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">{f.date}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{f.content}</p>
+                    </div>
+                  ))}
+                  <button className="w-full py-2 text-xs font-medium text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5" />답글 작성
+                  </button>
+                </div>
+              </div>
             </div>
           </>
         )}
-      </div>
-
-      {/* ── Bottom: feedback ── */}
-      <div className="grid grid-cols-1 gap-4">
-        {/* Feedback panel */}
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-border"><SectionTitle>개인 코멘트 / 피드백</SectionTitle></div>
-          <div className="p-4 space-y-3">
-            {MY_FEEDBACKS.map((f, i) => (
-              <div key={i} className={`rounded-xl p-3.5 border ${f.type==="ai"?"border-purple-200 bg-purple-50/40":"border-border bg-muted/30"}`}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold" style={{ background: f.type==="ai"?"#7048E8":"#3B5BDB" }}>
-                    {f.type==="ai"?"AI":f.from[0]}
-                  </div>
-                  <span className="text-[11px] font-semibold text-foreground">{f.from}</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto">{f.date}</span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{f.content}</p>
-              </div>
-            ))}
-            <button className="w-full py-2 text-xs font-medium text-blue-600 border border-dashed border-blue-300 rounded-xl hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5">
-              <MessageSquare className="w-3.5 h-3.5" />답글 작성
-            </button>
-          </div>
-        </div>
       </div>
 
     </div>
