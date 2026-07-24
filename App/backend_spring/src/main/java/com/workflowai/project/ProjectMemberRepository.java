@@ -20,6 +20,8 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
     /** 프로젝트당 팀장은 정확히 1명이라는 전제 하에 팀장을 조회한다(회의록 알림 수신자 결정용). */
     Optional<ProjectMember> findByProjectIdAndRole(Long projectId, ProjectRole role);
 
+    List<ProjectMember> findAllByProjectIdInAndRole(List<Long> projectIds, ProjectRole role);
+
     @Query("""
         select pm.projectId as projectId, count(pm.id) as memberCount
         from ProjectMember pm

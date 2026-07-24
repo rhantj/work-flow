@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import { useAuth } from "../../global/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User, Shield, Settings, Bell, LogOut, Github, ChevronRight,
   FileText, CheckCircle2, Clock, AlertTriangle, Star, Download,
@@ -16,10 +16,9 @@ import { ProjectSettingsSection } from "./ProjectSettingsSection";
 import {
   MEMBER_USER, MY_FEEDBACKS, PUBLIC_SCORE,
 } from "../libs/mock/mypage";
-import {
-  REVIEWER_USER, REVIEWER_TEAMS, CONTRIB_REPORTS, REVIEWER_ACTIVITIES,
-} from "../../global/lib/mock/reviewer";
+import { CONTRIB_REPORTS } from "../../global/lib/mock/reviewer";
 import { useMyTasks } from "../libs/hooks/useMyTasks";
+import { useReviewerProjects } from "../libs/hooks/useReviewerProjects";
 import { getDueToday, getDueThisWeek } from "../libs/utils/taskWidgets";
 import { getDoneCount, getInProgressCount, getBlockedCount, getTasksByStatus, formatDueDate } from "../../board/libs/utils/taskService";
 
@@ -285,19 +284,28 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
 // ─── Reviewer My Page ─────────────────────────────────────────────────────────
 type ReviewerPanelTab = "summary" | "deliverables" | "contrib" | "ai-evidence" | "score";
 
+const REVIEWER_AVATAR_COLOR = "#3B5BDB";
+
 function ReviewerMyPage({ name, email, onLogout }: { name: string; email: string; onLogout: () => void }) {
-  const initials = name ? name[0] : REVIEWER_USER.initials;
-  const [selectedTeam, setSelectedTeam] = useState("T1");
+  const initials = name ? name[0] : "심";
+  const { projects, loadState, reload } = useReviewerProjects();
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [panelTab, setPanelTab] = useState<ReviewerPanelTab>("summary");
   const [scores, setScores] = useState<Record<string,string>>({ "1":"92","2":"88","3":"85","4":"72" });
   const [publicFlags, setPublicFlags] = useState<Record<string,boolean>>({ "1":true,"2":false,"3":false,"4":false });
 
-  const team = REVIEWER_TEAMS.find(t => t.id === selectedTeam)!;
+  useEffect(() => {
+    if (selectedProjectId === null && projects.length > 0) {
+      setSelectedProjectId(projects[0].projectId);
+    }
+  }, [projects, selectedProjectId]);
+
+  const team = projects.find(p => p.projectId === selectedProjectId) ?? null;
   const evalCounts = {
-    pending: REVIEWER_TEAMS.filter(t=>t.evalStatus==="pending").length,
-    evaluating: REVIEWER_TEAMS.filter(t=>t.evalStatus==="evaluating").length,
-    done: REVIEWER_TEAMS.filter(t=>t.evalStatus==="done").length,
-    published: REVIEWER_TEAMS.filter(t=>t.evalStatus==="published").length,
+    pending: projects.filter(p => p.evalStatus === "pending").length,
+    evaluating: projects.filter(p => p.evalStatus === "evaluating").length,
+    done: projects.filter(p => p.evalStatus === "done").length,
+    published: projects.filter(p => p.evalStatus === "published").length,
   };
 
   const PANEL_TABS: { id: ReviewerPanelTab; label: string }[] = [
@@ -314,7 +322,7 @@ function ReviewerMyPage({ name, email, onLogout }: { name: string; email: string
       {/* ── Reviewer Profile ── */}
       <div className="shrink-0 px-6 pt-5 pb-4 border-b border-border">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0" style={{ background: REVIEWER_USER.color }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0" style={{ background: REVIEWER_AVATAR_COLOR }}>
             {initials}
           </div>
           <div className="flex-1">
@@ -344,7 +352,7 @@ function ReviewerMyPage({ name, email, onLogout }: { name: string; email: string
               <span className="text-sm font-bold text-foreground">{s.count}</span>
             </div>
           ))}
-          <div className="ml-auto text-xs text-muted-foreground">총 {REVIEWER_TEAMS.length}개 팀 담당</div>
+          <div className="ml-auto text-xs text-muted-foreground">총 {projects.length}개 팀 담당</div>
         </div>
       </div>
 
@@ -355,26 +363,40 @@ function ReviewerMyPage({ name, email, onLogout }: { name: string; email: string
         <div className="w-72 shrink-0 border-r border-border flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">배정된 프로젝트</div>
           <div className="flex-1 overflow-y-auto divide-y divide-border">
-            {REVIEWER_TEAMS.map(t => {
-              const sm = EVAL_STATUS_META[t.evalStatus];
-              const isSelected = selectedTeam === t.id;
+            {loadState === "loading" && (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground">불러오는 중...</div>
+            )}
+            {loadState === "error" && (
+              <div className="px-4 py-6 flex flex-col items-center gap-2 text-center text-xs text-muted-foreground">
+                <span>프로젝트 목록을 불러오지 못했습니다.</span>
+                <button onClick={reload} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg hover:opacity-90 transition-opacity" style={{ background: "var(--primary)" }}>
+                  <RefreshCw className="w-3.5 h-3.5" />다시 시도
+                </button>
+              </div>
+            )}
+            {loadState === "ready" && projects.length === 0 && (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground">배정된 프로젝트가 없습니다.</div>
+            )}
+            {loadState === "ready" && projects.map(p => {
+              const sm = EVAL_STATUS_META[p.evalStatus];
+              const isSelected = selectedProjectId === p.projectId;
               return (
-                <button key={t.id} onClick={() => { setSelectedTeam(t.id); setPanelTab("summary"); }}
+                <button key={p.projectId} onClick={() => { setSelectedProjectId(p.projectId); setPanelTab("summary"); }}
                   className={`w-full text-left px-4 py-3.5 transition-all hover:bg-muted/40 ${isSelected?"bg-blue-50 border-r-2 border-r-blue-500":""}`}>
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="text-xs font-bold text-foreground leading-snug flex-1">{t.name}</div>
+                    <div className="text-xs font-bold text-foreground leading-snug flex-1">{p.title}</div>
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${sm.cls}`}>{sm.label}</span>
                   </div>
                   <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                    <span>{t.leader} 팀장</span>
-                    <span>{t.members}명</span>
+                    <span>{p.leaderName ?? "팀장 미배정"} 팀장</span>
+                    <span>{p.memberCount}명</span>
                   </div>
                   <div className="mt-2 w-full h-1.5 bg-muted rounded-full">
-                    <div className="h-1.5 rounded-full" style={{ width:`${t.progress}%`, background: t.evalStatus==="published"?"#10B981":"#3B5BDB" }} />
+                    <div className="h-1.5 rounded-full" style={{ width:`${p.progressPercent}%`, background: p.evalStatus==="published"?"#10B981":"#3B5BDB" }} />
                   </div>
                   <div className="flex items-center justify-between mt-0.5">
                     <span className="text-[10px] text-muted-foreground">진행률</span>
-                    <span className="text-[10px] font-semibold text-foreground">{t.progress}%</span>
+                    <span className="text-[10px] font-semibold text-foreground">{p.progressPercent}%</span>
                   </div>
                 </button>
               );
@@ -384,88 +406,89 @@ function ReviewerMyPage({ name, email, onLogout }: { name: string; email: string
           {/* Recent eval activity */}
           <div className="border-t border-border p-4">
             <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">최근 평가 활동</div>
-            {REVIEWER_ACTIVITIES.slice(0, 3).map((a, i) => (
-              <div key={i} className="text-[10px] text-muted-foreground py-1 border-b border-border last:border-0">
-                <span className="font-medium text-foreground truncate block">{a.action}</span>
-                <span>{a.team} · {a.date}</span>
-              </div>
-            ))}
+            <div className="text-[10px] text-muted-foreground py-1">아직 평가 활동이 없습니다.</div>
           </div>
         </div>
 
         {/* Right: team detail panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Panel header */}
-          <div className="shrink-0 px-5 py-3 border-b border-border bg-card">
-            <div className="flex items-center justify-between mb-1">
-              <div className="text-sm font-bold text-foreground">{team.name}</div>
-              <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${EVAL_STATUS_META[team.evalStatus].cls}`}>{EVAL_STATUS_META[team.evalStatus].label}</span>
-                <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"><Shield className="w-3 h-3" />대시보드 열람</button>
-                <button className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground border border-border px-2 py-1 rounded-lg hover:bg-muted transition-colors"><FileText className="w-3 h-3" />PDF 다운로드</button>
-              </div>
+          {team === null ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
+              {loadState === "ready" && projects.length > 0 ? "왼쪽에서 프로젝트를 선택하세요." : ""}
             </div>
-            <div className="text-xs text-muted-foreground">{team.leader} 팀장 · {team.members}명 · GitHub {team.github?"연결됨":"미연결"} · 산출물 {team.submitted}/{team.deliverables}개 제출</div>
-          </div>
-
-          {/* Panel tabs */}
-          <div className="flex border-b border-border shrink-0 bg-card">
-            {PANEL_TABS.map(tab => (
-              <button key={tab.id} onClick={() => setPanelTab(tab.id)}
-                className={`flex-1 text-[11px] font-semibold py-2.5 border-b-2 transition-colors ${panelTab===tab.id?"border-blue-500 text-blue-600":"border-transparent text-muted-foreground hover:text-foreground"}`}>
-                {tab.id==="contrib"||tab.id==="ai-evidence"||tab.id==="score" ? <span className="flex items-center justify-center gap-1"><Shield className="w-2.5 h-2.5 text-blue-400" />{tab.label}</span> : tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Panel content */}
-          <div className="flex-1 overflow-y-auto p-5">
-
-            {/* Summary tab */}
-            {panelTab === "summary" && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-4 gap-3">
-                  {[
-                    { l:"전체 업무", v:"14개", color:"#3B5BDB" },
-                    { l:"완료율",   v:`${team.progress}%`, color:"#10B981" },
-                    { l:"블로커",   v:"2개", color:"#EF4444" },
-                    { l:"마감",     v:"D-18", color:"#F59E0B" },
-                  ].map(s => (
-                    <div key={s.l} className="bg-card rounded-xl p-3.5 border border-border text-center shadow-sm">
-                      <div className="text-lg font-bold" style={{ color: s.color }}>{s.v}</div>
-                      <div className="text-[10px] text-muted-foreground">{s.l}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">팀 코멘트 작성</div>
-                  <textarea rows={3} placeholder="이 팀 전체에 대한 코멘트를 작성하세요 (팀원 전체에 공개 가능)..." className="w-full text-xs rounded-xl border border-border bg-input-background px-4 py-3 outline-none focus:border-blue-400 resize-none" />
-                  <div className="flex gap-2 mt-2">
-                    <button className="px-4 py-1.5 text-xs font-semibold text-white rounded-lg hover:opacity-90" style={{ background:"var(--primary)" }}>등록</button>
-                    <button className="px-4 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted text-muted-foreground">비공개로 등록</button>
+          ) : (
+            <>
+              {/* Panel header */}
+              <div className="shrink-0 px-5 py-3 border-b border-border bg-card">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-sm font-bold text-foreground">{team.title}</div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${EVAL_STATUS_META[team.evalStatus].cls}`}>{EVAL_STATUS_META[team.evalStatus].label}</span>
+                    <button className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"><Shield className="w-3 h-3" />대시보드 열람</button>
+                    <button className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground border border-border px-2 py-1 rounded-lg hover:bg-muted transition-colors"><FileText className="w-3 h-3" />PDF 다운로드</button>
                   </div>
                 </div>
-                <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">심사자 내부 메모</div>
-                  <textarea rows={2} placeholder="심사자 내부 메모 (팀원에게 노출되지 않음)..." className="w-full text-xs rounded-xl border border-border bg-input-background px-4 py-2.5 outline-none focus:border-blue-400 resize-none" />
-                </div>
+                <div className="text-xs text-muted-foreground">{team.leaderName ?? "팀장 미배정"} 팀장 · {team.memberCount}명 · GitHub {team.githubConnected?"연결됨":"미연결"} · 산출물 {team.deliverablesSubmitted}/{team.deliverablesTotal}개 제출</div>
               </div>
-            )}
 
-            {/* Deliverables tab */}
-            {panelTab === "deliverables" && (
-              <div className="space-y-3">
-                <div className="text-xs text-muted-foreground mb-2">제출된 산출물 {team.submitted}개 / 전체 {team.deliverables}개</div>
-                {["최종 발표 PPT 초안","중간 진행 보고서","GitHub README 초안"].map((d, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3.5 bg-card rounded-xl border border-border shadow-sm">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><Package className="w-4 h-4 text-blue-600" /></div>
-                    <div className="flex-1"><div className="text-xs font-semibold text-foreground">{d}</div><div className="text-[10px] text-muted-foreground">12.10 업데이트</div></div>
-                    <DelivBadge status={i===0?"draft":"done"} />
-                    <button className="p-1.5 hover:bg-muted rounded-lg transition-colors"><FileText className="w-3.5 h-3.5 text-muted-foreground" /></button>
-                  </div>
+              {/* Panel tabs */}
+              <div className="flex border-b border-border shrink-0 bg-card">
+                {PANEL_TABS.map(tab => (
+                  <button key={tab.id} onClick={() => setPanelTab(tab.id)}
+                    className={`flex-1 text-[11px] font-semibold py-2.5 border-b-2 transition-colors ${panelTab===tab.id?"border-blue-500 text-blue-600":"border-transparent text-muted-foreground hover:text-foreground"}`}>
+                    {tab.id==="contrib"||tab.id==="ai-evidence"||tab.id==="score" ? <span className="flex items-center justify-center gap-1"><Shield className="w-2.5 h-2.5 text-blue-400" />{tab.label}</span> : tab.label}
+                  </button>
                 ))}
               </div>
-            )}
+
+              {/* Panel content */}
+              <div className="flex-1 overflow-y-auto p-5">
+
+                {/* Summary tab */}
+                {panelTab === "summary" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-4 gap-3">
+                      {[
+                        { l:"전체 업무", v:"14개", color:"#3B5BDB" },
+                        { l:"완료율",   v:`${team.progressPercent}%`, color:"#10B981" },
+                        { l:"블로커",   v:"2개", color:"#EF4444" },
+                        { l:"마감",     v:"D-18", color:"#F59E0B" },
+                      ].map(s => (
+                        <div key={s.l} className="bg-card rounded-xl p-3.5 border border-border text-center shadow-sm">
+                          <div className="text-lg font-bold" style={{ color: s.color }}>{s.v}</div>
+                          <div className="text-[10px] text-muted-foreground">{s.l}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-4">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">팀 코멘트 작성</div>
+                      <textarea rows={3} placeholder="이 팀 전체에 대한 코멘트를 작성하세요 (팀원 전체에 공개 가능)..." className="w-full text-xs rounded-xl border border-border bg-input-background px-4 py-3 outline-none focus:border-blue-400 resize-none" />
+                      <div className="flex gap-2 mt-2">
+                        <button className="px-4 py-1.5 text-xs font-semibold text-white rounded-lg hover:opacity-90" style={{ background:"var(--primary)" }}>등록</button>
+                        <button className="px-4 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted text-muted-foreground">비공개로 등록</button>
+                      </div>
+                    </div>
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-4">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">심사자 내부 메모</div>
+                      <textarea rows={2} placeholder="심사자 내부 메모 (팀원에게 노출되지 않음)..." className="w-full text-xs rounded-xl border border-border bg-input-background px-4 py-2.5 outline-none focus:border-blue-400 resize-none" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Deliverables tab */}
+                {panelTab === "deliverables" && (
+                  <div className="space-y-3">
+                    <div className="text-xs text-muted-foreground mb-2">제출된 산출물 {team.deliverablesSubmitted}개 / 전체 {team.deliverablesTotal}개</div>
+                    {["최종 발표 PPT 초안","중간 진행 보고서","GitHub README 초안"].map((d, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3.5 bg-card rounded-xl border border-border shadow-sm">
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center"><Package className="w-4 h-4 text-blue-600" /></div>
+                        <div className="flex-1"><div className="text-xs font-semibold text-foreground">{d}</div><div className="text-[10px] text-muted-foreground">12.10 업데이트</div></div>
+                        <DelivBadge status={i===0?"draft":"done"} />
+                        <button className="p-1.5 hover:bg-muted rounded-lg transition-colors"><FileText className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
             {/* Contribution report tab — REVIEWER ONLY */}
             {panelTab === "contrib" && (
@@ -573,7 +596,9 @@ function ReviewerMyPage({ name, email, onLogout }: { name: string; email: string
               </div>
             )}
 
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -583,9 +608,9 @@ function ReviewerMyPage({ name, email, onLogout }: { name: string; email: string
 // ─── Main MyPage export ───────────────────────────────────────────────────────
 export function MyPage() {
   const navigate = useNavigate();
-  const { user, projectRoles, currentProjectId, logout } = useAuth();
+  const { user, currentProject, currentProjectId, logout } = useAuth();
 
-  const role: MyPageRole = projectRoles[0]?.role === "심사자" ? "reviewer" : "member";
+  const role: MyPageRole = currentProject?.role === "심사자" ? "reviewer" : "member";
   const name = user?.name ?? "";
   const email = user?.email ?? "";
   const handleLogout = () => {
