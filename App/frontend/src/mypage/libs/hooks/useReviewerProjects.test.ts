@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { useReviewerProjects } from "./useReviewerProjects";
 import { fetchReviewerProjects } from "../utils/reviewerApi";
@@ -47,7 +47,9 @@ describe("useReviewerProjects", () => {
     const { result } = renderHook(() => useReviewerProjects());
 
     await waitFor(() => expect(result.current.loadState).toBe("error"));
-    result.current.reload();
+    act(() => {
+      result.current.reload();
+    });
     await waitFor(() => expect(result.current.loadState).toBe("ready"));
     expect(result.current.projects[0].title).toBe("AI 기반 식단 추천 앱");
   });
