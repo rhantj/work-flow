@@ -243,6 +243,12 @@ public class TaskController {
         if (!isLeader(projectDbId, currentUserId) && !currentUserId.equals(task.getAssigneeId())) {
             return ResponseEntity.status(403).body(ApiResponse.fail("FORBIDDEN_NOT_OWNER", "본인이 담당자인 업무만 이동할 수 있습니다."));
         }
+        // 완료 승인 대기 중인 업무는 팀장이 승인/반려하거나 담당자가 요청을 취소하기 전까지는
+        // 프론트(TaskCard.canMove)와 마찬가지로 백엔드에서도 이동을 막는다 - 그렇지 않으면
+        // pendingApproval=true인 채로 status만 바뀌어 완료 승인 화면과 실제 상태가 어긋난다.
+        if (task.isPendingApproval()) {
+            return ResponseEntity.status(409).body(ApiResponse.fail("PENDING_APPROVAL", "완료 승인 대기 중인 업무는 이동할 수 없습니다. 먼저 승인/반려하거나 요청을 취소해주세요."));
+        }
         String previousStatus = task.getStatus();
         task.moveTo(request.status(), request.position());
         taskRepository.save(task);
@@ -520,6 +526,11 @@ public class TaskController {
         }
         if (task.isPendingApproval()) {
             return ResponseEntity.badRequest().body(ApiResponse.fail("ALREADY_PENDING", "이미 승인 대기 중인 업무입니다."));
+        }
+        // "진행 중" -> "완료"로 옮길 때만 승인 요청이 의미가 있다. todo/blocked/이미 done인
+        // 업무까지 요청할 수 있으면 완료 승인 워크플로우의 상태 정합성이 깨진다.
+        if (!"inprogress".equals(task.getStatus())) {
+            return ResponseEntity.badRequest().body(ApiResponse.fail("INVALID_STATUS_FOR_COMPLETION", "진행 중인 업무만 완료 승인을 요청할 수 있습니다."));
         }
         task.requestCompletion();
         taskRepository.save(task);

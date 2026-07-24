@@ -90,8 +90,12 @@ class TaskControllerCompletionApprovalTest {
 
     /** 담당자 3L, 아직 완료 승인 대기 중이 아닌 진행 중 업무. */
     private Task inProgressTask() {
+        return taskWithStatus("inprogress");
+    }
+
+    private Task taskWithStatus(String status) {
         return new Task(
-            1L, "결제 연동", "backend", "inprogress", 3L,
+            1L, "결제 연동", "backend", status, 3L,
             LocalDate.of(2026, 7, 1), "medium", "설명",
             "MANUAL", null, 1L, 0.0
         );
@@ -117,6 +121,45 @@ class TaskControllerCompletionApprovalTest {
         assertThat(task.isPendingApproval()).isTrue();
         verify(activityService).record(eq(1L), eq(3L), eq("COMPLETION_REQUESTED"), any(), any());
         verify(notificationService).notify(eq(9L), eq("COMPLETION_REQUESTED"), any(), any(), eq("task"), any());
+    }
+
+    @Test
+    void cannotRequestCompletionForTodoTask() throws Exception {
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findById(anyLong())).thenReturn(Optional.of(taskWithStatus("todo")));
+        loginAs(3L);
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/tasks/42/completion-request"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("INVALID_STATUS_FOR_COMPLETION"));
+
+        verify(taskRepository, never()).save(any());
+    }
+
+    @Test
+    void cannotRequestCompletionForBlockedTask() throws Exception {
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findById(anyLong())).thenReturn(Optional.of(taskWithStatus("blocked")));
+        loginAs(3L);
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/tasks/42/completion-request"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("INVALID_STATUS_FOR_COMPLETION"));
+
+        verify(taskRepository, never()).save(any());
+    }
+
+    @Test
+    void cannotRequestCompletionForAlreadyDoneTask() throws Exception {
+        when(demoDataService.resolveProjectId("demo-project")).thenReturn(1L);
+        when(taskRepository.findById(anyLong())).thenReturn(Optional.of(taskWithStatus("done")));
+        loginAs(3L);
+
+        mockMvc.perform(post("/api/v1/projects/demo-project/tasks/42/completion-request"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("INVALID_STATUS_FOR_COMPLETION"));
+
+        verify(taskRepository, never()).save(any());
     }
 
     @Test
