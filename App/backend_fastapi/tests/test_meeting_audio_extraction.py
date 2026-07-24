@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from unittest.mock import patch
 
 import pytest
+from fastapi.testclient import TestClient
 
-from app.main import DocumentTextExtractionError, extract_audio_text, extract_uploaded_text
+from app.main import DocumentTextExtractionError, app, extract_audio_text, extract_uploaded_text
 
 
 @dataclass
@@ -58,3 +59,27 @@ def test_extract_audio_text_wraps_unexpected_errors_as_extraction_error():
     with patch("app.main.get_whisper_model", side_effect=RuntimeError("decode failed")):
         with pytest.raises(DocumentTextExtractionError):
             extract_audio_text(b"fake-audio-bytes")
+
+
+def test_transcribe_endpoint_returns_extracted_text():
+    with patch("app.main.extract_audio_text", return_value="음성에서 추출된 텍스트") as mock_extract_audio:
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/meetings/transcribe",
+            files={"file": ("meeting.wav", b"fake-audio-bytes", "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"text": "음성에서 추출된 텍스트"}
+    mock_extract_audio.assert_called_once_with(b"fake-audio-bytes")
+
+
+def test_transcribe_endpoint_returns_422_when_extraction_fails():
+    with patch("app.main.extract_audio_text", side_effect=DocumentTextExtractionError("음성 파일에서 텍스트를 추출하지 못했습니다.")):
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/meetings/transcribe",
+            files={"file": ("silent.wav", b"fake-audio-bytes", "audio/wav")},
+        )
+
+    assert response.status_code == 422

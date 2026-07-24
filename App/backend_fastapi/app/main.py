@@ -137,6 +137,10 @@ class MeetingAnalysisResult(BaseModel):
     meeting_meta: MeetingMeta
 
 
+class AudioTranscribeResult(BaseModel):
+    text: str
+
+
 @app.get("/api/v1/health")
 def health():
     return {"service": "workflow-ai-fastapi", "status": "UP"}
@@ -289,6 +293,18 @@ async def analyze_upload(
             participants=participants,
         )
     )
+
+
+@app.post("/api/v1/meetings/transcribe", response_model=AudioTranscribeResult)
+async def transcribe_audio(file: UploadFile = File(...)):
+    """Spring이 음성 회의록 업로드 시 텍스트만 필요할 때 호출하는 STT 전용 엔드포인트.
+    분석까지 함께 하는 /analyze와 달리, 추출된 텍스트만 반환해 Spring 쪽 기존 분석 파이프라인(큐/폴백/알림)을 그대로 재사용할 수 있게 한다."""
+    raw = await file.read()
+    try:
+        text = await asyncio.to_thread(extract_audio_text, raw)
+    except DocumentTextExtractionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return AudioTranscribeResult(text=text)
 
 
 def resolve_participants(request: AnalyzeRequest) -> List[str]:

@@ -47,6 +47,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class MeetingAnalysisService {
     private static final Logger log = LoggerFactory.getLogger(MeetingAnalysisService.class);
+    private static final Set<String> AUDIO_FILE_EXTENSIONS = Set.of(".mp3", ".wav", ".m4a", ".ogg");
 
     private final MeetingAnalysisJobPublisher meetingAnalysisJobPublisher;
     private final DemoDataService demoDataService;
@@ -62,6 +63,7 @@ public class MeetingAnalysisService {
     private final ProjectRepository projectRepository;
     private final RagIngestService ragIngestService;
     private final MeetingAnalysisPersistence meetingAnalysisPersistence;
+    private final FastApiMeetingClient fastApiMeetingClient;
     private final String uploadsDir;
 
     public MeetingAnalysisService(
@@ -79,6 +81,7 @@ public class MeetingAnalysisService {
         ProjectRepository projectRepository,
         RagIngestService ragIngestService,
         MeetingAnalysisPersistence meetingAnalysisPersistence,
+        FastApiMeetingClient fastApiMeetingClient,
         @Value("${workflow.uploads.dir}") String uploadsDir
     ) {
         this.meetingAnalysisJobPublisher = meetingAnalysisJobPublisher;
@@ -95,6 +98,7 @@ public class MeetingAnalysisService {
         this.projectRepository = projectRepository;
         this.ragIngestService = ragIngestService;
         this.meetingAnalysisPersistence = meetingAnalysisPersistence;
+        this.fastApiMeetingClient = fastApiMeetingClient;
         this.uploadsDir = uploadsDir;
     }
 
@@ -941,6 +945,9 @@ public class MeetingAnalysisService {
         if (name.endsWith(".pdf") || contentType.equals("application/pdf")) {
             return extractPdfText(file);
         }
+        if (isAudioFile(name)) {
+            return extractAudioText(file);
+        }
         if (!textLike) {
             return "업로드 파일명: " + file.getOriginalFilename() + ". 바이너리 문서는 FastAPI 문서 파서 또는 STT 단계에서 텍스트 추출 예정.";
         }
@@ -949,6 +956,30 @@ public class MeetingAnalysisService {
         } catch (IOException e) {
             throw new IllegalArgumentException("회의록 파일을 읽을 수 없습니다.");
         }
+    }
+
+    private boolean isAudioFile(String lowerCaseFileName) {
+        return AUDIO_FILE_EXTENSIONS.stream().anyMatch(lowerCaseFileName::endsWith);
+    }
+
+    private String extractAudioText(MultipartFile file) {
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new IllegalArgumentException("음성 회의록 파일을 읽을 수 없습니다.");
+        }
+        String text;
+        try {
+            text = fastApiMeetingClient.transcribeAudio(bytes, file.getOriginalFilename());
+        } catch (Exception e) {
+            log.warn("음성 회의록 STT 실패: fileName={}", file.getOriginalFilename(), e);
+            throw new IllegalArgumentException("음성 파일 분석에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        }
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("음성 파일에서 텍스트를 추출하지 못했습니다.");
+        }
+        return text;
     }
 
     private String extractTextFromStoredFile(Meeting meeting) {

@@ -4,9 +4,12 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
 @Component
@@ -48,5 +51,23 @@ public class FastApiMeetingClient {
             .body(request)
             .retrieve()
             .body(MeetingAnalysisResult.class);
+    }
+
+    /** 음성 회의록 업로드 시 STT 텍스트만 받아온다. 분석 자체는 기존 analyze()/analyze-json 파이프라인을 그대로 재사용한다. */
+    public String transcribeAudio(byte[] fileBytes, String fileName) {
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", new ByteArrayResource(fileBytes) {
+            @Override
+            public String getFilename() {
+                return fileName;
+            }
+        });
+        AudioTranscribeResponse response = restClient.post()
+            .uri("/api/v1/meetings/transcribe")
+            .contentType(MediaType.MULTIPART_FORM_DATA)
+            .body(body)
+            .retrieve()
+            .body(AudioTranscribeResponse.class);
+        return response != null ? response.text() : "";
     }
 }
