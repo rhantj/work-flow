@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import { useAuth } from "../../global/hooks/useAuth";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   User, Shield, Settings, Bell, LogOut, Github, ChevronRight,
   FileText, CheckCircle2, Clock, AlertTriangle, Star, Download,
@@ -14,7 +14,7 @@ import { DelivBadge } from "../../deliverables/components/DelivBadge";
 import { SectionTitle } from "../../global/component/SectionTitle";
 import { ProjectSettingsSection } from "./ProjectSettingsSection";
 import {
-  MEMBER_USER, MY_FEEDBACKS, PUBLIC_SCORE,
+  MEMBER_USER, MY_FEEDBACKS,
 } from "../libs/mock/mypage";
 import {
   REVIEWER_USER, REVIEWER_TEAMS, CONTRIB_REPORTS, REVIEWER_ACTIVITIES,
@@ -22,6 +22,7 @@ import {
 import { useMyTasks } from "../libs/hooks/useMyTasks";
 import { getDueToday, getDueThisWeek } from "../libs/utils/taskWidgets";
 import { getDoneCount, getInProgressCount, getBlockedCount, getTasksByStatus, formatDueDate } from "../../board/libs/utils/taskService";
+import { getMyEvaluation, type MyEvaluationDto } from "../../global/api/evaluationApi";
 
 // ─── local types ──────────────────────────────────────────────────────────────
 export type MyPageRole = "member" | "reviewer";
@@ -34,11 +35,29 @@ const EVAL_STATUS_META: Record<EvalStatus, { label: string; cls: string }> = {
   published: { label: "공개 완료", cls: "bg-emerald-100 text-emerald-600" },
 };
 
+// 심사자 화면(ContributorsView)의 scoreTone과 동일한 구간 — 점수만 보고도 등급을 짐작할 수 있게 통일한다.
+function scoreGrade(score: number): string {
+  if (score >= 90) return "우수";
+  if (score >= 80) return "양호";
+  if (score >= 70) return "주의";
+  return "검토 필요";
+}
+
 // ─── Member My Page ───────────────────────────────────────────────────────────
 function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: string; email: string; onLogout: () => void; projectId: number | null; userId: number | null }) {
   const [taskView, setTaskView] = useState<"all"|"today"|"week">("all");
   const [showScore, setShowScore] = useState(false);
   const initials = name ? name[0] : MEMBER_USER.initials;
+
+  // 심사자가 기여도 분석 화면에서 "공개"로 확정한 평가 결과. 비공개 상태면 revealed=false.
+  const [myEvaluation, setMyEvaluation] = useState<MyEvaluationDto | null>(null);
+  useEffect(() => {
+    if (projectId == null) {
+      setMyEvaluation(null);
+      return;
+    }
+    getMyEvaluation(projectId).then(setMyEvaluation).catch(() => setMyEvaluation(null));
+  }, [projectId]);
 
   const { tasks: myTasks, loadState, reload } = useMyTasks(projectId, userId);
   const dueToday = getDueToday(myTasks);
@@ -222,8 +241,8 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
 
               <ProjectSettingsSection />
 
-              {/* Public score (if revealed) */}
-              {PUBLIC_SCORE.revealed && (
+              {/* Public score (if revealed) — 심사자가 기여도 분석 화면에서 공개 처리한 실제 점수 */}
+              {myEvaluation?.revealed && myEvaluation.score != null && (
                 <div className="bg-card rounded-xl border border-emerald-300 shadow-sm p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Award className="w-4 h-4 text-emerald-500" />
@@ -232,15 +251,14 @@ function MemberMyPage({ name, email, onLogout, projectId, userId }: { name: stri
                   {showScore ? (
                     <div>
                       <div className="text-center mb-3">
-                        <div className="text-4xl font-bold text-emerald-600">{PUBLIC_SCORE.score}</div>
-                        <div className="text-sm text-muted-foreground">{PUBLIC_SCORE.grade} · {PUBLIC_SCORE.from}</div>
+                        <div className="text-4xl font-bold text-emerald-600">{Math.round(myEvaluation.score)}</div>
+                        <div className="text-sm text-muted-foreground">{scoreGrade(myEvaluation.score)}</div>
                       </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed bg-muted rounded-lg p-2.5">{PUBLIC_SCORE.comment}</p>
                       <button onClick={() => setShowScore(false)} className="mt-2 text-[10px] text-muted-foreground hover:text-foreground w-full text-center">숨기기</button>
                     </div>
                   ) : (
                     <div className="text-center py-2">
-                      <div className="text-xs text-muted-foreground mb-2">{PUBLIC_SCORE.from}이 평가를 공개했습니다.</div>
+                      <div className="text-xs text-muted-foreground mb-2">심사자가 평가를 공개했습니다.</div>
                       <button onClick={() => setShowScore(true)} className="flex items-center gap-1.5 mx-auto text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
                         <Eye className="w-3.5 h-3.5" />결과 확인하기
                       </button>

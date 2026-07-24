@@ -181,6 +181,18 @@ public class ProjectService {
         projectRepository.deleteById(projectId);
     }
 
+    /**
+     * 심사자가 기여도 분석 화면에서 "평가 확정"을 누를 때 호출한다. eval_status를
+     * PUBLISHED로 전이한다. 확정 후에도 팀원별 점수/공개 여부(evaluation_scores)는
+     * 계속 수정 가능하다 — 이 필드는 단순 진행 상태 표시용이며 잠금 기능은 아니다.
+     */
+    @Transactional
+    public ProjectResponse finalizeEvaluation(Long projectId) {
+        Project project = getProjectOrThrow(projectId);
+        project.setEvalStatus("PUBLISHED");
+        return toResponse(project);
+    }
+
     public List<MemberResponse> members(Long projectId) {
         List<ProjectMember> members = projectMemberRepository.findAllByProjectId(projectId);
         Map<Long, User> usersById = userRepository
@@ -238,7 +250,8 @@ public class ProjectService {
             project.getInviteCode(),
             project.getCreatedBy(),
             memberCount,
-            taskProgress
+            taskProgress,
+            project.getEvalStatus()
         );
     }
 

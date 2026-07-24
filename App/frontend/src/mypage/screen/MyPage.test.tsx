@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { MyPage } from "./MyPage";
 import { fetchTasks } from "../../board/libs/utils/taskApi";
+import { getMyEvaluation } from "../../global/api/evaluationApi";
 import type { Task } from "../../board/libs/types/task";
 
 vi.mock("../../global/hooks/useAuth", () => ({
@@ -17,6 +18,10 @@ vi.mock("../../global/hooks/useAuth", () => ({
 
 vi.mock("../../board/libs/utils/taskApi", () => ({
   fetchTasks: vi.fn(),
+}));
+
+vi.mock("../../global/api/evaluationApi", () => ({
+  getMyEvaluation: vi.fn(),
 }));
 
 function makeTask(id: string, assignee: string, status: Task["status"], dueDate: string): Task {
@@ -34,6 +39,7 @@ function renderMyPage() {
 describe("MyPage member view", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(getMyEvaluation).mockResolvedValue({ revealed: false, score: null });
   });
 
   it("shows task stat counts computed from real fetched tasks assigned to the current user", async () => {
@@ -49,12 +55,15 @@ describe("MyPage member view", () => {
     expect(screen.queryByText("업무 C")).not.toBeInTheDocument();
   });
 
-  it("shows a loading message while tasks are being fetched", () => {
+  it("shows a loading message while tasks are being fetched", async () => {
     vi.mocked(fetchTasks).mockReturnValue(new Promise(() => {}));
 
     renderMyPage();
 
     expect(screen.getByText("업무 정보를 불러오는 중...")).toBeInTheDocument();
+    // getMyEvaluation은 정상적으로 resolve되므로, 그 상태 갱신이 act() 밖에서 일어나
+    // "not wrapped in act" 경고가 뜨지 않도록 테스트 종료 전에 흘려보낸다.
+    await waitFor(() => expect(getMyEvaluation).toHaveBeenCalled());
   });
 
   it("shows an error message with a retry button when the fetch fails, and retries on click", async () => {
@@ -108,5 +117,27 @@ describe("MyPage member view", () => {
 
     await waitFor(() => expect(screen.getByText("담당 중인 업무가 없습니다.")).toBeInTheDocument());
     expect(screen.queryByText("내 활동 타임라인")).not.toBeInTheDocument();
+  });
+
+  it("does not show the public score section when the reviewer hasn't published a score", async () => {
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+    vi.mocked(getMyEvaluation).mockResolvedValue({ revealed: false, score: null });
+
+    renderMyPage();
+
+    await waitFor(() => expect(getMyEvaluation).toHaveBeenCalledWith(1));
+    expect(screen.queryByText("공개된 평가 결과")).not.toBeInTheDocument();
+  });
+
+  it("shows the reviewer-published score once revealed, hidden behind a reveal button first", async () => {
+    vi.mocked(fetchTasks).mockResolvedValue([]);
+    vi.mocked(getMyEvaluation).mockResolvedValue({ revealed: true, score: 88 });
+
+    renderMyPage();
+
+    await waitFor(() => expect(screen.getByText("공개된 평가 결과")).toBeInTheDocument());
+    expect(screen.queryByText("88")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /결과 확인하기/ }));
+    expect(screen.getByText("88")).toBeInTheDocument();
   });
 });

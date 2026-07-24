@@ -166,6 +166,29 @@ class ProjectServiceTest {
     }
 
     @Test
+    void finalizeEvaluation_setsEvalStatusToPublished() {
+        Project project = new Project("제목", "캡스톤디자인", "설명");
+        ReflectionTestUtils.setField(project, "id", 10L);
+        ReflectionTestUtils.setField(project, "evalStatus", "EVALUATING");
+        when(projectRepository.findById(10L)).thenReturn(Optional.of(project));
+        when(projectMemberRepository.countByProjectId(10L)).thenReturn(2L);
+        when(taskRepository.findByProjectIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
+
+        ProjectResponse response = projectService.finalizeEvaluation(10L);
+
+        assertThat(response.evalStatus()).isEqualTo("PUBLISHED");
+        assertThat(project.getEvalStatus()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    void finalizeEvaluation_projectNotFound_throws() {
+        when(projectRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> projectService.finalizeEvaluation(999L))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void create_retriesWhenInviteCodeSaveCollisionOccurs() {
         when(projectRepository.saveAndFlush(any(Project.class)))
             .thenThrow(new DataIntegrityViolationException("duplicate key value violates unique constraint \"uq_projects_invite_code\""))
