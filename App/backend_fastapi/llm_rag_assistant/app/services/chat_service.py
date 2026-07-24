@@ -130,6 +130,11 @@ async def answer_question(
     user_id: int | None = None,
     history: list[dict] | None = None,
 ) -> RagQueryResponse:
+    # 빈/공백 질문은 Spring이 보통 400으로 막지만, 내부 호출 경로가 넘겨도 임베딩·검색·생성
+    # LLM을 태우지 않도록 여기서 즉시 끊는다(모든 호출 경로가 지나는 단일 초크포인트).
+    if question is None or not question.strip():
+        return RagQueryResponse(answer="질문을 입력해주세요.", sources=[])
+
     # 후속 질문("그 업무는 언제까지야?")은 재작성으로 독립 질문화한다. 이후 임베딩·개인화 판정·
     # 캐시 키·생성은 전부 재작성된 질문(effective_question)을 기준으로 한다. 히스토리가 없으면
     # 재작성 LLM을 호출하지 않아 첫 질문이 느려지지 않는다.

@@ -159,6 +159,33 @@ class AssistantControllerTest {
     }
 
     @Test
+    void invalidInputDoesNotConsumeRateBudget() throws Exception {
+        // 입력 검증이 rate limit보다 먼저여야 한다. 예산 1짜리 한도에서 잘못된 요청을 보내도
+        // 토큰이 소모되지 않아, 뒤이은 정상 요청이 429가 아니라 통과해야 한다.
+        authenticateAs(5L);
+        stubRole(5L, ProjectRole.MEMBER);
+        when(fastApiAssistantClient.command(any(FastApiAssistantRequest.class)))
+            .thenReturn(new AssistantResponse("answer", "답변", List.of(), null, null));
+        RagRateLimiter oneShot = new RagRateLimiter(1, 60);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(
+            new AssistantController(fastApiAssistantClient, oneShot, projectMemberRepository)
+        ).build();
+
+        // 잘못된 질문 3번 — 예산을 소모했다면 이후 정상 요청이 429가 된다.
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/api/v1/ai/assistant/command")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"project_id\":1,\"question\":\"  \",\"history\":[]}"))
+                .andExpect(status().isBadRequest());
+        }
+
+        mockMvc.perform(post("/api/v1/ai/assistant/command")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"project_id\":1,\"question\":\"정상 질문\",\"history\":[]}"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
     void returns503WhenFastApiCallFails() throws Exception {
         authenticateAs(5L);
         stubRole(5L, ProjectRole.MEMBER);

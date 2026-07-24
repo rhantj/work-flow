@@ -43,16 +43,14 @@ public class RagController {
     @PostMapping("/query")
     @PreAuthorize("@projectAccess.isMember(#request.project_id())")
     public ResponseEntity<ApiResponse<RagQueryResponse>> query(@RequestBody RagQueryRequest request) {
+        // 입력 검증은 rate limit 차감보다 먼저 한다. 잘못된 페이로드(빈 질문·비정상 history)만으로
+        // 프로젝트 요청 예산을 소진시키지 못하게 한다.
+        //
         // 빈/null 질문은 클라이언트 잘못이다. null이면 FastAPI 422 → RestClientException → 503으로
-        // 위장되고, 공백이면 무의미한 LLM 호출을 태운다. rate limit 소모 전에 400으로 끊는다.
+        // 위장되고, 공백이면 무의미한 LLM 호출을 태운다.
         if (request.question() == null || request.question().isBlank()) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.fail("INVALID_QUESTION", "질문을 입력해주세요."));
-        }
-
-        if (!rateLimiter.tryAcquire(request.project_id())) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(ApiResponse.fail("RATE_LIMITED", "요청이 너무 많습니다. 잠시 후 다시 시도하세요."));
         }
 
         // null은 히스토리 없음으로 정규화한다. FastAPI history 필드는 리스트를 기대한다.
@@ -60,6 +58,11 @@ public class RagController {
         if (history.size() > MAX_HISTORY_MESSAGES || history.stream().anyMatch(RagController::isInvalid)) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.fail("INVALID_HISTORY", "대화 기록이 허용 범위를 초과했습니다."));
+        }
+
+        if (!rateLimiter.tryAcquire(request.project_id())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.fail("RATE_LIMITED", "요청이 너무 많습니다. 잠시 후 다시 시도하세요."));
         }
 
         try {

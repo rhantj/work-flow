@@ -50,17 +50,14 @@ public class AssistantController {
     public ResponseEntity<ApiResponse<AssistantResponse>> command(
         @RequestBody AssistantCommandRequest request
     ) {
+        // 입력 검증은 rate limit 차감보다 먼저 한다. 그렇지 않으면 잘못된 페이로드(빈 질문·
+        // 비정상 history)만으로 프로젝트 요청 예산을 소진시킬 수 있다.
+        //
         // 빈/공백/null 질문은 클라이언트 잘못이다. FastAPI로 넘기면 무의미한 LLM 호출을 태우거나,
         // null이면 FastAPI가 422로 거부해 RestClientException → 503("일시 장애")으로 위장된다.
-        // rate limit 소모 전에 400으로 먼저 끊는다.
         if (request.question() == null || request.question().isBlank()) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.fail("INVALID_QUESTION", "질문을 입력해주세요."));
-        }
-
-        if (!rateLimiter.tryAcquire(request.project_id())) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(ApiResponse.fail("RATE_LIMITED", "요청이 너무 많습니다. 잠시 후 다시 시도하세요."));
         }
 
         List<AssistantHistoryMessage> history =
@@ -69,6 +66,11 @@ public class AssistantController {
             || history.stream().anyMatch(AssistantController::isInvalid)) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.fail("INVALID_HISTORY", "대화 기록이 허용 범위를 초과했습니다."));
+        }
+
+        if (!rateLimiter.tryAcquire(request.project_id())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.fail("RATE_LIMITED", "요청이 너무 많습니다. 잠시 후 다시 시도하세요."));
         }
 
         // 역할은 요청 바디를 신뢰하지 않고 인증 세션 + DB 멤버십에서 직접 조회한다.
