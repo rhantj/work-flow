@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from llm_rag_assistant.app.schema.chat_schema import RagQueryResponse, RagSource
+from llm_rag_assistant.app.services import rag_stats
 from llm_rag_assistant.app.services.generation_service import GenerationResult
+from llm_rag_assistant.app.services.rag_stats import _stats_key
 from llm_rag_assistant.app.services.chat_service import (
     _ANSWER_CACHE_SCHEMA_VERSION,
     _answer_cache_key,
@@ -363,6 +365,79 @@ async def test_answer_question_cache_hit_skips_embedding_search_and_generation()
     embed.assert_not_awaited()
     search.assert_not_awaited()
     generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_the_backend_that_answered_is_counted(rag_stats_redis) -> None:
+    """폴백으로 실제 응답 백엔드가 갈리므로, 설정값이 아니라 답을 만든 쪽을 세야 한다."""
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.embed_text",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.generate_answer",
+            new=AsyncMock(return_value=_generated("답변", provider="gemini")),
+        ),
+    ):
+        await answer_question(object(), project_id=5, question="질문")
+
+    assert rag_stats_redis.hashes[_stats_key()]["provider_gemini"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_cached_answer_is_not_counted_as_a_new_generation(rag_stats_redis) -> None:
+    """캐시 히트는 생성도 검색도 하지 않는다. 여기서 세면 프로바이더 합이 total 을 넘는다."""
+    cached = RagQueryResponse(answer="캐시 답변", sources=[], provider="huggingface")
+    cache = _FakeAsyncRedis({_answer_cache_key(5, None, "질문"): cached.model_dump_json()})
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.get_async_redis_client",
+            return_value=cache,
+        ),
+        patch("llm_rag_assistant.app.services.chat_service.embed_text", new=AsyncMock()),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(),
+        ),
+        patch("llm_rag_assistant.app.services.chat_service.generate_answer", new=AsyncMock()),
+    ):
+        await answer_question(object(), project_id=5, question="질문")
+
+    assert rag_stats_redis.hashes == {}
+
+
+@pytest.mark.asyncio
+async def test_a_broken_stats_redis_does_not_lose_the_answer(monkeypatch) -> None:
+    """통계가 답변을 죽이면 그건 관측이 아니라 새로 만든 장애 지점이다."""
+    def _explode():
+        raise RuntimeError("redis down")
+
+    monkeypatch.setattr(rag_stats, "get_async_redis_client", _explode)
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.embed_text",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.generate_answer",
+            new=AsyncMock(return_value=_generated("답변", provider="ollama")),
+        ),
+    ):
+        result = await answer_question(object(), project_id=5, question="질문")
+
+    assert result.answer == "답변"
+    assert result.provider == "ollama"
 
 
 @pytest.mark.asyncio

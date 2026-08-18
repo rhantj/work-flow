@@ -51,6 +51,9 @@ _FLAGS = ("personal", "codes_truncated", "code_miss", "ids_referenced", "id_miss
 # 걸지 않으므로 total 로 나누면 비율이 실제보다 낮게 보인다.
 _ROUTED_BASE_FLAGS = ("codes_truncated", "code_miss", "ids_referenced", "id_miss")
 
+# 답을 만든 백엔드별 카운터 (rag_stats._PROVIDER_FIELD_PREFIX 와 같은 값).
+_PROVIDER_PREFIX = "provider_"
+
 
 def _connect() -> Redis:
     """컨테이너에 이미 있는 자격 증명을 그대로 쓴다. 새 환경변수를 만들지 않는다."""
@@ -112,6 +115,19 @@ def _render(totals: Counter, seen_days: list[str], days: int) -> str:
         base = routed if flag in _ROUTED_BASE_FLAGS else total
         lines.append(f"  {flag:<16} {count:>6}  {_percent(count, base)}")
 
+    providers = sorted(
+        ((name[len(_PROVIDER_PREFIX):], value) for name, value in totals.items()
+         if name.startswith(_PROVIDER_PREFIX)),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    if providers:
+        # 분모는 total 이다. 합이 total 에 못 미치면 그 차이가 생성이 통째로 실패한 건수다
+        # (폴백 마지막 단계까지 실패한 경우) - 프로바이더 합으로 나누면 그게 안 보인다.
+        lines += ["", "응답 백엔드 분포"]
+        for provider, count in providers:
+            lines.append(f"  {provider:<16} {count:>6}  {_percent(count, total)}")
+
     projects = sorted(
         ((name[5:], value) for name, value in totals.items() if name.startswith("proj_")),
         key=lambda item: item[1],
@@ -132,6 +148,7 @@ def _render(totals: Counter, seen_days: list[str], days: int) -> str:
         and name not in _CODE_BUCKETS
         and name != "total"
         and not name.startswith("proj_")
+        and not name.startswith(_PROVIDER_PREFIX)
     )
     if unknown:
         # 코드가 새 필드를 쓰기 시작했는데 이 스크립트를 안 고친 경우다. 조용히 버리면

@@ -85,6 +85,34 @@ def test_id_reference_counters_are_rendered(script) -> None:
     assert "이 스크립트가 모르는 필드" not in output
 
 
+def test_provider_share_is_rendered(script) -> None:
+    """이 관측을 만든 질문이 '지금 HF가 몇 %를 답하고 있나'다. 스크립트가 모르면
+    '모르는 필드'로 밀려 그 질문에 답할 수 없다.
+    """
+    totals = Counter(
+        {"total": 10, "codes_0": 10, "proj_3": 10, "provider_huggingface": 7, "provider_ollama": 3}
+    )
+
+    output = script._render(totals, ["2026-08-03"], days=1)
+
+    hf_line = next(line for line in output.splitlines() if "huggingface" in line)
+    assert "70.0%" in hf_line
+    assert "ollama" in output
+    assert "이 스크립트가 모르는 필드" not in output
+
+
+def test_generation_failures_show_up_as_a_provider_gap(script) -> None:
+    """폴백이 전부 실패하면 질의는 세지고 프로바이더는 안 세진다. 합이 total 에 못 미치는
+    것이 정상이고, 그 차이 자체가 '답을 못 만든 건수'다.
+    """
+    totals = Counter({"total": 10, "codes_0": 10, "proj_3": 10, "provider_gemini": 8})
+
+    output = script._render(totals, ["2026-08-03"], days=1)
+
+    gemini_line = next(line for line in output.splitlines() if "gemini" in line)
+    assert "80.0%" in gemini_line
+
+
 def test_id_flags_are_measured_against_routed_questions(script) -> None:
     """분모가 total 이면 개인화 질문이 섞여 비율이 실제보다 낮게 보인다."""
     totals = Counter({"total": 10, "personal": 5, "codes_0": 5, "ids_referenced": 5, "proj_1": 10})

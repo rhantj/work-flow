@@ -36,6 +36,9 @@ _TTL_SECONDS = 90 * 24 * 60 * 60
 # 5개를 넘게 나열하면 어차피 잘리므로, 그 이상은 개수를 세도 결정에 쓰이지 않는다.
 _CODE_BUCKET_CAP = 5
 
+# 답을 만든 백엔드별 카운터의 접두사. generation_service 의 프로바이더 이름이 그대로 붙는다.
+_PROVIDER_FIELD_PREFIX = "provider_"
+
 
 @dataclass(frozen=True)
 class QuestionQueryStats:
@@ -108,7 +111,23 @@ def _stats_key(now: datetime | None = None) -> str:
 
 
 async def record_question_query(stats: QuestionQueryStats) -> None:
-    """질문 한 건을 집계한다. **어떤 경우에도 질의를 실패시키지 않는다.**
+    """질문 한 건을 집계한다."""
+    await _increment_daily_counters(_counter_fields(stats))
+
+
+async def record_answer_provider(provider: str) -> None:
+    """답을 실제로 만든 백엔드를 집계한다.
+
+    질문 카운터와 나눠 부르는 이유: 검색 시점에는 어느 백엔드가 답할지 아직 모른다.
+    자동 모드는 HF -> Gemini -> Ollama 를 실제로 호출해 보고 첫 성공을 쓰므로
+    (generation_service._generate_with_fallback_chain), 답이 나온 뒤에야 정해진다.
+    total 과 같은 일별 키에 올려 provider_* / total 로 비중을 바로 읽는다.
+    """
+    await _increment_daily_counters({f"{_PROVIDER_FIELD_PREFIX}{provider}": 1})
+
+
+async def _increment_daily_counters(fields: dict[str, int]) -> None:
+    """오늘 키의 필드들을 올린다. **어떤 경우에도 질의를 실패시키지 않는다.**
 
     advance_rag_project_epoch 가 이미 같은 정책이다("캐시는 DB 원본의 파생물이므로 무효화
     실패가 원본 변경 API를 실패시켜서는 안 된다"). 통계는 그보다도 부수적이다.
@@ -119,7 +138,7 @@ async def record_question_query(stats: QuestionQueryStats) -> None:
         # fastapi ACL 계정에는 그 두 명령이 없어 통째로 NOPERM 이 된다. 원자성도 필요 없다 -
         # 필드마다 독립적인 HINCRBY 이고, 부분 실패해도 다음 질의가 이어서 센다.
         pipe = get_async_redis_client().pipeline(transaction=False)
-        for field, amount in _counter_fields(stats).items():
+        for field, amount in fields.items():
             pipe.hincrby(key, field, amount)
         # 매번 다시 건다. 키가 만들어진 날이 아니라 마지막으로 쓰인 날부터 90일이 되지만,
         # 일별 키라 그 차이는 하루뿐이고 TTL 이 빠지는 사고를 원천 차단하는 편이 낫다.

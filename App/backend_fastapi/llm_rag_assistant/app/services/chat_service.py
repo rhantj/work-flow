@@ -14,6 +14,7 @@ from llm_rag_assistant.app.services.generation_service import (
 )
 from llm_rag_assistant.app.services.project_stats_service import fetch_project_stats
 from llm_rag_assistant.app.services.query_rewrite_service import rewrite_question
+from llm_rag_assistant.app.services.rag_stats import record_answer_provider
 from llm_rag_assistant.app.services.retrieval_service import search_chunks_for_question
 from llm_rag_assistant.app.services.task_facts_service import enrich_with_facts
 
@@ -213,6 +214,9 @@ async def answer_question(
         effective_question, enriched_rows, is_personal=assignee_id is not None, stats=stats
     )
     answer = generated.answer
+    # 설정값(resolve_generation_provider)이 아니라 실제로 답한 백엔드를 센다. 자동 모드에서는
+    # 폴백이 조용히 다음 단계로 넘어가므로 둘이 갈린다.
+    await record_answer_provider(generated.provider)
 
     sources = _dedupe_sources(
         RagSource(
