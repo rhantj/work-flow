@@ -59,3 +59,7 @@ class RagSource(BaseModel):
 class RagQueryResponse(BaseModel):
     answer: str
     sources: list[RagSource]
+    # 이 답을 실제로 만든 생성 백엔드(huggingface / gemini / ollama). 폴백 체인은 앞 단계가
+    # 죽으면 조용히 다음으로 넘어가므로, 이 값이 없으면 운영에서 무엇이 답했는지 알 수 없다.
+    # 기본값은 회의록 analysis_provider 와 같은 어휘를 쓴다 - 모르는 값을 아는 척하지 않는다.
+    provider: str = "unknown"

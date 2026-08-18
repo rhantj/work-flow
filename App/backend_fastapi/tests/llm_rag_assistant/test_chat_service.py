@@ -975,7 +975,7 @@ def test_cache_schema_version_matches_the_current_prompt_shape() -> None:
     이 테스트는 실패하라고 있는 것이다 - 프롬프트나 검색을 건드리면 여기서 걸리고, 그때
     버전을 올렸는지 스스로 확인하게 된다. 값만 고쳐 통과시키지 말 것.
     """
-    assert _ANSWER_CACHE_SCHEMA_VERSION == "v15"
+    assert _ANSWER_CACHE_SCHEMA_VERSION == "v16"
 
 
 @pytest.mark.asyncio
@@ -1045,3 +1045,101 @@ def test_answer_cache_key_separates_generation_providers() -> None:
         hosted_key = _answer_cache_key(project_id=5, assignee_id=None, question="동일 질문")
 
     assert local_key != hosted_key
+
+
+@pytest.mark.asyncio
+async def test_response_carries_the_backend_that_actually_answered() -> None:
+    """폴백으로 밀려 답한 백엔드가 응답에 그대로 실려야 한다(#620).
+
+    기본값이 "unknown" 이라 배선이 끊겨도 응답 자체는 성립한다. 그래서 실제 값이
+    흘러가는지를 이 테스트가 직접 확인한다.
+    """
+    pool = object()
+    rows = [
+        {"source_type": "meeting", "source_id": 1, "content": "근거", "similarity": 0.9, "id": 1}
+    ]
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.embed_text",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(return_value=rows),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.generate_answer",
+            new=AsyncMock(return_value=_generated("답변", provider="ollama")),
+        ),
+    ):
+        result = await answer_question(pool, project_id=5, question="질문")
+
+    assert result.provider == "ollama"
+
+
+@pytest.mark.asyncio
+async def test_cached_response_keeps_the_provider_it_was_stored_with() -> None:
+    """캐시 히트에도 저장 시점의 백엔드가 실려야 한다.
+
+    여기서 값이 비면 "캐시로 답한 건 전부 unknown" 이 되어, 집계(#622)가 실제 분포를
+    한참 어긋나게 잡는다.
+    """
+    cached = RagQueryResponse(answer="캐시 답변", sources=[], provider="gemini")
+    cache = _FakeAsyncRedis({_answer_cache_key(5, None, "질문"): cached.model_dump_json()})
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.get_async_redis_client",
+            return_value=cache,
+        ),
+        patch("llm_rag_assistant.app.services.chat_service.embed_text", new=AsyncMock()),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(),
+        ),
+        patch("llm_rag_assistant.app.services.chat_service.generate_answer", new=AsyncMock()),
+    ):
+        result = await answer_question(object(), project_id=5, question="질문")
+
+    assert result.provider == "gemini"
+
+
+@pytest.mark.asyncio
+async def test_answers_cached_before_the_provider_field_are_not_served() -> None:
+    """provider 가 없던 시절의 캐시가 그대로 나가면 안 된다.
+
+    스키마 버전을 안 올리면 옛 캐시가 같은 키로 읽혀 provider 가 조용히 기본값으로
+    채워진다. 관측하려고 만든 값이 거짓말을 하게 되므로 버전 상향이 필수다.
+    """
+    old_key_holder: dict[str, str] = {}
+    with patch(
+        "llm_rag_assistant.app.services.chat_service._ANSWER_CACHE_SCHEMA_VERSION", "v15"
+    ):
+        old_key_holder["key"] = _answer_cache_key(5, None, "질문")
+
+    stale = RagQueryResponse(answer="옛 캐시 답변", sources=[])
+    cache = _FakeAsyncRedis({old_key_holder["key"]: stale.model_dump_json()})
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.get_async_redis_client",
+            return_value=cache,
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.embed_text",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.generate_answer",
+            new=AsyncMock(return_value=_generated("새 답변", provider="huggingface")),
+        ) as generate,
+    ):
+        result = await answer_question(object(), project_id=5, question="질문")
+
+    generate.assert_awaited()
+    assert result.answer == "새 답변"

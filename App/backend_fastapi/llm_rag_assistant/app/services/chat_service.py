@@ -45,7 +45,10 @@ _SNIPPET_MAX_LEN = 200
 #   - 내용이 같은 청크를 한 건으로 접고 남는 칸을 다른 근거로 채운다.
 #   - 코드를 4개 이상 말하면 말한 만큼 칸을 준다(전에는 3개에서 잘렸다).
 # 같은 질문에 돌아가는 출처 목록이 달라지므로 v14 캐시를 그대로 쓰면 옛 구성이 계속 나간다.
-_ANSWER_CACHE_SCHEMA_VERSION = "v15"
+# v16: 응답에 provider(실제로 답한 생성 백엔드)를 싣는다. 올리지 않으면 v15로 저장된
+# 캐시가 같은 키로 읽혀 provider가 조용히 "unknown"으로 채워진다 - 관측하려고 만든 값이
+# 거짓말을 하게 된다.
+_ANSWER_CACHE_SCHEMA_VERSION = "v16"
 _ANSWER_CACHE_TTL_SECONDS = 1800
 
 # "내 할 일 알려줘" 류 개인화 질문 판별용. 순수 벡터 유사도만으로는 "내"가 누구인지 구분할
@@ -220,7 +223,7 @@ async def answer_question(
         )
         for row in rows
     )
-    response = RagQueryResponse(answer=answer, sources=sources)
+    response = RagQueryResponse(answer=answer, sources=sources, provider=generated.provider)
     if redis_client is not None and cache_key is not None and cache_epoch is not None:
         latest_epoch = await _read_project_cache_epoch(redis_client, project_id)
         if latest_epoch == cache_epoch:
