@@ -46,6 +46,39 @@ def test_question_goes_through_existing_rag_pipeline() -> None:
     mock_answer.assert_awaited_once()
 
 
+def test_question_answer_carries_the_generation_provider() -> None:
+    """폴백 체인이 조용히 다음 백엔드로 넘어가므로, 어시스턴트 응답에도 실제로 답한
+    백엔드가 실려야 운영에서 무엇이 답했는지 알 수 있다."""
+    _override_pool()
+    with patch(
+        "llm_rag_assistant.app.routers.assistant_router.answer_question",
+        new=AsyncMock(return_value=RagQueryResponse(answer="답변", sources=[], provider="gemini")),
+    ):
+        client = TestClient(app)
+        response = client.post("/ai/assistant/command", json=_body("내 업무가 뭐야?"))
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert response.json()["provider"] == "gemini"
+
+
+def test_command_path_reports_unknown_provider() -> None:
+    """명령 경로는 RAG 생성 백엔드를 타지 않는다 - 모르는 값을 아는 척하지 않는다."""
+    from llm_rag_assistant.app.graph.assistant_graph import GraphOutcome
+
+    _override_pool()
+    with patch(
+        "llm_rag_assistant.app.routers.assistant_router.start_command",
+        new=AsyncMock(return_value=GraphOutcome(type="done", message="완료했습니다.", thread_id="t1")),
+    ):
+        client = TestClient(app)
+        response = client.post("/ai/assistant/command", json=_body("WF-250 완료로 바꿔줘"))
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert response.json()["provider"] == "unknown"
+
+
 def test_question_path_receives_history_as_dicts() -> None:
     """query_rewrite_service._format_history가 turn.get()을 쓰므로 dict여야 한다."""
     _override_pool()

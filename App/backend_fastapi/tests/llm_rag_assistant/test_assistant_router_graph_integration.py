@@ -181,8 +181,11 @@ def test_wire_field_names_match_what_spring_sends_and_reads() -> None:
 
     # 돌아오는 방향 - 이름이 어긋나도 예외가 없다. 스프링에서 조용히 null이 되어
     # 확인 카드만 화면에서 사라진다.
+    # provider는 아직 스프링 record(AssistantResponse.java)에 없다. 관측용 값이라 스프링이
+    # 안 읽어도 화면이 깨지지 않으므로 일부러 이쪽만 먼저 실었다 - RagQueryResponse의
+    # provider(#620)와 같은 상태이고, 프론트까지 내보낼 때 자바 record를 함께 고쳐야 한다.
     assert set(AssistantResponse.model_fields) == {
-        "type", "message", "sources", "thread_id", "card",
+        "type", "message", "sources", "thread_id", "card", "provider",
     }
     assert set(ActionCard.model_fields) == {
         "step_id", "tool", "task_id", "title", "summary", "args",

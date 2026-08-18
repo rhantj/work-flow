@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -150,6 +151,40 @@ async def test_enqueue_and_wait_returns_worker_result(fake_client: _FakeQueueRed
 
     assert result.answer == "답변"
     assert fake_client.stream == []  # 처리 후 XACK+XDEL로 정리됨
+
+
+@pytest.mark.asyncio
+async def test_worker_result_keeps_the_generation_provider(fake_client: _FakeQueueRedis) -> None:
+    """워커가 만든 응답은 JSON으로 직렬화돼 pub/sub을 건넌 뒤 다시 모델로 복원된다.
+    provider가 그 왕복에서 살아남아야 큐 경로로 들어온 질의도 무엇이 답했는지 알 수 있다."""
+    fake_result = RagQueryResponse(answer="답변", sources=[], provider="ollama")
+    published: list[str] = []
+    original_publish = fake_client.publish
+
+    async def _record_publish(channel: str, message: str) -> None:
+        published.append(message)
+        await original_publish(channel, message)
+
+    fake_client.publish = _record_publish
+
+    with patch(
+        "llm_rag_assistant.app.services.rag_queue_service.answer_question",
+        new=AsyncMock(return_value=fake_result),
+    ), patch(
+        "llm_rag_assistant.app.services.rag_queue_service.get_pool_instance",
+        new=AsyncMock(return_value=object()),
+    ):
+        worker = RagQueueWorker()
+        wait_task = asyncio.create_task(
+            enqueue_and_wait(project_id=1, question="질문", user_id=5, history=[], timeout=5)
+        )
+        await asyncio.sleep(0.05)
+        await worker._poll_once(fake_client)
+        result = await wait_task
+
+    assert result.provider == "ollama"
+    # 반환 객체만 보면 기본값 "unknown"이 우연히 맞아떨어져도 통과한다 - 실제로 선을 건넜는지 본다.
+    assert json.loads(published[0])["data"]["provider"] == "ollama"
 
 
 @pytest.mark.asyncio
