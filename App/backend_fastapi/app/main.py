@@ -76,7 +76,9 @@ HF_CHAT_COMPLETIONS_URL = "https://router.huggingface.co/v1/chat/completions"
 # "unknown" 으로 계속 응답해, 관측성을 붙인 뒤에도 한동안 아무것도 안 보인다.
 # v4: summary 규칙을 프롬프트에 넣었다. 캐시 키에 프롬프트가 안 들어가므로, 올리지 않으면
 # 같은 회의록에 대해 규칙 이전의 짧은 요약이 계속 나간다.
-MEETING_ANALYSIS_CACHE_SCHEMA_VERSION = 4
+# v5: summary 규칙을 스키마 줄에도 적었다. v4 캐시에는 규칙 블록을 흘려 읽은 작은
+# 모델이 제목만 쓴 요약이 남아 있다.
+MEETING_ANALYSIS_CACHE_SCHEMA_VERSION = 5
 MEETING_ANALYSIS_CACHE_TTL_SECONDS = 86400
 DEFAULT_WHISPER_MODEL_SIZE = "small"
 DEFAULT_WHISPER_DEVICE = "cpu"
@@ -776,7 +778,7 @@ def build_ollama_prompt(request: AnalyzeRequest) -> str:
 
 JSON 스키마:
 {{
-  "summary": "회의 내용 요약 (아래 summary 규칙을 따를 것)",
+  "summary": "왜 이 논의를 했는지, 무엇을 정했고 무엇을 하기로 했는지를 두세 문장으로 쓴다. 'OO 회의'처럼 제목만 되풀이하지 않는다. 실행 항목이 여러 건이면 각각이 무엇인지 적는다. 회의록에 없는 날짜나 이름은 넣지 않는다",
   "decisions": ["결정사항 문장", "..."],
   "todos": [
     {{
@@ -795,9 +797,9 @@ JSON 스키마:
 
 summary 규칙 - 반드시 지킬 것:
 1. 다음 세 가지를 모두 담는다. 하나라도 빠지면 안 된다.
+   - 배경: 왜 이 논의를 했는지, 무슨 문제가 있었는지
    - 결정된 것: 이 회의에서 하기로 정해진 방침
    - 하기로 한 일: 실제 실행 항목. 여러 건이면 빠짐없이 나열한다
-   - 배경: 왜 이 논의를 했는지, 무슨 문제가 있었는지
 2. "OO 회의", "OO에 대해 논의함" 처럼 주제만 되풀이하지 않는다. 무엇을 정했고 무엇을 하기로
    했는지가 없으면 요약이 아니다.
    나쁜 예: "사내 위키 이관 회의"
