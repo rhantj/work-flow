@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-03",
+  "category": "identifier",
+  "retrieval_case_id": "A03",
+  "question": "WF-233은 어떤 내용이야?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-233은 'document_chunks 및 pgvector 스키마 구현' 업무다",
+      "evidence_snippet": "document_chunks 및 pgvector 스키마 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#88"
+  ],
+  "expected_source_excerpts": {
+    "task#88": "document_chunks 및 pgvector 스키마 구현 - [Jira01 재검증 테스트 삽입] WF-233"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "WF-233의 담당자를 특정한다",
+      "reason": "근거 청크 본문에 담당자 이름이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "pgvector 확장을 이미 설치했다고 단정한다",
+      "reason": "근거는 스키마 구현 업무의 존재만 말한다"
+    }
+  ]
+}

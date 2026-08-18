@@ -1,0 +1,38 @@
+{
+  "case_id": "mixed-04",
+  "category": "mixed",
+  "retrieval_case_id": "C04",
+  "question": "ERD 수정본 언제 공유해?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "소라가 ERD 수정본을 오늘 밤까지 공유하기로 했다",
+      "evidence_snippet": "ERD 수정본은 오늘 밤까지 공유하겠습니다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "데이터베이스 ERD 1차본은 이미 만들어졌다",
+      "evidence_snippet": "데이터베이스 ERD는 1차로 만들었습니다"
+    }
+  ],
+  "expected_source_ids": [
+    "action_item#523",
+    "action_item#520"
+  ],
+  "expected_source_excerpts": {
+    "action_item#523": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 소라: ERD 수정본은 오늘 밤까지 공유하겠습니다",
+    "action_item#520": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 소라: 데이터베이스 ERD는 1차로 만들었습니다"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "ERD 수정본 공유 시각을 특정 날짜나 시간으로 단정한다",
+      "reason": "근거는 '오늘 밤'이라는 상대 표현뿐이다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "ERD 수정 내용이 무엇인지 구체적으로 말한다",
+      "reason": "근거에 변경 내역이 없다"
+    }
+  ]
+}

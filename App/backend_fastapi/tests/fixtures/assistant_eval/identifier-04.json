@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-04",
+  "category": "identifier",
+  "retrieval_case_id": "A04",
+  "question": "WF-259가 뭐지?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-259는 '최종 데모 E2E 시나리오 검증' 업무다",
+      "evidence_snippet": "최종 데모 E2E 시나리오 검증"
+    }
+  ],
+  "expected_source_ids": [
+    "task#114"
+  ],
+  "expected_source_excerpts": {
+    "task#114": "최종 데모 E2E 시나리오 검증 - [Jira01 재검증 테스트 삽입] WF-259"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "WF-259의 데모 일정을 특정한다",
+      "reason": "근거 청크 본문에 날짜가 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "WF-259가 완료됐다고 단정한다",
+      "reason": "근거 청크 본문에 상태가 없다"
+    }
+  ]
+}

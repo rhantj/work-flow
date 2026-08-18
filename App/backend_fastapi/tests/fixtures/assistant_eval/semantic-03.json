@@ -1,0 +1,49 @@
+{
+  "case_id": "semantic-03",
+  "category": "semantic",
+  "retrieval_case_id": "B03",
+  "question": "외부 평가자가 팀원 성과를 확인하는 기능은?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "심사자 전용 기여도 리포트를 제공하는 업무가 있다",
+      "evidence_snippet": "심사자 전용 기여도 리포트를 제공한다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "심사자 목록/기여도 화면 구현 업무가 있다",
+      "evidence_snippet": "심사자 목록/기여도 화면 구현"
+    },
+    {
+      "fact_id": "F3",
+      "statement": "기여도 조회 API 구현 업무가 있다",
+      "evidence_snippet": "기여도 조회 API 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#44",
+    "task#108",
+    "task#109",
+    "task#110",
+    "action_item#4"
+  ],
+  "expected_source_excerpts": {
+    "task#44": "심사자 전용 기여도 리포트를 제공한다 - [Jira01 재검증 테스트 삽입] WF-189",
+    "task#108": "심사자 전용 기여도 리포트를 제공한다 - [Jira01 재검증 테스트 삽입] WF-253",
+    "task#109": "심사자 목록/기여도 화면 구현 - [Jira01 재검증 테스트 삽입] WF-254",
+    "task#110": "기여도 조회 API 구현 - [Jira01 재검증 테스트 삽입] WF-255",
+    "action_item#4": "Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권… - Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "심사자 권한이 프로젝트와 무관하게 전역으로 부여된다고 말한다",
+      "reason": "근거는 프로젝트별 권한이라고 밝힌다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "기여도 점수 산식을 구체적으로 설명한다",
+      "reason": "근거에 산식이 없다"
+    }
+  ]
+}

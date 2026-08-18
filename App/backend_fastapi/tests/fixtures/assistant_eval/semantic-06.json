@@ -1,0 +1,51 @@
+{
+  "case_id": "semantic-06",
+  "category": "semantic",
+  "retrieval_case_id": "B06",
+  "question": "회의 내용을 요약해서 할 일을 뽑아내는 기능",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "회의록 AI 분석 API 구현 업무가 있다",
+      "evidence_snippet": "회의록 AI 분석 API 구현"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "LLM 회의 분석 결과를 구조화하는 업무가 있다",
+      "evidence_snippet": "LLM 회의 분석 결과를 구조화한다"
+    },
+    {
+      "fact_id": "F3",
+      "statement": "To-Do 후보를 검토 후 업무로 승인하는 업무가 있다",
+      "evidence_snippet": "To-Do 후보를 검토 후 업무로 승인한다"
+    }
+  ],
+  "expected_source_ids": [
+    "action_item#9",
+    "task#15",
+    "task#34",
+    "task#70",
+    "task#72",
+    "task#74"
+  ],
+  "expected_source_excerpts": {
+    "action_item#9": "회의록 AI 분석 API 구현 - 회의록 AI 분석 API 구현",
+    "task#15": "회의록 AI 분석 API 구현 - 회의록 AI 분석 API 구현",
+    "task#34": "To-Do 후보를 검토 후 업무로 승인한다 - [Jira01 재검증 테스트 삽입] WF-179",
+    "task#70": "LLM 회의 분석 결과를 구조화한다 - [Jira01 재검증 테스트 삽입] WF-215",
+    "task#72": "회의 분석 결과 화면 구현 - [Jira01 재검증 테스트 삽입] WF-217",
+    "task#74": "To-Do 후보를 검토 후 업무로 승인한다 - [Jira01 재검증 테스트 삽입] WF-219"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "회의 오디오를 자동으로 받아쓴다고 말한다",
+      "reason": "근거 청크에 음성 인식 언급이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "추출된 To-Do가 승인 없이 바로 업무 보드에 들어간다고 말한다",
+      "reason": "근거는 검토 후 승인 단계를 둔다고 밝힌다"
+    }
+  ]
+}

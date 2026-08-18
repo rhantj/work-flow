@@ -1,0 +1,35 @@
+{
+  "case_id": "mixed-08",
+  "category": "mixed",
+  "retrieval_case_id": "C08",
+  "question": "박상준이 어떤 구조로 설계한다고 했어?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "박상준은 AI Assistant를 RAG 구조로 설계하겠다고 했다",
+      "evidence_snippet": "박상준: AI Assistant는 RAG 구조로 설계하겠습니다"
+    }
+  ],
+  "expected_source_ids": [
+    "action_item#6",
+    "task#8",
+    "task#7"
+  ],
+  "expected_source_excerpts": {
+    "action_item#6": "박상준: AI Assistant는 RAG 구조로 설계하겠습니다 - 박상준: AI Assistant는 RAG 구조로 설계하겠습니다",
+    "task#8": "박상준: AI Assistant는 RAG 구조로 설계하겠습니다 - 박상준: AI Assistant는 RAG 구조로 설계하겠습니다",
+    "task#7": "박상준: AI Assistant는 RAG 구조로 설계하겠습니다 - 박상준: AI Assistant는 RAG 구조로 설계하겠습니다"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "사용할 벡터 DB나 임베딩 모델을 특정한다",
+      "reason": "근거 발언은 RAG 구조라는 방향만 말한다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "박상준이 설계를 이미 완료했다고 말한다",
+      "reason": "근거는 앞으로 하겠다는 발언이다"
+    }
+  ]
+}

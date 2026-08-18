@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-08",
+  "category": "identifier",
+  "retrieval_case_id": "A08",
+  "question": "WF-256이 뭔지 알려줘",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-256은 '/ai/contribution/summarize 엔드포인트 구현' 업무다",
+      "evidence_snippet": "/ai/contribution/summarize 엔드포인트 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#111"
+  ],
+  "expected_source_excerpts": {
+    "task#111": "/ai/contribution/summarize 엔드포인트 구현 - [Jira01 재검증 테스트 삽입] WF-256"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "WF-256의 진행 상태를 특정한다",
+      "reason": "근거 청크 본문에 상태가 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "기여도 산출 알고리즘을 구체적으로 설명한다",
+      "reason": "근거는 엔드포인트 구현 업무 제목뿐이다"
+    }
+  ]
+}

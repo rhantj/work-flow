@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-10",
+  "category": "identifier",
+  "retrieval_case_id": "A10",
+  "question": "WF-243은 어떤 업무야",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-243은 '지연 위험도 모델 학습/평가 지원' 업무다",
+      "evidence_snippet": "지연 위험도 모델 학습/평가 지원"
+    }
+  ],
+  "expected_source_ids": [
+    "task#98"
+  ],
+  "expected_source_excerpts": {
+    "task#98": "지연 위험도 모델 학습/평가 지원 - [Jira01 재검증 테스트 삽입] WF-243"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "사용한 모델 종류나 성능 수치를 말한다",
+      "reason": "근거는 업무 제목뿐이고 모델·지표가 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "WF-243의 담당자를 특정한다",
+      "reason": "근거 청크 본문에 담당자 이름이 없다"
+    }
+  ]
+}

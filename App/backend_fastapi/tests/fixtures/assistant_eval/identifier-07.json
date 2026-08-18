@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-07",
+  "category": "identifier",
+  "retrieval_case_id": "A07",
+  "question": "WF-238 관련 업무 알려줘",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-238은 '/ai/rag/query 엔드포인트 구현' 업무다",
+      "evidence_snippet": "/ai/rag/query 엔드포인트 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#93"
+  ],
+  "expected_source_excerpts": {
+    "task#93": "/ai/rag/query 엔드포인트 구현 - [Jira01 재검증 테스트 삽입] WF-238"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "WF-238의 담당자를 특정한다",
+      "reason": "근거 청크 본문에 담당자 이름이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "엔드포인트의 요청·응답 스펙을 구체적으로 서술한다",
+      "reason": "근거는 업무 제목뿐이고 스펙이 없다"
+    }
+  ]
+}
