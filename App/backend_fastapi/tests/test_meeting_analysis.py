@@ -1485,10 +1485,13 @@ def test_analysis_provider_is_returned_over_http(monkeypatch):
 
 
 def test_build_ollama_prompt_tells_the_model_what_a_summary_must_contain():
-    """summary 만 규칙 블록이 없어 '한두 문장'이라는 길이 제약뿐이었다.
+    """같은 요구를 스키마 값 자리와 규칙 블록 양쪽에 적는다.
 
-    그 결과 요약이 케이스마다 담아야 할 사실 3~7개 중 절반만 담아 충실도가
-    0.526 에 머물렀다. todos·담당자·title 처럼 무엇을 담을지 명시한다.
+    블록만 뒀을 때 qwen2.5:1.5b 는 6건 중 5건을 "OCI 배포 점검 회의" 처럼 제목만
+    썼다. 작은 모델은 채워야 할 칸 옆에 적힌 말만 따른다. 반대로 스키마 줄만 두면
+    큰 모델(hf) 충실도가 0.808 에서 0.728 로 내려갔다. 회차 간 흔들림 폭이 0.028
+    이라 이 차이는 노이즈가 아니다. 둘 다 두는 쪽이 hf 0.808, ollama 0.496 으로
+    양쪽 모두 가장 좋았다.
     """
     prompt = build_ollama_prompt(
         AnalyzeRequest(
@@ -1499,7 +1502,12 @@ def test_build_ollama_prompt_tells_the_model_what_a_summary_must_contain():
         )
     )
 
+    schema_line = next(line for line in prompt.splitlines() if '"summary"' in line)
+    assert "왜 이 논의를 했는지" in schema_line
+    assert "정했고" in schema_line
+    assert "하기로 했는지" in schema_line
+    assert "제목만" in schema_line
     assert "summary 규칙" in prompt
+    assert "배경" in prompt
     assert "결정된 것" in prompt
     assert "하기로 한 일" in prompt
-    assert "배경" in prompt
