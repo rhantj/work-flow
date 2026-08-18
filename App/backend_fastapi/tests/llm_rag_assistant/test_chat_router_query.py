@@ -176,3 +176,19 @@ def test_query_endpoint_does_not_mask_unrelated_runtime_errors() -> None:
 
     app.dependency_overrides.clear()
     assert response.status_code == 500
+
+
+def test_query_endpoint_exposes_the_backend_that_answered() -> None:
+    """provider 가 서비스 안에만 머물면 관측 목적을 못 채운다. HTTP 응답까지 나가야 한다(#620)."""
+    _override_pool()
+    fake_result = RagQueryResponse(answer="답변", sources=[], provider="ollama")
+    with patch(
+        "llm_rag_assistant.app.routers.chat_router.enqueue_and_wait",
+        new=AsyncMock(return_value=fake_result),
+    ):
+        client = TestClient(app)
+        response = client.post("/ai/rag/query", json={"project_id": 1, "question": "질문"})
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert response.json()["provider"] == "ollama"
