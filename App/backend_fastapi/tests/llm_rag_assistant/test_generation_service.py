@@ -42,9 +42,9 @@ async def test_generate_answer_includes_sources_in_prompt(monkeypatch: pytest.Mo
             return_value=mock_chat_model,
         ) as mock_chat_cls,
     ):
-        answer = await generate_answer("질문입니다", sources)
+        generated = await generate_answer("질문입니다", sources)
 
-    assert answer == "답변입니다"
+    assert generated.answer == "답변입니다"
     mock_endpoint_cls.assert_called_once_with(
         repo_id="Qwen/Qwen3-4B-Instruct-2507",
         huggingfacehub_api_token="hf_test_token",
@@ -69,9 +69,9 @@ async def test_generate_answer_handles_empty_sources(monkeypatch: pytest.MonkeyP
             return_value=mock_chat_model,
         ),
     ):
-        answer = await generate_answer("관련 없는 질문", [])
+        generated = await generate_answer("관련 없는 질문", [])
 
-    assert "근거 없음" in answer
+    assert "근거 없음" in generated.answer
     messages = mock_chat_model.ainvoke.call_args.args[0]
     assert "(관련 자료 없음)" in messages[1].content
 
@@ -667,9 +667,9 @@ async def test_generate_answer_uses_ollama_when_rag_provider_is_ollama(
         "llm_rag_assistant.app.services.generation_service.ollama.AsyncClient",
         return_value=mock_client,
     ):
-        answer = await generate_answer("블로커 알려줘", [], stats=_stats())
+        generated = await generate_answer("블로커 알려줘", [], stats=_stats())
 
-    assert answer == "올라마 답변"
+    assert generated.answer == "올라마 답변"
     messages = mock_client.chat.call_args.kwargs["messages"]
     assert messages[0]["role"] == "system"
     # 컨텍스트 조립은 프로바이더와 무관하게 같아야 한다. 전송 계층만 갈리는 구조라야
@@ -718,7 +718,7 @@ async def test_ollama_path_does_not_require_an_hf_token(monkeypatch: pytest.Monk
             "llm_rag_assistant.app.services.generation_service.ollama.AsyncClient",
             return_value=_mock_ollama_client("답변"),
         ):
-            assert await generate_answer("질문", []) == "답변"
+            assert (await generate_answer("질문", [])).answer == "답변"
     finally:
         get_settings.cache_clear()
 
@@ -736,7 +736,7 @@ async def test_generate_answer_falls_back_to_the_app_wide_provider(
         "llm_rag_assistant.app.services.generation_service.ollama.AsyncClient",
         return_value=_mock_ollama_client("답변"),
     ):
-        assert await generate_answer("질문", []) == "답변"
+        assert (await generate_answer("질문", [])).answer == "답변"
 
 
 @pytest.mark.asyncio
@@ -759,7 +759,7 @@ async def test_rag_provider_overrides_the_app_wide_provider(
                 return_value=mock_chat_model,
             ),
         ):
-            assert await generate_answer("질문", []) == "답변입니다"
+            assert (await generate_answer("질문", [])).answer == "답변입니다"
     finally:
         get_settings.cache_clear()
 
@@ -832,7 +832,7 @@ async def test_unknown_app_wide_provider_falls_through_to_the_auto_chain(
                 return_value=mock_chat_model,
             ),
         ):
-            assert await generate_answer("질문", []) == "답변입니다"
+            assert (await generate_answer("질문", [])).answer == "답변입니다"
     finally:
         get_settings.cache_clear()
 
@@ -903,11 +903,11 @@ async def test_generate_answer_uses_gemini_when_explicitly_configured(
 
     try:
         with _patch_gemini_session(session):
-            answer = await generate_answer("질문입니다", [], stats=_stats())
+            generated = await generate_answer("질문입니다", [], stats=_stats())
     finally:
         get_settings.cache_clear()
 
-    assert answer == "제미니 답변"
+    assert generated.answer == "제미니 답변"
     url, payload, headers = session.post_calls[0]
     assert url.endswith(":generateContent")
     assert headers["x-goog-api-key"] == "gemini_test_key"
@@ -947,11 +947,11 @@ async def test_auto_mode_falls_back_to_gemini_when_hf_token_missing(
 
     try:
         with _patch_gemini_session(session):
-            answer = await generate_answer("질문", [])
+            generated = await generate_answer("질문", [])
     finally:
         get_settings.cache_clear()
 
-    assert answer == "제미니 폴백 답변"
+    assert generated.answer == "제미니 폴백 답변"
 
 
 @pytest.mark.asyncio
@@ -979,11 +979,11 @@ async def test_auto_mode_falls_back_to_gemini_when_huggingface_call_fails(
             ),
             _patch_gemini_session(session),
         ):
-            answer = await generate_answer("질문", [])
+            generated = await generate_answer("질문", [])
     finally:
         get_settings.cache_clear()
 
-    assert answer == "제미니 폴백 답변"
+    assert generated.answer == "제미니 폴백 답변"
 
 
 @pytest.mark.asyncio
@@ -1003,11 +1003,11 @@ async def test_auto_mode_falls_back_to_ollama_when_huggingface_and_gemini_unavai
             "llm_rag_assistant.app.services.generation_service.ollama.AsyncClient",
             return_value=mock_ollama_client,
         ):
-            answer = await generate_answer("질문", [])
+            generated = await generate_answer("질문", [])
     finally:
         get_settings.cache_clear()
 
-    assert answer == "올라마 최종 답변"
+    assert generated.answer == "올라마 최종 답변"
 
 
 @pytest.mark.asyncio
@@ -1032,11 +1032,11 @@ async def test_auto_mode_prefers_huggingface_over_gemini_when_both_are_configure
             ),
             _patch_gemini_session(session),
         ):
-            answer = await generate_answer("질문", [])
+            generated = await generate_answer("질문", [])
     finally:
         get_settings.cache_clear()
 
-    assert answer == "HF 답변"
+    assert generated.answer == "HF 답변"
     assert session.post_calls == []
 
 
@@ -1135,9 +1135,9 @@ async def test_generate_answer_strips_markdown_from_the_model_output(
             return_value=mock_chat_model,
         ),
     ):
-        answer = await generate_answer("질문", [])
+        generated = await generate_answer("질문", [])
 
-    assert answer == "요약\n블로커 3건"
+    assert generated.answer == "요약\n블로커 3건"
 
 
 def test_strip_markdown_separates_a_new_block_from_the_list_above_it() -> None:
@@ -1229,3 +1229,97 @@ def test_strip_markdown_separates_a_new_block_even_after_an_indented_description
     assert _strip_markdown(answer) == (
         "- 결제 모듈 마감 2026-08-05\n  사유: 승인 대기\n\n블로커 업무는 다음과 같습니다"
     )
+
+
+@pytest.mark.asyncio
+async def test_generate_answer_reports_huggingface_when_it_answers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """폴백 없이 1순위가 답하면 그 이름이 나와야 한다."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@localhost:5432/workflow")
+    monkeypatch.delenv("RAG_PROVIDER", raising=False)
+    monkeypatch.setenv("HF_TOKEN", "hf_test_token")
+    get_settings.cache_clear()
+
+    try:
+        with (
+            patch("llm_rag_assistant.app.services.generation_service.HuggingFaceEndpoint"),
+            patch(
+                "llm_rag_assistant.app.services.generation_service.ChatHuggingFace",
+                return_value=_mock_chat_model("허깅페이스 답변"),
+            ),
+        ):
+            result = await generate_answer("질문", [])
+    finally:
+        get_settings.cache_clear()
+
+    assert result.answer == "허깅페이스 답변"
+    assert result.provider == "huggingface"
+
+
+@pytest.mark.asyncio
+async def test_generate_answer_reports_gemini_when_chain_falls_back_to_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HF가 죽어 2순위가 답했으면 "auto"가 아니라 실제로 답한 gemini가 나와야 한다."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@localhost:5432/workflow")
+    monkeypatch.delenv("RAG_PROVIDER", raising=False)
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini_test_key")
+    get_settings.cache_clear()
+
+    try:
+        with _patch_gemini_session(_mock_gemini_session("제미니 답변")):
+            result = await generate_answer("질문", [])
+    finally:
+        get_settings.cache_clear()
+
+    assert result.answer == "제미니 답변"
+    assert result.provider == "gemini"
+
+
+@pytest.mark.asyncio
+async def test_generate_answer_reports_ollama_at_the_end_of_the_chain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """마지막 보루가 답한 경우다. 이 값이 운영에서 계속 나오면 앞 두 단계가 죽어 있다는 뜻이라,
+    폴백을 "auto"로 뭉개면 안 되는 이유가 여기 있다."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@localhost:5432/workflow")
+    monkeypatch.delenv("RAG_PROVIDER", raising=False)
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    get_settings.cache_clear()
+
+    try:
+        with patch(
+            "llm_rag_assistant.app.services.generation_service.ollama.AsyncClient",
+            return_value=_mock_ollama_client("올라마 답변"),
+        ):
+            result = await generate_answer("질문", [])
+    finally:
+        get_settings.cache_clear()
+
+    assert result.answer == "올라마 답변"
+    assert result.provider == "ollama"
+
+
+@pytest.mark.asyncio
+async def test_generate_answer_reports_explicitly_configured_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """강제 지정 경로는 폴백 체인을 타지 않는다. 그 경로에서도 값이 비면 안 된다."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pw@localhost:5432/workflow")
+    monkeypatch.setenv("RAG_PROVIDER", "ollama")
+    get_settings.cache_clear()
+
+    try:
+        with patch(
+            "llm_rag_assistant.app.services.generation_service.ollama.AsyncClient",
+            return_value=_mock_ollama_client("강제 지정 답변"),
+        ):
+            result = await generate_answer("질문", [])
+    finally:
+        get_settings.cache_clear()
+
+    assert result.answer == "강제 지정 답변"
+    assert result.provider == "ollama"
