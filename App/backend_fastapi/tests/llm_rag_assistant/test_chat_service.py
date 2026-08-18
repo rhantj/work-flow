@@ -6,12 +6,22 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from llm_rag_assistant.app.schema.chat_schema import RagQueryResponse, RagSource
+from llm_rag_assistant.app.services.generation_service import GenerationResult
 from llm_rag_assistant.app.services.chat_service import (
     _ANSWER_CACHE_SCHEMA_VERSION,
     _answer_cache_key,
     _is_personal_intent,
     answer_question,
 )
+
+
+def _generated(text: str, provider: str = "ollama") -> GenerationResult:
+    """generate_answer 는 답과 그 답을 만든 백엔드를 함께 돌려준다(#619).
+
+    테스트가 문자열만 돌려주면 chat_service 가 실제로 받는 모양과 달라져, 반환 형태가
+    바뀐 것을 테스트가 잡지 못한다.
+    """
+    return GenerationResult(answer=text, provider=provider)
 
 
 class _FakeAsyncRedis:
@@ -59,7 +69,7 @@ async def test_answer_question_returns_answer_with_sources() -> None:
         ) as mock_search,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="이것이 답변입니다"),
+            new=AsyncMock(return_value=_generated("이것이 답변입니다")),
         ),
     ):
         result = await answer_question(pool, project_id=5, question="질문")
@@ -88,7 +98,7 @@ async def test_answer_question_handles_no_matching_chunks() -> None:
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="근거 없음: 관련 자료를 찾지 못했습니다"),
+            new=AsyncMock(return_value=_generated("근거 없음: 관련 자료를 찾지 못했습니다")),
         ),
     ):
         result = await answer_question(pool, project_id=5, question="관련 없는 질문")
@@ -103,7 +113,7 @@ async def test_answer_question_short_circuits_blank_question_without_llm(blank: 
     # Spring이 보통 400으로 막지만, 내부 호출 경로(그래프 등)가 빈 질문을 넘겨도
     # 임베딩·검색·생성 LLM을 태우지 않고 즉시 빈 응답으로 끊는다.
     embed = AsyncMock(return_value=[0.1])
-    gen = AsyncMock(return_value="답변")
+    gen = AsyncMock(return_value=_generated("답변"))
     with (
         patch("llm_rag_assistant.app.services.chat_service.embed_text", new=embed),
         patch("llm_rag_assistant.app.services.chat_service.generate_answer", new=gen),
@@ -131,7 +141,7 @@ async def test_answer_question_filters_by_assignee_when_personal_intent_and_user
         ) as mock_search,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ) as mock_generate,
     ):
         await answer_question(pool, project_id=5, question="내가 담당한 업무 알려줘", user_id=42)
@@ -159,7 +169,7 @@ async def test_answer_question_does_not_filter_by_assignee_for_non_personal_ques
         ) as mock_search,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ) as mock_generate,
     ):
         await answer_question(pool, project_id=5, question="프로젝트 전체 업무 현황 알려줘", user_id=42)
@@ -380,7 +390,7 @@ async def test_answer_question_project_epoch_change_bypasses_stale_cached_answer
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="삭제 후 답변"),
+            new=AsyncMock(return_value=_generated("삭제 후 답변")),
         ),
     ):
         result = await answer_question(object(), project_id=5, question="질문")
@@ -419,7 +429,7 @@ async def test_answer_question_rechecks_epoch_before_returning_cache_hit() -> No
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="권한 변경 후 답변"),
+            new=AsyncMock(return_value=_generated("권한 변경 후 답변")),
         ),
     ):
         result = await answer_question(object(), project_id=5, question="질문")
@@ -446,7 +456,7 @@ async def test_answer_question_cache_miss_is_stored_for_1800_seconds_and_reused(
         ) as search,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="새 답변"),
+            new=AsyncMock(return_value=_generated("새 답변")),
         ) as generate,
     ):
         first = await answer_question(object(), project_id=5, question="질문")
@@ -478,7 +488,7 @@ async def test_answer_question_uses_effective_personal_assignee_in_cache_scope()
         ) as search,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ),
     ):
         await answer_question(object(), 5, "내가 담당한 업무 알려줘", user_id=42)
@@ -513,7 +523,7 @@ async def test_answer_question_deletes_corrupt_cache_and_recomputes(caplog: pyte
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="복구 답변"),
+            new=AsyncMock(return_value=_generated("복구 답변")),
         ),
     ):
         result = await answer_question(object(), 5, "민감한 질문 원문")
@@ -531,6 +541,8 @@ async def test_answer_question_cache_failures_warn_and_fail_open(
     failure_point: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+
+
     connection_detail_sentinel = "redis://fastapi:secret-password@private-redis:6379/0"
     cache = _FakeAsyncRedis()
     key = _answer_cache_key(5, None, "로그 금지 질문")
@@ -560,7 +572,7 @@ async def test_answer_question_cache_failures_warn_and_fail_open(
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="정상 답변"),
+            new=AsyncMock(return_value=_generated("정상 답변")),
         ),
     ):
         result = await answer_question(object(), 5, "로그 금지 질문")
@@ -594,7 +606,7 @@ async def test_answer_question_enriches_search_results_with_facts() -> None:
         ) as mock_enrich,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="2026-08-01 마감입니다"),
+            new=AsyncMock(return_value=_generated("2026-08-01 마감입니다")),
         ) as mock_generate,
     ):
         result = await answer_question(pool, project_id=5, question="로그인 API 마감일은?")
@@ -632,7 +644,7 @@ async def test_answer_question_snippet_uses_original_content_not_facts() -> None
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ),
     ):
         result = await answer_question(object(), project_id=5, question="질문")
@@ -670,7 +682,7 @@ async def test_sources_map_one_to_one_to_search_rows_without_cross_wiring() -> N
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ),
     ):
         result = await answer_question(object(), project_id=5, question="질문")
@@ -714,7 +726,7 @@ async def test_sources_collapse_chunks_from_the_same_origin() -> None:
         ) as mock_enrich,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ) as mock_generate,
     ):
         result = await answer_question(object(), project_id=5, question="질문")
@@ -754,7 +766,7 @@ async def test_sources_keep_distinct_origins_that_share_an_id() -> None:
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ),
     ):
         result = await answer_question(object(), project_id=5, question="질문")
@@ -788,7 +800,7 @@ def _pipeline_patches(rewrite_return: str):
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ),
     )
 
@@ -894,7 +906,7 @@ async def test_project_stats_are_passed_to_the_generator() -> None:
         ) as mock_stats,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="블로커는 12건입니다"),
+            new=AsyncMock(return_value=_generated("블로커는 12건입니다")),
         ) as mock_generate,
     ):
         await answer_question(object(), project_id=5, question="블로커 몇 건이야?")
@@ -921,7 +933,7 @@ async def test_answer_is_generated_even_when_stats_are_unavailable() -> None:
         ),
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ) as mock_generate,
     ):
         result = await answer_question(object(), project_id=5, question="질문")
@@ -984,7 +996,7 @@ async def test_personal_questions_scope_the_stats_to_the_asker() -> None:
         ) as mock_stats,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ),
     ):
         await answer_question(object(), project_id=5, question="내 업무 알려줘", user_id=7)
@@ -1009,7 +1021,7 @@ async def test_general_questions_do_not_scope_the_stats() -> None:
         ) as mock_stats,
         patch(
             "llm_rag_assistant.app.services.chat_service.generate_answer",
-            new=AsyncMock(return_value="답변"),
+            new=AsyncMock(return_value=_generated("답변")),
         ),
     ):
         await answer_question(object(), project_id=5, question="블로커 몇 건이야?", user_id=7)

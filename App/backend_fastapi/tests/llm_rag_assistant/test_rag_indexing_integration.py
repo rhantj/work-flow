@@ -23,6 +23,7 @@ from core.db import get_pool
 from core.security import verify_internal_api_key
 from llm_rag_assistant.app.routers import chat_router
 from llm_rag_assistant.app.services import chat_service, ingestion_service
+from llm_rag_assistant.app.services.generation_service import GenerationResult
 
 # 운영 컬럼 타입 vector(1024)와 같은 차원. 다르면 pgvector가 INSERT에서 거부한다.
 _EMBEDDING_DIMENSIONS = 1024
@@ -69,8 +70,8 @@ def rag_client(pgvector_pool, monkeypatch):
     monkeypatch.setattr(ingestion_service, "embed_text", _embed)
     monkeypatch.setattr(chat_service, "embed_text", _embed)
 
-    async def _generate(*_args, **_kwargs) -> str:
-        return _ANSWER_STUB
+    async def _generate(*_args, **_kwargs) -> GenerationResult:
+        return GenerationResult(answer=_ANSWER_STUB, provider="ollama")
 
     monkeypatch.setattr(chat_service, "generate_answer", _generate)
 

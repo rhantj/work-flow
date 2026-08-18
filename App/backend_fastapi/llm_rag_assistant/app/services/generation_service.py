@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from dataclasses import dataclass
 
 import aiohttp
 import ollama
@@ -383,6 +384,20 @@ _FALLBACK_CHAIN = (_HUGGINGFACE_PROVIDER, _GEMINI_PROVIDER, _OLLAMA_PROVIDER)
 _AUTO_PROVIDER_CACHE_KEY = "auto"
 
 
+@dataclass(frozen=True)
+class GenerationResult:
+    """생성 결과와 그 답을 실제로 만든 백엔드.
+
+    폴백 체인은 앞 단계가 죽으면 조용히 다음으로 넘어간다. 답변만 돌려주면 호출자는
+    운영에서 HuggingFace가 답했는지 Ollama까지 밀렸는지 알 수 없다. 회의록 분석에서
+    HF 토큰 401로 12케이스 전부 폴백된 것이 노트북 실측 전까지 드러나지 않았던 것과 같은
+    문제라, 답과 출처를 함께 돌려준다.
+    """
+
+    answer: str
+    provider: str
+
+
 def _explicit_provider() -> str | None:
     """운영자가 RAG_PROVIDER(또는 공유 앱 설정)로 백엔드를 강제 지정했으면 그 값을,
     아니면 None(자동 폴백 체인 모드)을 반환한다.
@@ -495,7 +510,7 @@ _PROVIDER_GENERATORS = {
 }
 
 
-async def _generate_with_fallback_chain(settings, context: str, question: str) -> str:
+async def _generate_with_fallback_chain(settings, context: str, question: str) -> GenerationResult:
     """RAG_PROVIDER를 강제 지정하지 않았을 때의 기본 동작.
 
     Qwen(HF) -> Gemini -> Ollama 순으로 실제로 호출을 시도해 첫 성공을 반환한다. 앞 단계가
@@ -506,7 +521,8 @@ async def _generate_with_fallback_chain(settings, context: str, question: str) -
     last_error: Exception | None = None
     for provider in _FALLBACK_CHAIN:
         try:
-            return await _PROVIDER_GENERATORS[provider](settings, context, question)
+            text = await _PROVIDER_GENERATORS[provider](settings, context, question)
+            return GenerationResult(answer=text, provider=provider)
         except Exception as exc:  # noqa: BLE001 - 다음 백엔드로 넘어가기 위한 의도된 전면 포착
             logger.warning(
                 "RAG 생성 프로바이더 실패, 다음 단계로 전환합니다: provider=%s", provider, exc_info=True
@@ -520,7 +536,7 @@ async def generate_answer(
     sources: list[dict],
     is_personal: bool = False,
     stats: dict | None = None,
-) -> str:
+) -> GenerationResult:
     settings = get_settings()
 
     # 컨텍스트 조립은 프로바이더보다 앞에 둔다. 갈리는 건 전송 계층뿐이라야 로컬로 검증한
@@ -529,10 +545,12 @@ async def generate_answer(
 
     explicit = _explicit_provider()
     if explicit is None:
-        return _strip_markdown(await _generate_with_fallback_chain(settings, context, question))
+        chained = await _generate_with_fallback_chain(settings, context, question)
+        return GenerationResult(answer=_strip_markdown(chained.answer), provider=chained.provider)
 
     generator = _PROVIDER_GENERATORS.get(explicit)
     if generator is None:
         # 오타를 HF로 흘려보내면 로컬 전환이 안 된 걸 모른 채 크레딧을 계속 쓴다.
         raise RagConfigurationError(f"지원하지 않는 RAG 생성 프로바이더: {explicit}")
-    return _strip_markdown(await generator(settings, context, question))
+    text = await generator(settings, context, question)
+    return GenerationResult(answer=_strip_markdown(text), provider=explicit)

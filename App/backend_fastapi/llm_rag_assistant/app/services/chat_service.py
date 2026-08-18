@@ -206,9 +206,10 @@ async def answer_question(
     # 없어 프로젝트 전체 집계를 따로 붙인다. 캐시 히트 시에는 위에서 이미 반환되므로 실행되지
     # 않는다 - 늘어나는 왕복은 캐시 미스 1회뿐이다.
     stats = await fetch_project_stats(pool, project_id, assignee_id=assignee_id)
-    answer = await generate_answer(
+    generated = await generate_answer(
         effective_question, enriched_rows, is_personal=assignee_id is not None, stats=stats
     )
+    answer = generated.answer
 
     sources = _dedupe_sources(
         RagSource(
