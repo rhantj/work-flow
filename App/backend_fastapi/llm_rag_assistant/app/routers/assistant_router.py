@@ -57,7 +57,9 @@ async def command(request: AssistantCommandRequest, pool=Depends(get_pool)) -> A
         raise HTTPException(status_code=503, detail={"error": "llm_unavailable"}) from exc
     except RagConfigurationError as exc:
         raise HTTPException(status_code=503, detail={"error": "llm_unavailable"}) from exc
-    return AssistantResponse(type="answer", message=result.answer, sources=result.sources)
+    return AssistantResponse(
+        type="answer", message=result.answer, sources=result.sources, provider=result.provider
+    )
 
 
 @router.post("/resume", response_model=AssistantResponse)

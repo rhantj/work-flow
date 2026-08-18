@@ -42,3 +42,6 @@ class AssistantResponse(BaseModel):
     sources: list[RagSource] = []
     thread_id: str | None = None
     card: ActionCard | None = None
+    # 질문 경로에서 실제로 답을 만든 생성 백엔드. 명령 경로는 RAG 생성을 타지 않으므로
+    # 기본값 "unknown"이 그대로 나간다(RagQueryResponse.provider와 같은 어휘).
+    provider: str = "unknown"
