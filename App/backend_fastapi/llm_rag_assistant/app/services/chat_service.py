@@ -14,7 +14,7 @@ from llm_rag_assistant.app.services.generation_service import (
 )
 from llm_rag_assistant.app.services.project_stats_service import fetch_project_stats
 from llm_rag_assistant.app.services.query_rewrite_service import rewrite_question
-from llm_rag_assistant.app.services.rag_stats import record_answer_provider
+from llm_rag_assistant.app.services.rag_stats import pinned_stats_day, record_answer_provider
 from llm_rag_assistant.app.services.retrieval_service import search_chunks_for_question
 from llm_rag_assistant.app.services.task_facts_service import enrich_with_facts
 
@@ -199,24 +199,29 @@ async def answer_question(
                 )
 
     query_embedding = await embed_text(effective_question)
-    # effective_question(재작성본)을 넘긴다. 후속 질문("그거 언제까지야?")은 재작성을 거쳐야
-    # 업무 코드가 문장에 드러나므로 원문을 넘기면 라우팅이 발동하지 않는다.
-    rows = await search_chunks_for_question(
-        pool, project_id, effective_question, query_embedding, top_k=5, assignee_id=assignee_id
-    )
-    # 청크 본문에 없는 마감일·상태·우선순위를 붙인다. 실패해도 facts만 비고 답변은 정상 진행된다.
-    enriched_rows = await enrich_with_facts(pool, project_id, rows)
-    # 검색은 상위 k개(표본)만 본다. "블로커 몇 건이야" 같은 전수 집계 질문은 이 경로로 답할 수
-    # 없어 프로젝트 전체 집계를 따로 붙인다. 캐시 히트 시에는 위에서 이미 반환되므로 실행되지
-    # 않는다 - 늘어나는 왕복은 캐시 미스 1회뿐이다.
-    stats = await fetch_project_stats(pool, project_id, assignee_id=assignee_id)
-    generated = await generate_answer(
-        effective_question, enriched_rows, is_personal=assignee_id is not None, stats=stats
-    )
+    # 이 질의의 카운터가 전부 한 날짜에 들어가게 날짜를 여기서 못 박는다. 검색 안에서 올리는
+    # total 과 생성 뒤에 올리는 provider_* 사이에는 LLM 생성 시간(수 초)이 있어, 각자 날짜를
+    # 계산하면 자정을 넘긴 질의가 분모와 분자를 다른 날에 남긴다.
+    with pinned_stats_day():
+        # effective_question(재작성본)을 넘긴다. 후속 질문("그거 언제까지야?")은 재작성을 거쳐야
+        # 업무 코드가 문장에 드러나므로 원문을 넘기면 라우팅이 발동하지 않는다.
+        rows = await search_chunks_for_question(
+            pool, project_id, effective_question, query_embedding, top_k=5, assignee_id=assignee_id
+        )
+        # 청크 본문에 없는 마감일·상태·우선순위를 붙인다. 실패해도 facts만 비고 답변은 정상 진행된다.
+        enriched_rows = await enrich_with_facts(pool, project_id, rows)
+        # 검색은 상위 k개(표본)만 본다. "블로커 몇 건이야" 같은 전수 집계 질문은 이 경로로 답할 수
+        # 없어 프로젝트 전체 집계를 따로 붙인다. 캐시 히트 시에는 위에서 이미 반환되므로 실행되지
+        # 않는다 - 늘어나는 왕복은 캐시 미스 1회뿐이다.
+        stats = await fetch_project_stats(pool, project_id, assignee_id=assignee_id)
+        generated = await generate_answer(
+            effective_question, enriched_rows, is_personal=assignee_id is not None, stats=stats
+        )
+        # 설정값(resolve_generation_provider)이 아니라 실제로 답한 백엔드를 센다. 자동 모드에서는
+        # 폴백이 조용히 다음 단계로 넘어가므로 둘이 갈린다.
+        await record_answer_provider(generated.provider)
+
     answer = generated.answer
-    # 설정값(resolve_generation_provider)이 아니라 실제로 답한 백엔드를 센다. 자동 모드에서는
-    # 폴백이 조용히 다음 단계로 넘어가므로 둘이 갈린다.
-    await record_answer_provider(generated.provider)
 
     sources = _dedupe_sources(
         RagSource(

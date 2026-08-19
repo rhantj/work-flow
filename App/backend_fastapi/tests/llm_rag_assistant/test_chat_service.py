@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -8,7 +9,11 @@ import pytest
 from llm_rag_assistant.app.schema.chat_schema import RagQueryResponse, RagSource
 from llm_rag_assistant.app.services import rag_stats
 from llm_rag_assistant.app.services.generation_service import GenerationResult
-from llm_rag_assistant.app.services.rag_stats import _stats_key
+from llm_rag_assistant.app.services.rag_stats import (
+    QuestionQueryStats,
+    _stats_key,
+    record_question_query,
+)
 from llm_rag_assistant.app.services.chat_service import (
     _ANSWER_CACHE_SCHEMA_VERSION,
     _answer_cache_key,
@@ -410,6 +415,49 @@ async def test_a_cached_answer_is_not_counted_as_a_new_generation(rag_stats_redi
         await answer_question(object(), project_id=5, question="질문")
 
     assert rag_stats_redis.hashes == {}
+
+
+@pytest.mark.asyncio
+async def test_a_question_answered_past_midnight_is_counted_on_a_single_day(
+    rag_stats_redis, monkeypatch
+) -> None:
+    """total 은 검색 직후, provider_* 는 생성이 끝난 뒤에 올라간다. 그 사이 수 초 동안 UTC
+    자정을 넘으면 어제는 분모만, 오늘은 분자만 늘어 양쪽 날의 비율이 모두 틀어진다.
+    """
+    now = [datetime(2026, 8, 3, 23, 59, 58, tzinfo=timezone.utc)]
+    monkeypatch.setattr(rag_stats, "_stats_key", lambda: _stats_key(now[0]))
+
+    async def _search_and_count(*args, **kwargs):
+        # 실제 검색 경로(retrieval_service)가 반환 직전에 하는 일을 그대로 흉내 낸다.
+        await record_question_query(
+            QuestionQueryStats(project_id=5, top_k=5, personal=False, source_count=0)
+        )
+        return []
+
+    async def _generate_slowly(*args, **kwargs):
+        now[0] += timedelta(seconds=5)
+        return _generated("답변", provider="gemini")
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.embed_text",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=_search_and_count,
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.generate_answer",
+            new=_generate_slowly,
+        ),
+    ):
+        await answer_question(object(), project_id=5, question="질문")
+
+    assert list(rag_stats_redis.hashes) == ["rag_stats:2026-08-03"]
+    counts = rag_stats_redis.hashes["rag_stats:2026-08-03"]
+    assert counts["total"] == 1
+    assert counts["provider_gemini"] == 1
 
 
 @pytest.mark.asyncio

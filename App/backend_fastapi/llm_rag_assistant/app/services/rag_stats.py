@@ -21,6 +21,9 @@ Redis 세부와 실패 처리를 한 곳에 가둔다. 그래야 retrieval_servi
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -38,6 +41,12 @@ _CODE_BUCKET_CAP = 5
 
 # 답을 만든 백엔드별 카운터의 접두사. generation_service 의 프로바이더 이름이 그대로 붙는다.
 _PROVIDER_FIELD_PREFIX = "provider_"
+
+# 한 질의가 쓸 날짜 키. pinned_stats_day 안에서만 채워진다. 두 경로에서 각각 다른 이유로
+# 안전하다: HTTP 요청은 질의마다 별도의 asyncio Task 라 컨텍스트가 복제돼 동시 질의끼리
+# 섞이지 않고, 한 Task 를 재사용하며 잡을 하나씩 처리하는 큐 워커(RagQueueWorker._run_loop)는
+# pinned_stats_day 의 finally 가 매번 되돌리므로 앞 잡의 날짜가 다음 잡에 남지 않는다.
+_pinned_stats_key: ContextVar[str | None] = ContextVar("rag_stats_pinned_key", default=None)
 
 
 @dataclass(frozen=True)
@@ -110,6 +119,22 @@ def _stats_key(now: datetime | None = None) -> str:
     return f"rag_stats:{stamp}"
 
 
+@contextmanager
+def pinned_stats_day() -> Iterator[None]:
+    """이 블록 안에서 올리는 카운터를 전부 같은 날짜 키에 모은다.
+
+    질문 카운터는 검색 직후에, 프로바이더 카운터는 생성이 끝난 뒤에 올라간다. 그 사이에는
+    LLM 생성 시간(수 초)이 있어, 각자 날짜를 계산하면 UTC 자정을 넘긴 질의 한 건이 total 은
+    어제 키에, provider_* 는 오늘 키에 남긴다. 그러면 어제는 분모만, 오늘은 분자만 늘어
+    provider_* / total 이 양쪽 날 모두 틀어진다. 진입 시점의 날짜로 못 박아 막는다.
+    """
+    token = _pinned_stats_key.set(_stats_key())
+    try:
+        yield
+    finally:
+        _pinned_stats_key.reset(token)
+
+
 async def record_question_query(stats: QuestionQueryStats) -> None:
     """질문 한 건을 집계한다."""
     await _increment_daily_counters(_counter_fields(stats))
@@ -121,18 +146,28 @@ async def record_answer_provider(provider: str) -> None:
     질문 카운터와 나눠 부르는 이유: 검색 시점에는 어느 백엔드가 답할지 아직 모른다.
     자동 모드는 HF -> Gemini -> Ollama 를 실제로 호출해 보고 첫 성공을 쓰므로
     (generation_service._generate_with_fallback_chain), 답이 나온 뒤에야 정해진다.
-    total 과 같은 일별 키에 올려 provider_* / total 로 비중을 바로 읽는다.
+    total 과 같은 형식의 일별 키에 올려 provider_* / total 로 비중을 바로 읽는다.
+
+    두 카운터가 **같은 날짜 키**에 들어가는 것은 호출부가 pinned_stats_day 로 감쌌을 때만
+    보장된다(chat_service.answer_question 이 그렇게 부른다). 감싸지 않고 부르면 호출 시점의
+    날짜를 쓰므로, 생성 중 자정을 넘긴 질의에서 분모와 분자가 다른 날에 흩어진다.
     """
     await _increment_daily_counters({f"{_PROVIDER_FIELD_PREFIX}{provider}": 1})
 
 
 async def _increment_daily_counters(fields: dict[str, int]) -> None:
-    """오늘 키의 필드들을 올린다. **어떤 경우에도 질의를 실패시키지 않는다.**
+    """일별 키의 필드들을 올린다. **어떤 경우에도 질의를 실패시키지 않는다.**
+
+    날짜는 pinned_stats_day 안이면 그 블록이 못 박은 날, 밖이면 호출 시점의 날이다.
 
     advance_rag_project_epoch 가 이미 같은 정책이다("캐시는 DB 원본의 파생물이므로 무효화
     실패가 원본 변경 API를 실패시켜서는 안 된다"). 통계는 그보다도 부수적이다.
+
+    호출부는 이 왕복을 응답 경로에서 그대로 await 한다. record_question_query 부터 쓰던
+    정책 그대로다 - 통계 Redis 가 느리면 그만큼 응답이 늦는다. 별도 태스크로 떼어내지 않는
+    이유는 그쪽이 유실·순서 뒤섞임을 대신 떠안기 때문이고, 바꾼다면 두 카운터를 함께 바꾼다.
     """
-    key = _stats_key()
+    key = _pinned_stats_key.get() or _stats_key()
     try:
         # transaction=False 는 필수다. redis-py 기본값(True)은 MULTI/EXEC 로 감싸는데
         # fastapi ACL 계정에는 그 두 명령이 없어 통째로 NOPERM 이 된다. 원자성도 필요 없다 -
