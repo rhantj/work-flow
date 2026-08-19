@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -285,6 +286,32 @@ async def test_cache_hit_recording_never_raises(rag_stats_redis, caplog):
 
     with caplog.at_level(logging.WARNING):
         await record_cache_hit()
+
+    assert rag_stats_redis.hashes == {}
+    assert "질의 통계 기록 실패" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_slow_stats_redis_does_not_hold_the_answer(rag_stats_redis, caplog, monkeypatch):
+    """예외를 삼키는 것만으로는 부족하다. 느려지기만 하면 삼킬 대상이 안 생긴다.
+
+    Redis 가 죽으면 즉시 예외가 나 답변이 그대로 나간다. 죽지 않고 느려지는 쪽이 더 나쁘다 -
+    통계 왕복을 응답 경로에서 await 하므로 그 지연이 고스란히 답변 지연이 되는데, 예외가
+    없으니 기존 삼킴 정책은 아무것도 하지 않는다. 상한을 두는 이유다.
+    """
+    monkeypatch.setattr(rag_stats, "_WRITE_TIMEOUT_SECONDS", 0.05)
+
+    class _HangingPipeline:
+        def hincrby(self, key, field, amount): ...
+        def expire(self, key, seconds): ...
+
+        async def execute(self):
+            await asyncio.sleep(30)
+
+    rag_stats_redis.pipeline = lambda transaction=True: _HangingPipeline()
+
+    with caplog.at_level(logging.WARNING):
+        await asyncio.wait_for(record_cache_hit(), timeout=5)
 
     assert rag_stats_redis.hashes == {}
     assert "질의 통계 기록 실패" in caplog.text

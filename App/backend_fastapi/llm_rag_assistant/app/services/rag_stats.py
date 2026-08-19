@@ -20,6 +20,7 @@ Redis 세부와 실패 처리를 한 곳에 가둔다. 그래야 retrieval_servi
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -44,6 +45,12 @@ _PROVIDER_FIELD_PREFIX = "provider_"
 
 # 캐시에서 바로 돌려준 질의의 카운터. total 과 나눠 세는 이유는 record_cache_hit 에 적었다.
 _CACHE_HIT_FIELD = "cache_hit"
+
+# 통계 쓰기 한 번에 허용하는 시간. 예외를 삼키는 것만으로는 부족하다 - Redis 가 죽지 않고
+# 느려지기만 하면 그 지연이 그대로 답변 지연이 된다. 집계는 부수적이므로 기다리지 않는다.
+# 2초는 정상 왕복(로컬 네트워크, 파이프라인 1회)보다 두 자릿수 크고, 사용자가 체감하기
+# 시작하는 지점보다는 작다.
+_WRITE_TIMEOUT_SECONDS = 2.0
 
 # 한 질의가 쓸 날짜 키. pinned_stats_day 안에서만 채워진다. 두 경로에서 각각 다른 이유로
 # 안전하다: HTTP 요청은 질의마다 별도의 asyncio Task 라 컨텍스트가 복제돼 동시 질의끼리
@@ -182,8 +189,13 @@ async def _increment_daily_counters(fields: dict[str, int]) -> None:
     실패가 원본 변경 API를 실패시켜서는 안 된다"). 통계는 그보다도 부수적이다.
 
     호출부는 이 왕복을 응답 경로에서 그대로 await 한다. record_question_query 부터 쓰던
-    정책 그대로다 - 통계 Redis 가 느리면 그만큼 응답이 늦는다. 별도 태스크로 떼어내지 않는
-    이유는 그쪽이 유실·순서 뒤섞임을 대신 떠안기 때문이고, 바꾼다면 두 카운터를 함께 바꾼다.
+    정책 그대로다. 별도 태스크로 떼어내지 않는 이유는 그쪽이 유실·순서 뒤섞임을 대신
+    떠안기 때문이고, 바꾼다면 모든 카운터를 함께 바꾼다.
+
+    그래서 예외를 삼키는 것만으로는 부족하다. Redis 가 죽으면 즉시 예외가 나 답변이 그대로
+    나가지만, **죽지 않고 느려지기만 하면** 그 지연이 고스란히 답변 지연이 된다. 삼킬 대상이
+    생기지 않으므로 위 정책이 작동하지 않는 구간이다. 타임아웃으로 상한을 둔다 -
+    asyncio.TimeoutError 도 Exception 이라 아래 except 가 그대로 받아 집계만 누락된다.
     """
     key = _pinned_stats_key.get() or _stats_key()
     try:
@@ -196,6 +208,6 @@ async def _increment_daily_counters(fields: dict[str, int]) -> None:
         # 매번 다시 건다. 키가 만들어진 날이 아니라 마지막으로 쓰인 날부터 90일이 되지만,
         # 일별 키라 그 차이는 하루뿐이고 TTL 이 빠지는 사고를 원천 차단하는 편이 낫다.
         pipe.expire(key, _TTL_SECONDS)
-        await pipe.execute()
+        await asyncio.wait_for(pipe.execute(), timeout=_WRITE_TIMEOUT_SECONDS)
     except Exception:
         logger.warning("질의 통계 기록 실패, 집계만 누락되고 답변은 정상 진행합니다.", exc_info=True)

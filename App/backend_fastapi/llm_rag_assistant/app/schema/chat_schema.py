@@ -64,4 +64,10 @@ class RagQueryResponse(BaseModel):
     # 무엇이 답했는지 알 수 없다. 캐시 히트에 저장된 백엔드 이름을 그대로 실으면 생성이
     # 없었는데도 그 백엔드가 살아있는 것으로 읽히므로 chat_service 가 "cache" 로 덮는다.
     # 기본값은 회의록 analysis_provider 와 같은 어휘를 쓴다 - 모르는 값을 아는 척하지 않는다.
+    #
+    # "cache" 가 늘어도 깨질 클라이언트가 없다(2026-08-19 전수 확인). 스프링 record 두 개
+    # (rag/RagQueryResponse.java, assistant/AssistantResponse.java)에는 이 필드 자체가 없어
+    # Jackson 이 조용히 버리고, 프런트도 읽지 않는다. 지금 이 값을 소비하는 것은 운영자가
+    # 보는 집계뿐이고 그 카운터는 생성 시점에만 오르므로 영향받지 않는다.
+    # 나중에 프런트까지 내보낼 때는 값이 백엔드 이름만이 아니라는 것을 함께 넘겨야 한다.
     provider: str = "unknown"
