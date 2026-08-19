@@ -167,3 +167,17 @@ def test_scoring_without_contents_keeps_the_id_only_behaviour() -> None:
     score = score_grounding(_TWIN_CASE, ["task#35"])
 
     assert score.score == 0.0
+
+
+def test_contents_for_sources_that_were_not_retrieved_are_ignored() -> None:
+    """두 입력이 어긋나면 점수가 허위로 오른다. retrieved_contents 는 "무엇이 실제로
+    올라왔는가"를 보조 설명하는 값이지 독립적인 근거원이 아니다. 검색되지 않은 청크의
+    본문을 넘겨도 근거로 세면, 채점기가 재는 것이 검색 결과가 아니게 된다."""
+    score = score_grounding(
+        _TWIN_CASE,
+        ["task#999"],
+        retrieved_contents={"task#35": "프로젝트 대시보드 기본 집계를 제공한다 - ㅇㅇ"},
+    )
+
+    assert score.score == 0.0
+    assert score.content_only_fact_ids == ()

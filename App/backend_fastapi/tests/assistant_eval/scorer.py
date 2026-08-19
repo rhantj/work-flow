@@ -109,7 +109,11 @@ def score_grounding(
     """
     retrieved = set(retrieved_source_ids)
     whitelist = set(raw["expected_source_ids"])
-    contents = dict(retrieved_contents or {})
+    # 실제로 올라온 출처의 본문만 본다. 두 입력이 어긋나면 점수가 허위로 오른다 -
+    # retrieved_contents 는 "무엇이 올라왔는가"를 보조 설명하는 값이지 독립적인
+    # 근거원이 아니다. 걸러내지 않으면 검색되지 않은 청크의 본문을 넘기는 것만으로
+    # 점수가 나오고, 그러면 이 채점기가 재는 것이 검색 결과가 아니게 된다.
+    contents = {sid: text for sid, text in (retrieved_contents or {}).items() if sid in retrieved}
     squeezed_contents = [squeeze(text) for text in contents.values()]
 
     grounded: List[str] = []
