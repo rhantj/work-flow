@@ -122,3 +122,37 @@ def test_id_flags_are_measured_against_routed_questions(script) -> None:
     # 라우팅 대상 5건 중 5건 -> 100%. total 10 으로 나누면 50% 로 보인다.
     ids_line = next(line for line in output.splitlines() if "ids_referenced" in line)
     assert "100.0%" in ids_line
+
+
+def test_cache_hits_are_rendered_next_to_the_miss_based_total(script) -> None:
+    """캐시 히트를 렌더하지 않으면 '모르는 필드'로 밀려 집계는 쌓이는데 아무도 못 본다.
+
+    total 은 여전히 캐시 미스만 세므로, 전체 질의는 total + cache_hit 으로 읽어야 한다.
+    """
+    totals = Counter({"total": 30, "cache_hit": 10, "codes_0": 30, "proj_3": 30})
+
+    output = script._render(totals, ["2026-08-19"], days=1)
+
+    assert "질의 총계: 40건" in output
+    cache_line = next(line for line in output.splitlines() if "캐시 히트" in line)
+    assert "25.0%" in cache_line
+    assert "이 스크립트가 모르는 필드" not in output
+
+
+def test_the_buckets_say_they_only_cover_cache_misses(script) -> None:
+    """캐시 히트는 검색이 돌지 않아 codes_* 를 낼 수 없다. 그 사각지대를 출력에 적어두지
+    않으면 다음 사람이 코드 분포를 전체 질의의 분포로 읽는다.
+    """
+    totals = Counter({"total": 30, "cache_hit": 10, "codes_0": 30, "proj_3": 30})
+
+    output = script._render(totals, ["2026-08-19"], days=1)
+
+    assert "캐시 미스 질의만 본다" in output
+
+
+def test_a_period_with_only_cache_hits_is_not_reported_as_empty(script) -> None:
+    """total 만 보고 판단하면 캐시로만 답한 기간이 '질의 없음'으로 보인다."""
+    output = script._render(Counter({"cache_hit": 5}), ["2026-08-19"], days=1)
+
+    assert "기록된 질의가 없습니다" not in output
+    assert "질의 총계: 5건" in output

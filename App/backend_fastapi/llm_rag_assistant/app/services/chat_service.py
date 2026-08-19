@@ -14,13 +14,23 @@ from llm_rag_assistant.app.services.generation_service import (
 )
 from llm_rag_assistant.app.services.project_stats_service import fetch_project_stats
 from llm_rag_assistant.app.services.query_rewrite_service import rewrite_question
-from llm_rag_assistant.app.services.rag_stats import pinned_stats_day, record_answer_provider
+from llm_rag_assistant.app.services.rag_stats import (
+    pinned_stats_day,
+    record_answer_provider,
+    record_cache_hit,
+)
 from llm_rag_assistant.app.services.retrieval_service import search_chunks_for_question
 from llm_rag_assistant.app.services.task_facts_service import enrich_with_facts
 
 logger = logging.getLogger(__name__)
 
 _SNIPPET_MAX_LEN = 200
+
+# 캐시에서 그대로 돌려준 응답의 provider 값. 저장된 값("gemini" 등)은 과거에 답한 백엔드라,
+# 그대로 내보내면 "지금 gemini 가 살아있다"로 오독된다 - 폴백이 조용히 내려앉는 것을 잡으려고
+# 넣은 값이 정반대로 쓰인다. 이번 요청에 실제로 일어난 일을 싣는다.
+_CACHE_HIT_PROVIDER = "cache"
+
 # 캐시 키 해시에 들어가므로, 올리면 프로젝트 데이터 변경 없이도 기존 답변 캐시가 전부
 # 무효화된다. 응답 스키마뿐 아니라 프롬프트 구성이 바뀔 때도 올려야 한다. 그러지 않으면
 # 배포 뒤에도 이전 프롬프트로 만든 답변이 TTL(30분) 동안 계속 반환된다.
@@ -190,7 +200,14 @@ async def answer_question(
             if cached_response is not None:
                 latest_epoch = await _read_project_cache_epoch(redis_client, project_id)
                 if latest_epoch == cache_epoch:
-                    return cached_response
+                    # 여기서 세지 않으면 자주 묻는 질문일수록 집계에서 빠져 모수가 편향된다.
+                    # 카운터를 하나만 올리므로 pinned_stats_day 로 날짜를 못 박지 않는다 -
+                    # 두 카운터가 자정을 사이에 두고 다른 날 키로 갈릴 구간 자체가 없다.
+                    # 실패해도 _increment_daily_counters 가 삼켜 답변 경로를 죽이지 않는다.
+                    await record_cache_hit()
+                    # 캐시에 저장된 값은 그대로 두고 읽는 시점에만 덮는다. 저장 포맷이 바뀌지
+                    # 않으므로 _ANSWER_CACHE_SCHEMA_VERSION 을 올릴 필요가 없다.
+                    return cached_response.model_copy(update={"provider": _CACHE_HIT_PROVIDER})
                 cache_epoch = latest_epoch
                 cache_key = (
                     _answer_cache_key(project_id, assignee_id, effective_question, cache_epoch)

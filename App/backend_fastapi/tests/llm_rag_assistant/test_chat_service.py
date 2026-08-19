@@ -366,10 +366,62 @@ async def test_answer_question_cache_hit_skips_embedding_search_and_generation()
     ):
         result = await answer_question(object(), project_id=5, question="질문")
 
-    assert result == cached
+    assert result == cached.model_copy(update={"provider": "cache"})
     embed.assert_not_awaited()
     search.assert_not_awaited()
     generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_still_counts_toward_query_stats(rag_stats_redis) -> None:
+    """캐시 히트를 세지 않으면 자주 묻는 질문일수록 집계에서 빠져 모수가 편향된다."""
+    cached = RagQueryResponse(answer="캐시 답변", sources=[], provider="huggingface")
+    cache = _FakeAsyncRedis({_answer_cache_key(5, None, "질문"): cached.model_dump_json()})
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.get_async_redis_client",
+            return_value=cache,
+        ),
+        patch("llm_rag_assistant.app.services.chat_service.embed_text", new=AsyncMock()),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(),
+        ),
+        patch("llm_rag_assistant.app.services.chat_service.generate_answer", new=AsyncMock()),
+    ):
+        await answer_question(object(), project_id=5, question="질문")
+
+    assert rag_stats_redis.hashes[_stats_key()] == {"cache_hit": 1}
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_stats_failure_does_not_break_the_answer(rag_stats_redis) -> None:
+    """집계는 부수적이다. record_question_query 와 같은 정책으로 답변을 죽이지 않는다."""
+    cached = RagQueryResponse(answer="캐시 답변", sources=[], provider="gemini")
+    cache = _FakeAsyncRedis({_answer_cache_key(5, None, "질문"): cached.model_dump_json()})
+
+    def exploding_pipeline(transaction: bool = True):
+        raise RuntimeError("통계 Redis 연결 끊김")
+
+    rag_stats_redis.pipeline = exploding_pipeline
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.get_async_redis_client",
+            return_value=cache,
+        ),
+        patch("llm_rag_assistant.app.services.chat_service.embed_text", new=AsyncMock()),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(),
+        ),
+        patch("llm_rag_assistant.app.services.chat_service.generate_answer", new=AsyncMock()),
+    ):
+        result = await answer_question(object(), project_id=5, question="질문")
+
+    assert result.answer == "캐시 답변"
+    assert result.provider == "cache"
 
 
 @pytest.mark.asyncio
@@ -396,7 +448,10 @@ async def test_the_backend_that_answered_is_counted(rag_stats_redis) -> None:
 
 @pytest.mark.asyncio
 async def test_a_cached_answer_is_not_counted_as_a_new_generation(rag_stats_redis) -> None:
-    """캐시 히트는 생성도 검색도 하지 않는다. 여기서 세면 프로바이더 합이 total 을 넘는다."""
+    """캐시 히트는 생성도 검색도 하지 않는다. 여기서 세면 프로바이더 합이 total 을 넘는다.
+
+    캐시 히트 자체는 cache_hit 으로 따로 센다(별도 테스트).
+    """
     cached = RagQueryResponse(answer="캐시 답변", sources=[], provider="huggingface")
     cache = _FakeAsyncRedis({_answer_cache_key(5, None, "질문"): cached.model_dump_json()})
 
@@ -414,7 +469,9 @@ async def test_a_cached_answer_is_not_counted_as_a_new_generation(rag_stats_redi
     ):
         await answer_question(object(), project_id=5, question="질문")
 
-    assert rag_stats_redis.hashes == {}
+    counts = rag_stats_redis.hashes[_stats_key()]
+    assert not [name for name in counts if name.startswith("provider_")]
+    assert "total" not in counts
 
 
 @pytest.mark.asyncio
@@ -585,7 +642,8 @@ async def test_answer_question_cache_miss_is_stored_for_1800_seconds_and_reused(
         first = await answer_question(object(), project_id=5, question="질문")
         second = await answer_question(object(), project_id=5, question="질문")
 
-    assert first == second
+    # 두 번째는 캐시 히트라 provider 만 "cache" 로 갈린다. 나머지가 같아야 재사용된 것이다.
+    assert second == first.model_copy(update={"provider": "cache"})
     assert cache.set_calls[0][2] == 1800
     embed.assert_awaited_once()
     search.assert_awaited_once()
@@ -1202,11 +1260,12 @@ async def test_response_carries_the_backend_that_actually_answered() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cached_response_keeps_the_provider_it_was_stored_with() -> None:
-    """캐시 히트에도 저장 시점의 백엔드가 실려야 한다.
+async def test_cache_hit_reports_cache_instead_of_the_stored_backend() -> None:
+    """캐시 히트는 저장 시점의 백엔드가 아니라 "cache" 로 답해야 한다(#635).
 
-    여기서 값이 비면 "캐시로 답한 건 전부 unknown" 이 되어, 집계(#622)가 실제 분포를
-    한참 어긋나게 잡는다.
+    provider 는 폴백이 조용히 내려앉는 것을 잡으려고 넣은 값이다. 저장된 "gemini" 를
+    그대로 내보내면 이번 요청에 생성이 없었는데도 "지금 gemini 가 살아있다"로 읽힌다.
+    (#622 집계는 영향받지 않는다 - 카운터는 생성 시점에만 오른다.)
     """
     cached = RagQueryResponse(answer="캐시 답변", sources=[], provider="gemini")
     cache = _FakeAsyncRedis({_answer_cache_key(5, None, "질문"): cached.model_dump_json()})
@@ -1225,7 +1284,11 @@ async def test_cached_response_keeps_the_provider_it_was_stored_with() -> None:
     ):
         result = await answer_question(object(), project_id=5, question="질문")
 
-    assert result.provider == "gemini"
+    assert result.provider == "cache"
+    assert result.answer == "캐시 답변"
+    # 캐시에 저장된 값은 건드리지 않는다. 읽는 시점에만 덮으므로 저장 포맷이 그대로고,
+    # 그래서 _ANSWER_CACHE_SCHEMA_VERSION 을 올릴 필요가 없다.
+    assert '"provider":"gemini"' in cache.store[_answer_cache_key(5, None, "질문")]
 
 
 @pytest.mark.asyncio

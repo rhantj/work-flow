@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -24,6 +25,7 @@ from llm_rag_assistant.app.services.rag_stats import (
     _stats_key,
     pinned_stats_day,
     record_answer_provider,
+    record_cache_hit,
     record_question_query,
 )
 
@@ -254,4 +256,62 @@ async def test_a_broken_redis_never_fails_the_query(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING):
         await record_question_query(_stats())  # 예외가 나가면 이 줄에서 테스트가 깨진다
 
+    assert "질의 통계 기록 실패" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_cache_hits_are_counted_apart_from_total(rag_stats_redis):
+    """total 에 합치면 이미 쌓인 일별 키와 의미가 달라져 과거 수치와 비교할 수 없다.
+
+    전체 질의는 total + cache_hit 으로 읽는다.
+    """
+    await record_cache_hit()
+    await record_cache_hit()
+    await record_question_query(_stats())
+
+    key = _stats_key()
+    assert rag_stats_redis.hashes[key]["cache_hit"] == 2
+    assert rag_stats_redis.hashes[key]["total"] == 1
+    assert rag_stats_redis.expirations[key] == 90 * 24 * 60 * 60
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_recording_never_raises(rag_stats_redis, caplog):
+    """통계가 답변 경로를 실패시키면 관측이 아니라 신규 장애 지점이다."""
+
+    def exploding_pipeline(transaction: bool = True):
+        raise RuntimeError("통계 Redis 연결 끊김")
+
+    rag_stats_redis.pipeline = exploding_pipeline
+
+    with caplog.at_level(logging.WARNING):
+        await record_cache_hit()
+
+    assert rag_stats_redis.hashes == {}
+    assert "질의 통계 기록 실패" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_slow_stats_redis_does_not_hold_the_answer(rag_stats_redis, caplog, monkeypatch):
+    """예외를 삼키는 것만으로는 부족하다. 느려지기만 하면 삼킬 대상이 안 생긴다.
+
+    Redis 가 죽으면 즉시 예외가 나 답변이 그대로 나간다. 죽지 않고 느려지는 쪽이 더 나쁘다 -
+    통계 왕복을 응답 경로에서 await 하므로 그 지연이 고스란히 답변 지연이 되는데, 예외가
+    없으니 기존 삼킴 정책은 아무것도 하지 않는다. 상한을 두는 이유다.
+    """
+    monkeypatch.setattr(rag_stats, "_WRITE_TIMEOUT_SECONDS", 0.05)
+
+    class _HangingPipeline:
+        def hincrby(self, key, field, amount): ...
+        def expire(self, key, seconds): ...
+
+        async def execute(self):
+            await asyncio.sleep(30)
+
+    rag_stats_redis.pipeline = lambda transaction=True: _HangingPipeline()
+
+    with caplog.at_level(logging.WARNING):
+        await asyncio.wait_for(record_cache_hit(), timeout=5)
+
+    assert rag_stats_redis.hashes == {}
     assert "질의 통계 기록 실패" in caplog.text
