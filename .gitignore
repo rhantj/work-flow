@@ -293,6 +293,16 @@ backend-spring/target/
 docs/fs7_naming_convention.md
 !docs/*.png
 !docs/screenshots/*.png
+# 어시스턴트 품질 베이스라인은 보고서(RESULT.md)와 그 근거 그래프만 추적한다. 다음 작업이
+# 이 숫자와 비교해 판단하기로 한 기준선이라, 저장소에 없으면 비교할 대상이 사라진다.
+# data/ 의 원자료 CSV 는 answer 열에 프로젝트 실제 업무·회의록 내용이 들어 있어 제외한다.
+# 위쪽 output/* 보다 여기 두는 이유는 바로 앞 *.png 규칙이 나중 줄이라 그것을 이겨야 해서다.
+!output/assistant_eval/
+output/assistant_eval/*
+!output/assistant_eval/RESULT.md
+!output/assistant_eval/figures/
+output/assistant_eval/figures/*
+!output/assistant_eval/figures/*.png
 *.zip
 
 # 인프라 식별자(OCID 등) 포함 - 절대 커밋 금지
