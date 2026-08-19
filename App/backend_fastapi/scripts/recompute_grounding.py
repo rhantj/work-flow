@@ -63,6 +63,12 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "assistant_eval"
 # 넘기는 것도 잘린 값이므로, 여기서 전체 본문을 쓰면 노트북보다 후하게 재게 된다.
 SNIPPET_MAX_LEN = 200
 
+# 기준값 두 개. 점수만 보면 "데이터가 바뀐 것"과 "검색이 비결정적인 것"을 못 가른다.
+# 코퍼스가 바뀌면 점수가 달라지는 것이 정상이므로, 지문을 함께 재서 원인을 갈라 보고한다.
+# 2026-08-20 프로젝트 1 실측이다. 데이터가 바뀌면 둘을 함께 갱신한다.
+EXPECTED_ID_ONLY_SCORE = 0.783
+EXPECTED_CHUNK_COUNT = 308
+
 
 def _shorten(value: str, max_len: int = SNIPPET_MAX_LEN) -> str:
     return value if len(value) <= max_len else value[: max_len - 1] + "…"
@@ -109,14 +115,32 @@ async def main(project_id: int) -> int:
     for case_id, before, after, facts in changed:
         print(f"  {case_id:<14} {before:.2f} -> {after:.2f}   본문으로만 잡힌 사실 {list(facts)}")
 
-    # RESULT.md 가 기록한 id 전용 값. 어긋나면 "검색이 결정적"이라는 정정의 전제가 깨진 것이다.
-    recorded = 0.783
-    if abs(old - recorded) >= 0.001:
-        print(f"\n[경고] id 전용 전체가 {old:.3f} 로 RESULT.md 의 {recorded} 와 다르다.")
-        print("       검색 결과가 달라졌다는 뜻이므로 RESULT.md 의 채점기 정정을 다시 확인한다.")
-        return 1
-    print(f"\n[OK] id 전용 전체 {old:.3f} 로 RESULT.md 기록과 일치한다.")
-    return 0
+    # 점수가 어긋나는 원인은 둘이고, 처방이 다르다. 하나로 뭉쳐 보고하면 엉뚱한 곳을 판다.
+    #   (1) 코퍼스가 바뀌었다   - 정상이다. 기준값을 다시 잡으면 된다.
+    #   (2) 검색이 비결정적이다 - RESULT.md 의 채점기 정정이 선 전제가 깨진 것이다.
+    # 코퍼스 지문을 함께 재서 (1)을 먼저 배제한다.
+    async with pool.acquire() as conn:
+        chunk_count = await conn.fetchval(
+            "SELECT count(*) FROM document_chunks WHERE project_id=$1", project_id
+        )
+
+    print(f"\n코퍼스: 청크 {chunk_count}건 (기준 {EXPECTED_CHUNK_COUNT}건)")
+    corpus_changed = chunk_count != EXPECTED_CHUNK_COUNT
+    score_changed = abs(old - EXPECTED_ID_ONLY_SCORE) >= 0.001
+
+    if not score_changed and not corpus_changed:
+        print(f"[OK] id 전용 전체 {old:.3f} 로 RESULT.md 기록과 일치한다.")
+        return 0
+    if corpus_changed:
+        print(f"[알림] 코퍼스가 기준과 다르다. 점수 {old:.3f} 가 기록({EXPECTED_ID_ONLY_SCORE})과")
+        print("       달라도 그것만으로 검색이 비결정적이라고 볼 수 없다. 데이터가 바뀐 것이")
+        print("       맞다면 이 파일의 기준값 두 개를 함께 갱신한다.")
+        return 0
+    print(f"[경고] 코퍼스는 그대로인데 id 전용 전체가 {old:.3f} 로 기록"
+          f"({EXPECTED_ID_ONLY_SCORE})과 다르다.")
+    print("       같은 입력에 다른 검색 결과가 나왔다는 뜻이다. RESULT.md 의 채점기 정정은")
+    print("       '검색이 결정적'을 전제로 노트북 재실행 없이 표를 고쳤으므로 다시 확인한다.")
+    return 1
 
 
 if __name__ == "__main__":
