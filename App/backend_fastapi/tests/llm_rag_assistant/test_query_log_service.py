@@ -308,3 +308,32 @@ async def test_purge_is_skipped_quietly_when_the_table_does_not_exist() -> None:
     await purge_expired_rows(_FakePool(conn))
 
     assert conn.calls == []
+
+
+@pytest.mark.asyncio
+async def test_a_very_long_question_is_truncated_before_storage(logging_enabled) -> None:
+    """chat_schema.question 에 길이 상한이 없어 바깥에서 얼마든지 길게 들어온다.
+    그대로 넣으면 TEXT 컬럼이 질문 하나로 부풀고, 마스킹 비용도 길이에 비례해 커진다.
+    목적("어떤 문장이 검색에 실패했나")은 앞부분으로 판별되므로 자른다."""
+    conn = _FakeConn()
+
+    await record_query_log(
+        _FakePool(conn), project_id=1, question="가" * 5_000, source_ids=[], provider="ollama"
+    )
+
+    stored = conn.calls[0][1][1]
+    assert len(stored) < 5_000
+    assert stored.endswith("...[생략]")
+
+
+@pytest.mark.asyncio
+async def test_a_question_within_the_limit_is_stored_whole(logging_enabled) -> None:
+    """자르기가 평범한 질문까지 건드리면 분석할 문장이 망가진다."""
+    conn = _FakeConn()
+    question = "pgvector 스키마 만드는 업무 누가 하고 있어?"
+
+    await record_query_log(
+        _FakePool(conn), project_id=1, question=question, source_ids=[], provider="ollama"
+    )
+
+    assert conn.calls[0][1][1] == question

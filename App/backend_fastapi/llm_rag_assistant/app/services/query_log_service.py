@@ -31,10 +31,16 @@ user_id 와 답변 원문을 담지 않는다. 실패율 분석에 필요 없고
 읽는 방법을 적어두지 않으면 이 테이블은 아무도 쓰지 않아 지워진 assistant_messages 의
 재판이 된다. 목적인 "검색 실패율"은 다음 두 쿼리로 본다.
 
+**두 쿼리 모두 provider <> 'cache' 가 필수다.** 캐시 히트 행은 검색을 돌리지 않았고,
+source_ids 는 과거에 검색이 돌았을 때의 값을 그대로 옮겨 적은 것이다. 빼지 않으면
+지난 성공이 표본에 여러 번 들어가 실패율이 실제보다 낮게 나온다 - 재려던 것과
+정반대 방향으로 틀린다. 캐시 히트를 기록하는 이유는 질문 분포를 보기 위해서지
+검색 성공으로 세기 위해서가 아니다.
+
     -- 1) 검색이 한 건도 걸리지 않은 질문 (= 실패 사례. pg_trgm 판단의 근거)
     SELECT created_at, project_id, question
     FROM assistant_query_log
-    WHERE cardinality(source_ids) = 0
+    WHERE provider <> 'cache' AND cardinality(source_ids) = 0
     ORDER BY created_at DESC;
 
     -- 2) 프로젝트별 실패율. project_id = 1 은 데모 데이터가 섞여 있어 따로 본다.
@@ -42,7 +48,11 @@ user_id 와 답변 원문을 담지 않는다. 실패율 분석에 필요 없고
            count(*) AS total,
            count(*) FILTER (WHERE cardinality(source_ids) = 0) AS empty_hits
     FROM assistant_query_log
+    WHERE provider <> 'cache'
     GROUP BY project_id ORDER BY total DESC;
+
+    -- 3) 질문 분포를 볼 때는 반대로 캐시 히트를 포함한다. 자주 묻는 질문일수록
+    --    캐시에 걸리므로, 빼면 "무엇을 자주 묻는가"가 통째로 사라진다.
 
 ## 끄는 법
 
@@ -135,6 +145,20 @@ def is_logging_enabled() -> bool:
     """호출할 때마다 환경변수를 본다. 모듈 로드 시점에 굳히면 컨테이너를 다시 띄우기 전에는
     끌 수 없어, "배포 없이 되돌린다"는 스위치의 목적이 사라진다."""
     return os.getenv(_ENABLED_ENV, "").strip().lower() in _TRUTHY
+
+
+# 저장할 질문 길이 상한. chat_schema.question 에는 상한이 없어 바깥에서 얼마든지 길게
+# 들어온다. 마스킹은 동기 코드고 저장은 TEXT 컬럼이라 둘 다 길이에 비례해 커지는데,
+# 이 로그의 목적("어떤 문장이 검색에 실패했나")은 앞부분만 봐도 판별된다. 잘린 것을
+# 표식으로 남겨, 분석할 때 문장이 왜 끝나는지 알 수 있게 한다.
+_MAX_QUESTION_CHARS = 2000
+_TRUNCATION_MARK = "...[생략]"
+
+
+def _truncate(text: str) -> str:
+    if len(text) <= _MAX_QUESTION_CHARS:
+        return text
+    return text[:_MAX_QUESTION_CHARS] + _TRUNCATION_MARK
 
 
 def mask_sensitive_text(text: str) -> str:
@@ -247,4 +271,6 @@ async def _insert_log(pool, project_id: int, question: str, source_ids: list[int
     # 마스킹도 타임아웃 안에서 한다. 호출부 인자로 빼면 wait_for 가 타이머를 걸기 전에
     # 동기로 돌아, 답변 경로가 붙잡히는 구간이 상한 밖에 남는다.
     async with pool.acquire() as conn:
-        await conn.execute(_INSERT_SQL, project_id, mask_sensitive_text(question), source_ids, provider)
+        await conn.execute(
+            _INSERT_SQL, project_id, _truncate(mask_sensitive_text(question)), source_ids, provider
+        )
