@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -22,8 +22,21 @@ from llm_rag_assistant.app.services.rag_stats import (
     QuestionQueryStats,
     _counter_fields,
     _stats_key,
+    pinned_stats_day,
+    record_answer_provider,
     record_question_query,
 )
+
+
+def _freeze_clock(monkeypatch, start: datetime) -> list[datetime]:
+    """날짜 계산만 가짜 시계에 물린다. 반환한 리스트의 0번을 바꾸면 시간이 흐른다.
+
+    _stats_key 자체를 갈아끼우지 않고 인자로 넘기는 이유: 날짜 형식(UTC, YYYY-MM-DD)은
+    실제 구현이 계산해야 이 테스트가 형식 회귀까지 잡는다.
+    """
+    now = [start]
+    monkeypatch.setattr(rag_stats, "_stats_key", lambda: _stats_key(now[0]))
+    return now
 
 
 def _stats(**overrides) -> QuestionQueryStats:
@@ -136,6 +149,95 @@ async def test_repeated_questions_accumulate(rag_stats_redis):
     await record_question_query(_stats(project_id=3))
 
     assert rag_stats_redis.hashes[_stats_key()]["total"] == 2
+
+
+@pytest.mark.asyncio
+async def test_each_answering_backend_gets_its_own_counter(rag_stats_redis):
+    """폴백 체인은 조용히 다음 백엔드로 넘어간다. 백엔드를 한 칸에 합쳐 세면 'HF가 답하고
+    있다'와 'HF가 죽어 Ollama 가 다 받아내고 있다'가 같은 숫자로 보인다.
+    """
+    await record_answer_provider("huggingface")
+    await record_answer_provider("huggingface")
+    await record_answer_provider("gemini")
+
+    key = _stats_key()
+    assert rag_stats_redis.hashes[key] == {"provider_huggingface": 2, "provider_gemini": 1}
+    # 질의 카운터와 같은 키를 쓰므로 TTL 도 같이 걸려야 한다.
+    assert rag_stats_redis.expirations[key] == 90 * 24 * 60 * 60
+
+
+@pytest.mark.asyncio
+async def test_provider_counts_share_the_daily_key_with_the_query_counters(rag_stats_redis):
+    """'HF가 몇 %를 답했나'는 provider_* / total 이다. 분자와 분모가 다른 키에 있으면
+    두 번 읽어 맞춰야 하고, 날짜 경계에서 서로 다른 날을 볼 수 있다.
+    """
+    await record_question_query(_stats())
+    await record_answer_provider("ollama")
+
+    counts = rag_stats_redis.hashes[_stats_key()]
+    assert counts["total"] == 1
+    assert counts["provider_ollama"] == 1
+
+
+@pytest.mark.asyncio
+async def test_counting_the_provider_does_not_touch_the_query_counters(rag_stats_redis):
+    """생성은 검색 뒤에 따로 집계된다. 여기서 total 을 또 올리면 분모가 두 배가 된다."""
+    await record_answer_provider("huggingface")
+
+    assert rag_stats_redis.hashes[_stats_key()] == {"provider_huggingface": 1}
+
+
+@pytest.mark.asyncio
+async def test_a_question_that_crosses_utc_midnight_is_counted_on_one_day(
+    rag_stats_redis, monkeypatch
+):
+    """자정을 넘겨도 분모(total)와 분자(provider_*)가 같은 날 키에 있어야 한다.
+
+    질문은 검색 직후, 프로바이더는 생성이 끝난 뒤에 센다. 그 사이 수 초 동안 날짜가 바뀌면
+    어제는 분모만, 오늘은 분자만 늘어 양쪽 날의 비율이 모두 틀린다.
+    """
+    now = _freeze_clock(monkeypatch, datetime(2026, 8, 3, 23, 59, 58, tzinfo=timezone.utc))
+
+    with pinned_stats_day():
+        await record_question_query(_stats())
+        now[0] += timedelta(seconds=5)  # 생성에 걸린 시간. 여기서 UTC 자정을 넘는다.
+        await record_answer_provider("gemini")
+
+    assert list(rag_stats_redis.hashes) == ["rag_stats:2026-08-03"]
+    counts = rag_stats_redis.hashes["rag_stats:2026-08-03"]
+    assert counts["total"] == 1
+    assert counts["provider_gemini"] == 1
+
+
+@pytest.mark.asyncio
+async def test_the_pinned_day_does_not_outlive_its_block(rag_stats_redis, monkeypatch):
+    """못 박은 날짜가 블록 밖으로 새면 다음 날 카운터가 전부 어제 키에 쌓인다.
+
+    ContextVar 는 태스크가 재사용되면 같이 살아남으므로(큐 워커 루프) 반드시 되돌려야 한다.
+    """
+    now = _freeze_clock(monkeypatch, datetime(2026, 8, 3, 23, 59, 58, tzinfo=timezone.utc))
+
+    with pinned_stats_day():
+        await record_answer_provider("gemini")
+    now[0] += timedelta(seconds=5)
+    await record_answer_provider("ollama")
+
+    assert rag_stats_redis.hashes["rag_stats:2026-08-03"] == {"provider_gemini": 1}
+    assert rag_stats_redis.hashes["rag_stats:2026-08-04"] == {"provider_ollama": 1}
+
+
+@pytest.mark.asyncio
+async def test_a_broken_redis_never_fails_the_provider_count(monkeypatch, caplog):
+    """프로바이더 집계도 record_question_query 와 같은 정책을 따른다."""
+    def _explode():
+        raise RuntimeError("redis down")
+
+    monkeypatch.setattr(rag_stats, "get_async_redis_client", _explode)
+
+    with caplog.at_level(logging.WARNING):
+        await record_answer_provider("gemini")  # 예외가 나가면 이 줄에서 테스트가 깨진다
+
+    assert "질의 통계 기록 실패" in caplog.text
 
 
 @pytest.mark.asyncio
