@@ -86,25 +86,20 @@ task#62]`). 청크 id 는 답변 어디에도 나타나지 않아 채점에 쓸 
 
 검색 평가셋과의 연결
 --------------------
-`retrieval_case_id` 는 검색 평가셋 `evalset.json` 의 id 다. 그런데 그 파일은 `output/`
-아래에 있고 `.gitignore` 로 git 미추적이라 CI 에는 존재하지 않는다. "있으면 대조하고 없으면
-건너뛴다"는 테스트는 CI 에서 항상 스킵되는데, 이 저장소는 `ci/verify-fastapi-test-count.py`
-로 "스킵이 통과로 둔갑하는" 상황을 막고 있다. 스킵되는 대조 테스트는 그 방어선을 스스로
-무너뜨리므로 넣지 않는다.
+`retrieval_case_id` 는 검색 평가셋 `output/hybrid_rag_eval/data/evalset.json` 의 id 다.
+`output/` 은 산출물이라 통째로 무시되지만 이 파일 하나만 `.gitignore` 에서 예외로 열어
+추적한다 - 답변 평가의 정답지가 그 위에 얹히는데 기준이 저장소 밖에 있으면 CI 가 어긋남을
+잡을 방법이 없기 때문이다.
 
-대신 대조에 필요한 최소 정보(id, category, question)만 추린
-`tests/fixtures/assistant_eval_retrieval_index.json` 을 추적한다(4KB). CI 는 픽스처와 이
-인덱스를 대조하므로, 한쪽만 손대는 드리프트 - 픽스처 질문을 고치면서 연결 키를 그대로 두거나
-없는 id 를 가리키는 것 - 는 CI 에서 잡힌다.
+그래서 대조 상대는 파생물이 아니라 원본이다. 픽스처의 질문·분류를 고치면서 연결 키를 그대로
+두거나 없는 id 를 가리키면 CI 에서 걸린다. 검색 평가셋을 다시 만들어 질문이 바뀌었는데
+픽스처를 안 고친 경우도 마찬가지다.
 
-못 잡는 것 (이 한 문단이 이 파일 전체의 한계 설명이다)
-------------------------------------------------------
-대조의 기준은 원본이 아니라 같은 커밋 안의 인덱스다. 그래서 픽스처와 인덱스를 나란히 고치면
-두 파일은 서로 맞아떨어져 전부 통과하고, 인덱스가 원본에서 밀린 것도 같은 이유로 드러나지
-않는다. 원본을 추적하지 않는 한 어떤 테스트 설계로도 메울 수 없는 구멍이므로, 인덱스 내용의
-정확성은 테스트가 아니라 재생성 절차가 담보한다. 추림을 손이 아니라
-`rebuild_retrieval_index.py` 가 하게 해두었으니, 검색 평가셋을 다시 만들었으면 그 스크립트를
-돌리고 diff 를 리뷰에 올린다. 사람이 그 diff 를 읽는 것이 유일한 대조 지점이다.
+한때 세 필드만 추린 사본(`assistant_eval_retrieval_index.json`)을 두고 그것과 대조했는데,
+그건 원본이 미추적이던 시절의 대체물이었다. 사본과 픽스처를 나란히 고치면 둘이 서로 맞아
+전부 통과하고 원본에서 밀린 것은 드러나지 않았다. 원본을 추적하면서 사본은 지웠다 - 중복된
+상태를 테스트로 감시하는 것보다 상태를 없애는 쪽이 낫다.
+
 """
 
 from __future__ import annotations
@@ -114,10 +109,11 @@ import re
 from pathlib import Path
 from typing import Dict, List
 
-from tests.assistant_eval.rebuild_retrieval_index import canonical_index, dumps
-
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "assistant_eval"
-RETRIEVAL_INDEX = FIXTURES.parent / "assistant_eval_retrieval_index.json"
+# 저장소 루트/output/... - .gitignore 에서 이 파일만 예외로 열어 추적한다.
+RETRIEVAL_EVALSET = (
+    Path(__file__).resolve().parents[4] / "output" / "hybrid_rag_eval" / "data" / "evalset.json"
+)
 
 CATEGORIES = frozenset({"identifier", "semantic", "mixed"})
 TOP_LEVEL_KEYS = frozenset({
@@ -167,13 +163,12 @@ def load_raw_cases() -> List[Dict]:
     return [json.loads(path.read_text(encoding="utf-8")) for path in paths]
 
 
-def load_retrieval_index() -> Dict[str, Dict[str, str]]:
-    raw = json.loads(RETRIEVAL_INDEX.read_text(encoding="utf-8"))
-    cases = raw["cases"]
+def load_retrieval_evalset() -> Dict[str, Dict[str, str]]:
+    cases = json.loads(RETRIEVAL_EVALSET.read_text(encoding="utf-8"))
     index = {case["id"]: case for case in cases}
     # id 가 겹치면 뒤엣것만 남아 항목 하나가 소리 없이 사라진다. 개수가 여전히 30이면
     # 1:1 대조도 그걸 못 잡으므로 여기서 먼저 끊는다.
-    assert len(index) == len(cases), RETRIEVAL_INDEX
+    assert len(index) == len(cases), RETRIEVAL_EVALSET
     return index
 
 
@@ -343,15 +338,14 @@ def test_case_number_matches_the_linked_retrieval_case_number():
         )
 
 
-def test_each_case_matches_its_retrieval_index_entry():
-    """연결한 검색 케이스의 질문·분류가 인덱스 항목과 같은지 대조한다.
+def test_each_case_matches_its_retrieval_evalset_entry():
+    """연결한 검색 케이스의 질문·분류가 원본 평가셋 항목과 같은지 대조한다.
 
     번호 규칙만 맞추면 존재하지 않는 id(A99)를 가리켜도, 픽스처 질문만 바꿔도 통과한다.
-    대조 상대는 원본 평가셋이 아니라 추적되는 인덱스다(모듈 docstring 참고).
     """
-    index = load_retrieval_index()
+    evalset = load_retrieval_evalset()
     for raw in load_raw_cases():
-        entry = index.get(raw["retrieval_case_id"])
+        entry = evalset.get(raw["retrieval_case_id"])
         assert entry is not None, (raw["case_id"], raw["retrieval_case_id"])
         assert entry["question"] == raw["question"], (
             raw["case_id"],
@@ -361,32 +355,16 @@ def test_each_case_matches_its_retrieval_index_entry():
         assert entry["category"] == raw["category"], (raw["case_id"], entry["category"])
 
 
-def test_retrieval_index_and_fixtures_are_one_to_one():
-    """인덱스에 있는 검색 케이스 전부에 답변 정답지가 하나씩 있어야 두 지표를 나란히 놓는다."""
-    index = load_retrieval_index()
+def test_retrieval_evalset_and_fixtures_are_one_to_one():
+    """검색 케이스 전부에 답변 정답지가 하나씩 있어야 두 지표를 나란히 놓을 수 있다.
+
+    검색 평가셋에 케이스를 더하고 답변 픽스처를 안 만들면, 답변 품질은 좁아진 표본 위에서
+    측정되는데 검색 지표와 같은 30문항인 것처럼 읽힌다.
+    """
+    evalset = load_retrieval_evalset()
     linked = sorted(raw["retrieval_case_id"] for raw in load_raw_cases())
 
-    assert linked == sorted(index), (linked, sorted(index))
-
-
-def test_retrieval_index_shape_matches_the_rebuild_script():
-    """커밋된 인덱스가 `rebuild_retrieval_index.py` 의 출력 형태와 글자까지 같은지 본다.
-
-    보는 것은 형태뿐이다 - 봉투(`source` 값, `fields` 목록), 케이스마다의 필드 집합과 키
-    순서, id 정렬, 직렬화 형식(들여쓰기 2, 비ASCII 그대로, 끝 줄바꿈). 질문이나 분류를
-    형태를 지킨 채 바꿔 쓰거나 항목을 정렬 자리에 맞춰 손으로 더하면 여기는 통과한다.
-    내용이 원본과 맞는지는 이 테스트가 보지 않는다(모듈 docstring 의 "못 잡는 것" 참고).
-
-    그래도 두는 이유는 재생성 diff 를 읽을 수 있게 유지하는 것이 곧 그 절차의 전제이기
-    때문이다. 커밋된 파일이 스크립트 출력과 형태부터 어긋나 있으면 다시 돌렸을 때 diff 가
-    형식 잡음으로 덮여, 리뷰어가 봐야 할 내용 변화가 그 속에 묻힌다. 스크립트의
-    `FIELDS`·`SOURCE`·`dumps` 를 고치고 인덱스를 다시 쓰지 않은 경우도 여기서만 드러난다.
-
-    여기 걸리면 스크립트와 커밋된 파일 중 어느 쪽이 앞선 것인지 보고, 스크립트가 맞으면
-    원본을 놓고 다시 돌린다.
-    """
-    committed = RETRIEVAL_INDEX.read_text(encoding="utf-8")
-    assert committed == dumps(canonical_index(json.loads(committed)["cases"])), RETRIEVAL_INDEX
+    assert linked == sorted(evalset), (linked, sorted(evalset))
 
 
 def test_expected_source_ids_are_non_empty_unique_and_well_formed():
