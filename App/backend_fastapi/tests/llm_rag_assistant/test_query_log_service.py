@@ -21,7 +21,11 @@ import asyncio
 import pytest
 
 from llm_rag_assistant.app.services import query_log_service
-from llm_rag_assistant.app.services.query_log_service import mask_sensitive_text, record_query_log
+from llm_rag_assistant.app.services.query_log_service import (
+    mask_sensitive_text,
+    purge_expired_rows,
+    record_query_log,
+)
 
 
 @pytest.fixture
@@ -161,13 +165,11 @@ async def test_stored_columns_are_exactly_the_agreed_five(logging_enabled) -> No
 
 
 @pytest.mark.asyncio
-async def test_nothing_is_purged_while_logging_is_switched_off(monkeypatch) -> None:
-    """보존기간의 알려진 구멍을 실행 가능한 형태로 못박는다.
+async def test_nothing_is_written_while_logging_is_switched_off(monkeypatch) -> None:
+    """스위치가 꺼져 있으면 쓰기 경로는 DB 를 건드리지 않는다.
 
-    만료 삭제가 쓰기 경로에 얹혀 있어, 스위치를 끄면 기록만이 아니라 삭제도 멈춘다.
-    끄면서 데이터까지 비우려면 사람이 직접 DELETE 해야 한다 - 결정 기록의 "되돌리는 법"
-    1단계가 그렇게 고쳐져 있다. 이 테스트가 실패한다면 둘 중 하나다: 삭제 주체가 바뀌었거나
-    (그렇다면 문서를 되돌려야 한다), 스위치가 삭제를 막지 못하게 됐거나.
+    삭제까지 멈추는 것은 아니다 - 만료 삭제는 스위치와 무관한 일일 작업이 따로 책임진다
+    (test_expired_rows_are_purged_even_while_logging_is_switched_off).
     """
     monkeypatch.delenv("ASSISTANT_QUERY_LOG_ENABLED", raising=False)
     conn = _FakeConn()
@@ -252,3 +254,22 @@ async def test_the_switch_can_be_turned_off_without_a_deploy(monkeypatch) -> Non
         _FakePool(conn), project_id=1, question="질문", source_ids=[], provider="ollama"
     )
     assert len(conn.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_expired_rows_are_purged_even_while_logging_is_switched_off(monkeypatch) -> None:
+    """보존기간은 트래픽에 기대면 안 되는 약속이다.
+
+    쓰기 경로의 CTE 만으로는 스위치를 끄거나 질의가 뜸할 때 만료가 멈춘다. 일일 작업은
+    스위치를 보지 않아야 하고, 이 테스트가 그것을 못박는다. 삭제 조건도 함께 고정한다 -
+    보존일수가 조용히 바뀌면 개인정보 약속이 바뀌는 것이다.
+    """
+    monkeypatch.delenv("ASSISTANT_QUERY_LOG_ENABLED", raising=False)
+    conn = _FakeConn()
+
+    await purge_expired_rows(_FakePool(conn))
+
+    assert len(conn.calls) == 1
+    query = conn.calls[0][0]
+    assert "DELETE FROM assistant_query_log" in query
+    assert "90 days" in query

@@ -50,12 +50,11 @@ user_id 와 답변 원문을 담지 않는다. 실패율 분석에 필요 없고
 코드 배포 없이 멈춘다 - 다만 환경변수는 프로세스 밖에서 바뀌지 않으므로 값 변경 뒤
 컨테이너 재기동이 필요하다. 코드 변경·재빌드가 없다는 뜻이지 무중단이라는 뜻이 아니다.
 
-**끈 뒤에는 남은 행이 스스로 사라지지 않는다.** 만료 삭제가 쓰기 경로에 얹혀 있어
-(record_query_log 참고) 기록이 멈추면 삭제도 멈춘다. 질의가 아주 뜸한 기간도 마찬가지다.
-끄면서 데이터까지 비우려면 한 줄을 직접 돌린다.
+끈 뒤에도 남은 행은 보존기간이 지나면 사라진다. 만료 삭제는 스위치와 무관하게 도는
+일일 작업이 책임진다(start_retention_purge 참고) - 기록을 끄면 삭제도 멈추던 구조였으면
+"90일 보존"은 약속으로만 남는다. 즉시 비우려면 한 줄을 직접 돌린다.
 
-    DELETE FROM assistant_query_log;                                  -- 전부
-    DELETE FROM assistant_query_log WHERE created_at < NOW() - INTERVAL '90 days';  -- 만료분만
+    DELETE FROM assistant_query_log;
 
 ## 켜기 전에
 
@@ -71,6 +70,8 @@ import logging
 import os
 import re
 from collections.abc import Sequence
+
+from core.db import get_pool_instance
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +174,59 @@ async def record_query_log(
         )
     except Exception:
         logger.warning("질의 로그 기록 실패, 로그만 누락되고 답변은 정상 진행합니다.", exc_info=True)
+
+
+# 만료 행을 지우는 일일 작업. 쓰기 경로의 CTE 만으로는 보존기간이 성립하지 않는다 -
+# 스위치를 끄거나 질의가 뜸하면 쓰기가 없고, 쓰기가 없으면 삭제도 없다. 개인정보 보존기간은
+# 트래픽에 기대면 안 되는 약속이라 쓰기와 무관하게 도는 주체를 따로 둔다.
+#
+# 쓰기 경로의 CTE 를 그대로 두는 이유: 질의가 도는 동안에는 그쪽이 더 촘촘하게 지우고,
+# 이 작업이 어떤 이유로 죽어도 마지막 방어선이 남는다. 둘 다 같은 조건으로 지우므로
+# 겹쳐 돌아도 결과가 달라지지 않는다.
+#
+# **스위치와 무관하게 돈다.** 기록을 끈 뒤에도 이미 쌓인 행은 만료돼야 하기 때문이다.
+_PURGE_INTERVAL_SECONDS = 24 * 60 * 60
+_PURGE_SQL = f"DELETE FROM assistant_query_log WHERE created_at < NOW() - INTERVAL '{_RETENTION_DAYS} days'"
+
+_purge_task: asyncio.Task | None = None
+
+
+async def purge_expired_rows(pool) -> None:
+    """보존기간이 지난 행을 지운다. 실패는 삼키지 않는다 - 부르는 쪽이 판단한다."""
+    async with pool.acquire() as conn:
+        await conn.execute(_PURGE_SQL)
+
+
+async def _purge_loop() -> None:
+    while True:
+        try:
+            pool = await get_pool_instance()
+            await purge_expired_rows(pool)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # 하루 뒤 다시 시도한다. 여기서 죽으면 보존기간이 조용히 멈춘다.
+            logger.warning("질의 로그 만료 삭제 실패, 다음 주기에 다시 시도합니다.", exc_info=True)
+        await asyncio.sleep(_PURGE_INTERVAL_SECONDS)
+
+
+async def start_retention_purge() -> None:
+    """앱 기동 시 한 번 부른다. 기동 직후 한 번 돌고 이후 하루 간격이다."""
+    global _purge_task
+    if _purge_task is None or _purge_task.done():
+        _purge_task = asyncio.create_task(_purge_loop())
+
+
+async def stop_retention_purge() -> None:
+    global _purge_task
+    if _purge_task is None:
+        return
+    _purge_task.cancel()
+    try:
+        await _purge_task
+    except asyncio.CancelledError:
+        pass
+    _purge_task = None
 
 
 async def _insert_log(pool, project_id: int, question: str, source_ids: list[int], provider: str) -> None:
