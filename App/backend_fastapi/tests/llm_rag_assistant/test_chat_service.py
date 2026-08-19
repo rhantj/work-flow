@@ -1445,8 +1445,14 @@ async def test_the_logged_question_is_the_one_the_search_actually_saw() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_broken_query_log_does_not_lose_the_answer() -> None:
-    """로그 저장이 답변을 죽이면 관측을 붙이려다 기능을 잃는다. pool 이 성치 않아도 답은 나간다."""
+async def test_a_broken_query_log_does_not_lose_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """로그 저장이 답변을 죽이면 관측을 붙이려다 기능을 잃는다. pool 이 성치 않아도 답은 나간다.
+
+    스위치를 켜야 이 테스트가 의미를 갖는다. 기본값이 꺼짐이라 켜지 않으면
+    record_query_log 가 pool 을 보기도 전에 반환해, 망가진 pool 을 넘겨도 아무 일이
+    일어나지 않는다 - 통과는 하는데 아무것도 막지 못하는 테스트가 된다.
+    """
+    monkeypatch.setenv("ASSISTANT_QUERY_LOG_ENABLED", "true")
     with (
         patch(
             "llm_rag_assistant.app.services.chat_service.embed_text",
