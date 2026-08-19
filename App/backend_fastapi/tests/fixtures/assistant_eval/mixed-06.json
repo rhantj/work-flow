@@ -6,7 +6,7 @@
   "must_include_facts": [
     {
       "fact_id": "F1",
-      "statement": "WF-233 'document_chunks 및 pgvector 스키마 구현' 업무다",
+      "statement": "WF-233은 'document_chunks 및 pgvector 스키마 구현' 업무다",
       "evidence_snippet": "document_chunks 및 pgvector 스키마 구현"
     }
   ],
