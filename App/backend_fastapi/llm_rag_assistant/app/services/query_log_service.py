@@ -91,7 +91,12 @@ _RETENTION_DAYS = 90
 _EMAIL_PLACEHOLDER = "[EMAIL]"
 _PHONE_PLACEHOLDER = "[PHONE]"
 
-_EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# 앞의 (?<![\w.+-]) 는 성능 장치다. 없으면 "@ 가 없는 긴 한글 문장"에서 시작 위치마다
+# [\w.+-]+ 가 문장 끝까지 삼켰다가 실패하기를 반복해 길이의 제곱에 비례한다(실측: 8천자
+# 256ms, 50만자면 분 단위). 마스킹은 동기 코드라 asyncio.wait_for 가 끊지 못하므로 그
+# 시간이 그대로 이벤트 루프 정지가 된다. 경계를 막으면 각 위치에서 즉시 실패해 선형이다
+# (50만자 13ms). 매칭 결과는 경계 조건상 기존과 동일하다.
+_EMAIL_PATTERN = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 
 # 한국 전화번호. 국번(0으로 시작하는 2~3자리) 또는 +82 국제 표기로 시작할 때만 잡는다.
 # 앞뒤 숫자 경계를 두는 것은 마스킹 과잉을 막기 위해서다 - "2026-08-19", "230번" 같은
@@ -101,7 +106,7 @@ _EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 # 같은 유선 국제표기가 통째로 샌다. 괄호를 구분자로 받는 이유도 같다 - "(010) 1234-5678",
 # "02)1234-5678" 은 사람이 실제로 쓰는 표기인데, 안 받으면 마스킹이 조용히 비켜간다.
 _PHONE_PATTERN = re.compile(
-    r"(?<![0-9])\(?(?:\+?82[-. ]?|0)\d{1,2}\)?[-. ]?\d{3,4}[-. ]?\d{4}(?![0-9])"
+    r"(?<![0-9])\(?(?:\+?82[-. ]?(?:\(0\))?|0)\d{1,2}\)?[-. ]?\d{3,4}[-. ]?\d{4}(?![0-9])"
 )
 
 # 로그 쓰기 한 번에 허용하는 시간. rag_stats._WRITE_TIMEOUT_SECONDS 와 같은 이유로 둔다 -
@@ -186,14 +191,23 @@ async def record_query_log(
 #
 # **스위치와 무관하게 돈다.** 기록을 끈 뒤에도 이미 쌓인 행은 만료돼야 하기 때문이다.
 _PURGE_INTERVAL_SECONDS = 24 * 60 * 60
+_TABLE_EXISTS_SQL = "SELECT to_regclass('assistant_query_log')"
 _PURGE_SQL = f"DELETE FROM assistant_query_log WHERE created_at < NOW() - INTERVAL '{_RETENTION_DAYS} days'"
 
 _purge_task: asyncio.Task | None = None
 
 
 async def purge_expired_rows(pool) -> None:
-    """보존기간이 지난 행을 지운다. 실패는 삼키지 않는다 - 부르는 쪽이 판단한다."""
+    """보존기간이 지난 행을 지운다. 실패는 삼키지 않는다 - 부르는 쪽이 판단한다.
+
+    테이블이 없으면 조용히 넘어간다. spring.flyway.enabled 기본값이 false 라 로컬·테스트
+    환경에는 이 테이블이 아예 없는데, 이 작업은 기록 스위치와 무관하게 돌기 때문에 그냥
+    두면 그 환경들이 기동 직후부터 매일 오류를 쌓는다. 기능을 켜지도 않은 곳에 나는
+    경보는 진짜 경보를 묻는다.
+    """
     async with pool.acquire() as conn:
+        if await conn.fetchval(_TABLE_EXISTS_SQL) is None:
+            return
         await conn.execute(_PURGE_SQL)
 
 

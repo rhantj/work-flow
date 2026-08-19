@@ -17,6 +17,7 @@ user_id 를 담지 않는 것도 여기서 못 박는다. 컬럼을 나중에 �
 from __future__ import annotations
 
 import asyncio
+import time
 
 import pytest
 
@@ -35,9 +36,13 @@ def logging_enabled(monkeypatch) -> None:
 
 
 class _FakeConn:
-    def __init__(self, delay: float = 0.0) -> None:
+    def __init__(self, delay: float = 0.0, table_exists: bool = True) -> None:
         self.calls: list[tuple] = []
         self._delay = delay
+        self._table_exists = table_exists
+
+    async def fetchval(self, query: str, *args):
+        return "assistant_query_log" if self._table_exists else None
 
     async def execute(self, query: str, *args):
         if self._delay:
@@ -97,6 +102,7 @@ def test_email_addresses_are_replaced_before_storage(raw: str) -> None:
         "010 1234 5678 확인",
         "사무실 02-123-4567 맞아?",
         "+82-10-1234-5678 국제번호",
+        "+82 (0)10-1234-5678 국제표기",
         # 국번을 010 계열로만 좁히면 +82 유선번호가 남고, 구분자에 괄호가 없으면
         # 사람이 흔히 쓰는 (010) 1234-5678 표기가 통째로 새어 나간다.
         "+82-2-1234-5678 사무실",
@@ -273,3 +279,32 @@ async def test_expired_rows_are_purged_even_while_logging_is_switched_off(monkey
     query = conn.calls[0][0]
     assert "DELETE FROM assistant_query_log" in query
     assert "90 days" in query
+
+
+def test_masking_stays_linear_on_a_very_long_question() -> None:
+    """마스킹은 동기 코드라 asyncio.wait_for 가 끊지 못한다. 정규식이 길이의 제곱에
+    비례하면 긴 질문 한 건이 이벤트 루프를 통째로 세운다 - 상한이 아니라 정지다.
+
+    입력을 2만자로 잡은 것은 의도적이다. 20만자로 잡으면 경계 검사를 지웠을 때 테스트가
+    "실패"하는 대신 몇 분간 매달려, 깨진 것을 알려주는 대신 CI 를 세운다. 2만자면 고친
+    쪽은 1ms 미만, 깨진 쪽은 1.5초 안팎이라 0.5초 상한이 둘을 확실히 가른다.
+    절대 시간이 아니라 차수를 보는 테스트다.
+    """
+    long_question = "가" * 20_000
+
+    started = time.perf_counter()
+    mask_sensitive_text(long_question)
+
+    assert time.perf_counter() - started < 0.5
+
+
+@pytest.mark.asyncio
+async def test_purge_is_skipped_quietly_when_the_table_does_not_exist() -> None:
+    """이 작업은 기록 스위치와 무관하게 돈다. 마이그레이션이 적용되지 않은 환경
+    (spring.flyway.enabled 기본값이 false)에서는 테이블 자체가 없으므로, 넘어가지 않으면
+    기능을 켜지도 않은 곳이 매일 오류를 쌓는다."""
+    conn = _FakeConn(table_exists=False)
+
+    await purge_expired_rows(_FakePool(conn))
+
+    assert conn.calls == []
