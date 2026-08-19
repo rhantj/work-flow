@@ -38,10 +38,22 @@ LLM 을 쓰지 않는다. 출처는 식별자 집합이라 결정적으로 대�
 케이스에서 출처 하나만 올라와도 통과한다. 나머지 사실은 근거가 없었던 셈인데 그걸 못 잡는다.
 
 그래서 사실마다 `fact_evidence_sources()` 로 그 사실의 `evidence_snippet` 을 품은 출처
-집합을 구하고, 검색 출처가 그 집합과 겹칠 때만 그 사실을 "근거 있음"으로 센다. 같은 내용이
-여러 벌 적재된 중복 출처는 "같은 사실을 품은 출처가 여럿"이라는 뜻이라 이 규칙에 그대로
-흡수되고, 사실이 흩어진 케이스는 출처 하나만 올라오면 나머지 사실에서 점수를 잃는다. 설계
-근거 전문은 `test_dataset.py` 모듈 docstring 에 있다.
+집합을 구하고, 검색 출처가 그 집합과 겹칠 때만 그 사실을 "근거 있음"으로 센다. 사실이
+흩어진 케이스는 출처 하나만 올라오면 나머지 사실에서 점수를 잃는다. 설계 근거 전문은
+`test_dataset.py` 모듈 docstring 에 있다.
+
+**정정 (2026-08-20).** 이 자리에 원래 "같은 내용이 여러 벌 적재된 중복 출처는 이 규칙에
+그대로 흡수된다"고 적었는데 사실이 아니었다. `fact_evidence_sources()` 는
+`expected_source_excerpts` **안에서만** 찾으므로, 화이트리스트 밖의 쌍둥이는 후보에
+들어오지도 않는다. 운영 데이터에 그런 쌍둥이가 실제로 있다 - 프로젝트 1의 청크 308건 중
+내용 중복 잉여 75건, 픽스처 30건 중 7건이 화이트리스트 밖 쌍둥이 보유.
+
+그래서 `retrieved_contents` 를 받으면 본문 대조를 합집합으로 더한다. 실측 영향은
+`semantic` +0.033, 전체 +0.011 로 작았고 점수가 달라진 케이스는 `semantic-09` 하나다
+(검색기가 화이트리스트의 `task#77` 대신 같은 문장을 담은 `task#35` 를 올렸다). 쌍둥이가
+있어도 검색기가 그것을 실제로 올려야 차이가 나기 때문이다. **즉 semantic 0.40 의 대부분은
+채점 결함이 아니라 진짜 검색 실패다.** 이 구분을 못 하면 자를 고쳐놓고 검색이 좋아졌다고
+읽게 된다.
 
 화이트리스트 밖 출처는 점수식에 넣지 않는다. 그런 출처만 올라온 응답은 어느 사실의 정답
 집합과도 겹치지 않아 이미 0점이므로, 감점을 한 번 더 얹으면 같은 실패를 두 번 세는 것이
@@ -55,9 +67,9 @@ LLM 을 쓰지 않는다. 출처는 식별자 집합이라 결정적으로 대�
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Mapping, Optional
 
-from tests.assistant_eval.test_dataset import fact_evidence_sources
+from tests.assistant_eval.test_dataset import fact_evidence_sources, squeeze
 
 
 @dataclass(frozen=True)
@@ -70,21 +82,52 @@ class GroundingScore:
     retrieved_sources: tuple[str, ...]
     # 화이트리스트 밖에서 올라온 출처. 점수에는 넣지 않고 진단용으로만 남긴다.
     off_whitelist_sources: tuple[str, ...] = ()
+    # id 로는 못 잡고 본문 대조로만 잡힌 사실. 옛 id 전용 채점이 얼마나 낮게 쟀는지가
+    # 이 값이다. 점수가 올라갔을 때 검색이 좋아진 것인지 채점이 느슨해진 것인지를
+    # 이걸 봐야 가른다.
+    content_only_fact_ids: tuple[str, ...] = ()
 
 
-def score_grounding(raw: Dict, retrieved_source_ids: Iterable[str]) -> GroundingScore:
+def score_grounding(
+    raw: Dict,
+    retrieved_source_ids: Iterable[str],
+    retrieved_contents: Optional[Mapping[str, str]] = None,
+) -> GroundingScore:
     """케이스 하나의 근거 점수. 뒷받침 출처가 실제로 올라온 사실의 비율이다.
 
     `retrieved_source_ids` 는 그 답과 함께 돌아온 출처들의 `{source_type}#{source_id}` 다.
+
+    `retrieved_contents` 를 주면 id 대조에 본문 대조를 더한다(합집합). 같은 내용이 다른
+    id 로 여러 벌 적재돼 있으면 id 만으로는 근거를 놓친다 - 검색기가 그 사실을 글자 그대로
+    담은 청크를 올렸는데도 화이트리스트에 그 id 가 없다는 이유로 0점이 나가고, 그러면 재는
+    것이 검색 품질이 아니라 화이트리스트의 넓이가 된다. 운영 데이터에서 실제로 그랬다
+    (프로젝트 1: 청크 308건 중 내용 중복 잉여 75건, 픽스처 30건 중 7건이 화이트리스트 밖
+    쌍둥이 보유).
+
+    합집합인 이유: 본문 대조는 순수하게 증거를 더하는 것이라 기존 판정을 뒤집지 않는다.
+    안 주면 예전과 똑같이 동작한다 - 기존 호출부가 조용히 달라지지 않게 하기 위해서다.
     """
     retrieved = set(retrieved_source_ids)
     whitelist = set(raw["expected_source_ids"])
+    contents = dict(retrieved_contents or {})
+    squeezed_contents = [squeeze(text) for text in contents.values()]
 
     grounded: List[str] = []
     ungrounded: List[str] = []
+    content_only: List[str] = []
     for fact in raw["must_include_facts"]:
         evidence = fact_evidence_sources(raw, fact)
-        (grounded if retrieved & evidence else ungrounded).append(fact["fact_id"])
+        by_id = bool(retrieved & evidence)
+        # 조각이 빈 사실은 아무 본문에나 걸리므로 본문 대조에서 뺀다. 안 그러면 근거가
+        # 없는데도 전부 통과해 채점기가 통째로 무의미해진다.
+        snippet = squeeze(fact["evidence_snippet"])
+        by_content = bool(snippet) and any(snippet in text for text in squeezed_contents)
+        if by_id or by_content:
+            grounded.append(fact["fact_id"])
+            if not by_id:
+                content_only.append(fact["fact_id"])
+        else:
+            ungrounded.append(fact["fact_id"])
 
     total = len(grounded) + len(ungrounded)
     # 사실이 없는 케이스는 픽스처 검증이 막는다. 그래도 0으로 나누지 않도록 여기서 끊는데,
@@ -97,4 +140,5 @@ def score_grounding(raw: Dict, retrieved_source_ids: Iterable[str]) -> Grounding
         ungrounded_fact_ids=tuple(ungrounded),
         retrieved_sources=tuple(sorted(retrieved)),
         off_whitelist_sources=tuple(sorted(retrieved - whitelist)),
+        content_only_fact_ids=tuple(content_only),
     )

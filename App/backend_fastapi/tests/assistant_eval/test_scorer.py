@@ -91,3 +91,79 @@ def test_every_fixture_case_is_perfectly_scorable_by_its_expected_sources():
     for raw in load_raw_cases():
         score = score_grounding(raw, raw["expected_source_ids"])
         assert score.score == 1.0, (raw["case_id"], score.ungrounded_fact_ids)
+
+
+# 같은 내용이 다른 id 로 여러 벌 적재된 상황. 운영 데이터에서 실제로 관측됐다 -
+# 프로젝트 1의 청크 308건 중 내용 중복 잉여가 75건이고, 픽스처 30건 중 7건이
+# 화이트리스트 밖에 쌍둥이를 갖고 있다.
+_TWIN_CASE = {
+    "case_id": "twin-01",
+    "question": "프로젝트 현황을 한눈에 보는 화면 관련 업무",
+    "must_include_facts": [
+        {
+            "fact_id": "F1",
+            "statement": "프로젝트 대시보드 기본 집계를 제공하는 업무가 있다",
+            "evidence_snippet": "프로젝트 대시보드 기본 집계를 제공한다",
+        },
+        {
+            "fact_id": "F2",
+            "statement": "대시보드 카드/차트 UI 구현 업무가 있다",
+            "evidence_snippet": "대시보드 카드/차트 UI 구현",
+        },
+    ],
+    "expected_source_ids": ["task#77", "task#78"],
+    "expected_source_excerpts": {
+        "task#77": "프로젝트 대시보드 기본 집계를 제공한다 - [Jira01 재검증 테스트 삽입] WF-222",
+        "task#78": "대시보드 카드/차트 UI 구현 - [Jira01 재검증 테스트 삽입] WF-223",
+    },
+    "must_not_claim": [],
+}
+
+# 화이트리스트에 없는 쌍둥이. 본문은 같은 사실을 담고 접미사만 다르다.
+_TWIN_CONTENTS = {"task#35": "프로젝트 대시보드 기본 집계를 제공한다 - ㅇㅇ"}
+
+
+def test_a_twin_chunk_outside_the_whitelist_grounds_the_fact() -> None:
+    """검색기가 올린 청크가 그 사실을 글자 그대로 담고 있으면 근거가 있는 것이다.
+    id 가 화이트리스트에 없다는 이유로 0점을 주면, 재는 것이 검색 품질이 아니라
+    화이트리스트의 넓이가 된다."""
+    score = score_grounding(_TWIN_CASE, ["task#35"], retrieved_contents=_TWIN_CONTENTS)
+
+    assert "F1" in score.grounded_fact_ids
+    assert "F2" in score.ungrounded_fact_ids
+
+
+def test_facts_grounded_only_by_content_are_reported_separately() -> None:
+    """옛 지표가 얼마나 낮게 쟀는지를 그 자리에서 드러낸다. 이 값이 없으면 점수가
+    올라간 것이 검색이 좋아져서인지 채점이 느슨해져서인지 구분할 수 없다."""
+    score = score_grounding(_TWIN_CASE, ["task#35"], retrieved_contents=_TWIN_CONTENTS)
+
+    assert score.content_only_fact_ids == ("F1",)
+
+
+def test_an_id_match_is_not_reported_as_content_only() -> None:
+    score = score_grounding(
+        _TWIN_CASE,
+        ["task#77"],
+        retrieved_contents={"task#77": _TWIN_CASE["expected_source_excerpts"]["task#77"]},
+    )
+
+    assert score.grounded_fact_ids == ("F1",)
+    assert score.content_only_fact_ids == ()
+
+
+def test_unrelated_content_does_not_ground_anything() -> None:
+    """내용 대조가 느슨해지면 아무 청크나 근거로 인정돼 채점기가 통째로 무의미해진다."""
+    score = score_grounding(
+        _TWIN_CASE, ["task#999"], retrieved_contents={"task#999": "팀원별 업무량을 표시한다"}
+    )
+
+    assert score.score == 0.0
+    assert score.content_only_fact_ids == ()
+
+
+def test_scoring_without_contents_keeps_the_id_only_behaviour() -> None:
+    """본문을 안 넘기는 기존 호출부가 조용히 달라지면 안 된다."""
+    score = score_grounding(_TWIN_CASE, ["task#35"])
+
+    assert score.score == 0.0
