@@ -50,6 +50,40 @@ task#62]`). 청크 id 는 답변 어디에도 나타나지 않아 채점에 쓸 
 없애서 앞의 테스트가 깨지는 날, 화이트리스트를 "전부 인용"으로 조일 수 있는지 이 문단부터
 다시 본다.
 
+사실 문장이 근거와 어긋나는 것을 어디까지 잡는가
+------------------------------------------------
+`evidence_snippet` 이 발췌 안에 실재하는지는 위 테스트가 본다. 그것만으로는 `statement` 가
+그 근거와 다른 말을 해도 통과한다 - 스니펫은 진짜인데 문장이 "담당자는 박상준"이라고
+덧붙이는 식이다. 정답지가 틀리면 그 위에서 나온 품질 지표가 전부 틀리므로, 기계로 판정할 수
+있는 어긋남은 여기서 끊는다.
+
+`statement` 에서 **판별 토큰**을 뽑아, 그 사실을 뒷받침하는 출처 발췌 **하나**가 토큰을 전부
+품고 있어야 한다고 요구한다. 판별 토큰은 조사·어미에 흔들리지 않으면서 문장을 특정 대상·
+수량에 못 박는 것들이다.
+
+- 업무 코드 (`WF-207`, `FS-3`)
+- 수량 - 숫자에 단위 한 글자를 붙여 `7월`·`13일`·`1차` 로 본다. 단위를 떼면 발췌 어딘가에
+  무관한 `7` 과 `13` 이 따로 있기만 해도 통과한다
+- 라틴 문자 낱말 (`LightGBM`, `pgvector`, `OAuth`)
+- 인물 이름 - 발췌의 화자 표기(`근거: 태오:`)와 담당 표기(`허영주가 담당`)에서 캐낸다
+
+한국어 서술부는 조사·어미 때문에 부분문자열 비교가 곧 거짓 양성이라 토큰으로 삼지 않는다.
+비교 대상을 스니펫이 아니라 **스니펫을 품은 발췌 전체**로 잡는 이유는, 스니펫이 "청크의 어디를
+가리키는가"일 뿐이고 사실을 뒷받침하는 것은 그 청크이기 때문이다. identifier 계열의 `WF-207`
+은 스니펫 바깥·같은 청크 안에 있다. 발췌를 이어 붙이지 않고 하나씩 보는 것은, 사실 하나는
+청크 하나로 뒷받침된다는 위 채점 규칙과 같은 요구다.
+
+남는 것은 셋이다. 하나, 판별 토큰이 전부 맞는데 문장이 근거를 잘못 읽은 경우 - 관계를
+뒤집거나(A가 B에게 → B가 A에게), 조건을 빼거나, 한국어 서술부만 바꾼 경우다. 둘, 평가셋 어느
+발췌에도 없는 이름을 새로 지어낸 경우 - 이름 목록을 발췌에서 캐내는 이상 목록에 없는 이름은
+이름으로 보이지 않는다(발췌에 있는 이름을 잘못 가져다 쓴 경우는 잡는다). 셋, 이름에
+`NAME_PARTICLES` 밖의 조사가 붙은 경우 - `박상준조차` 는 이름 언급으로 세지 않는다.
+
+앞의 둘은 자연어 함의 판정이라 LLM 없이는 못 가른다. 그건 #624 심사기 몫이고, 이 테스트는 그
+심사기가 딛고 설 정답지에서 기계로 드러나는 결함만 걷어낸다. 셋째는 조사를 넓힐수록 이름으로
+시작하는 다른 낱말을 잘못 잡을 확률이 같이 오르므로, 통과시키는 쪽으로 남겨둔 선택이다.
+정답지 문장이 그런 조사를 쓸 일이 생기면 그때 목록을 넓힌다.
+
 검색 평가셋과의 연결
 --------------------
 `retrieval_case_id` 는 검색 평가셋 `evalset.json` 의 id 다. 그런데 그 파일은 `output/`
@@ -63,9 +97,11 @@ task#62]`). 청크 id 는 답변 어디에도 나타나지 않아 채점에 쓸 
 인덱스를 대조하므로, 픽스처 질문을 손보면서 연결 키를 그대로 두거나 없는 id 를 가리키는
 드리프트는 CI 에서 잡힌다.
 
-인덱스 자체가 원본에서 밀리는 것까지는 CI 로 못 잡는다. 검색 평가셋을 다시 만들었으면
-`evalset.json` 에서 세 필드만 id 순으로 추려 인덱스를 같은 모양으로 다시 쓰고, 그 diff 를
-리뷰에서 본다.
+인덱스가 원본에서 밀리는 것은 원본이 CI 에 없는 이상 자동으로 못 잡는다. 대신 추림을 손이
+아니라 `rebuild_retrieval_index.py` 가 하게 해서 재생성을 재현 가능하게 만들었다. 검색
+평가셋을 다시 만들었으면 그 스크립트를 돌리고 diff 를 리뷰에 올린다. 스크립트가 내는 모양과
+커밋된 인덱스가 글자까지 같은지는 CI 가 보므로, 원본 없이 인덱스만 손으로 고친 흔적은 원본
+없이도 드러난다.
 """
 
 from __future__ import annotations
@@ -74,6 +110,8 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, List
+
+from tests.assistant_eval.rebuild_retrieval_index import canonical_index, dumps
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "assistant_eval"
 RETRIEVAL_INDEX = FIXTURES.parent / "assistant_eval_retrieval_index.json"
@@ -99,6 +137,26 @@ MINIMUM_PER_CATEGORY = 5
 # 중복 출처를 갖는다. 하한만 두는 이유는 케이스를 더할 때마다 숫자를 고치지 않기 위해서다.
 MINIMUM_MULTI_SOURCE_CASES = 10
 MINIMUM_DUPLICATE_SOURCE_CASES = 5
+
+# 판별 토큰 (모듈 docstring 의 "사실 문장이 근거와 어긋나는 것을 어디까지 잡는가" 참고).
+# 떼어내는 순서가 있다. 코드를 먼저 떼야 WF-207 이 낱말 wf 와 수량 207 로 쪼개지지 않고,
+# 낱말을 그다음에 떼야 E2E 나 Jira01 에서 수량 2, 1 이 딸려 나오지 않는다.
+WORK_CODE_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9]*-\d+")
+LATIN_WORD_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
+# 수량은 뒤에 붙는 단위 한 글자까지 묶는다. "7월 13일" 을 {7, 13} 으로 쪼개면 발췌 어딘가에
+# 무관한 7 과 13 이 따로 있기만 해도 통과한다. 단위를 붙이면 "7월"·"13일" 로 맞춰야 한다.
+QUANTITY_PATTERN = re.compile(r"(\d+)([가-힣]?)")
+
+# 적재 파이프라인이 발췌에 남기는 인물 표기 두 가지. 이름 목록을 상수로 박으면 케이스를
+# 더할 때 갱신을 잊어도 조용히 통과하므로 발췌에서 캐낸다. 발췌가 "근거:" 로 시작하면 그
+# 라벨 자체가 이름으로 잡히므로 앞에서 끊는다.
+SPEAKER_PATTERN = re.compile(r"(?:^|근거:\s*)(?!근거:)([가-힣]{2,4}):")
+ASSIGNEE_PATTERN = re.compile(r"(?<![가-힣])([가-힣]{2,4})[가이]\s*(?:담당|리뷰)")
+# 이름 뒤에 올 수 있는 조사. 긴 것부터 적어야 "에게" 가 "에" 로 잘리지 않는다.
+NAME_PARTICLES = ("께서", "에게", "한테", "은", "는", "이", "가", "을", "를", "의", "와", "과", "도")
+# 2026-08-19 기준 발췌에서 캐지는 이름은 9명이다. 정규식을 고치다 목록이 비면 인물 규칙이
+# 아무것도 안 하는 상태로 통과하므로 하한을 둔다.
+MINIMUM_PERSON_NAMES = 5
 
 
 def load_raw_cases() -> List[Dict]:
@@ -130,6 +188,57 @@ def fact_evidence_sources(raw: Dict, fact: Dict) -> set[str]:
         for source_id, excerpt in raw["expected_source_excerpts"].items()
         if snippet in squeeze(excerpt)
     }
+
+
+def discriminative_tokens(text: str) -> set[tuple[str, str]]:
+    """조사·어미에 흔들리지 않으면서 문장을 특정 대상·수량에 못 박는 토큰들."""
+    codes = {("code", match.group(0).lower()) for match in WORK_CODE_PATTERN.finditer(text)}
+    rest = WORK_CODE_PATTERN.sub(" ", text)
+    words = {("word", match.group(0).lower()) for match in LATIN_WORD_PATTERN.finditer(rest)}
+    rest = LATIN_WORD_PATTERN.sub(" ", rest)
+    # "07월"과 "7월"은 같은 달이다. 앞자리 0 만으로 어긋났다고 보지 않는다.
+    quantities = {
+        ("num", f"{match.group(1).lstrip('0') or '0'}{match.group(2)}")
+        for match in QUANTITY_PATTERN.finditer(rest)
+    }
+    return codes | words | quantities
+
+
+def person_names() -> set[str]:
+    """평가셋 발췌 전체에서 캐낸 인물 이름."""
+    names: set[str] = set()
+    for raw in load_raw_cases():
+        for excerpt in raw["expected_source_excerpts"].values():
+            names.update(SPEAKER_PATTERN.findall(excerpt))
+            names.update(ASSIGNEE_PATTERN.findall(excerpt))
+    return names
+
+
+def mentions_person(statement: str, name: str) -> bool:
+    """문장이 이 사람을 가리키는가.
+
+    부분문자열로 찾으면 이름으로 시작하는 다른 낱말(`소라` -> `소라도시`)까지 걸려 멀쩡한
+    케이스가 깨진다. 이름에 조사 하나를 붙인 것이 한글 덩어리 전체와 맞아떨어질 때만 센다.
+    """
+    particles = "|".join(NAME_PARTICLES)
+    pattern = rf"(?<![가-힣]){re.escape(name)}(?:{particles})?(?![가-힣])"
+    return re.search(pattern, statement) is not None
+
+
+def statement_mismatch(statement: str, excerpt: str, names: set[str]) -> set[str]:
+    """발췌가 문장의 판별 토큰을 다 품고 있지 않다면 무엇이 빠졌는지 돌려준다.
+
+    발췌 쪽은 경계를 따지지 않고 부분문자열로 본다. 판정은 문장 쪽에서 끝났고, 발췌를 넓게
+    보는 실수는 통과시키는 방향이라 멀쩡한 케이스를 깨지 않는다.
+    """
+    missing = {
+        f"{kind}:{value}"
+        for kind, value in discriminative_tokens(statement) - discriminative_tokens(excerpt)
+    }
+    hidden = {
+        name for name in names if mentions_person(statement, name) and name not in excerpt
+    }
+    return missing | {f"name:{name}" for name in hidden}
 
 
 def test_fixture_directory_has_cases():
@@ -257,6 +366,21 @@ def test_retrieval_index_and_fixtures_are_one_to_one():
     assert linked == sorted(index), (linked, sorted(index))
 
 
+def test_retrieval_index_is_in_the_canonical_generated_form():
+    """인덱스가 `rebuild_retrieval_index.py` 가 내는 모양 그대로인지 본다.
+
+    보는 것은 파일의 형태뿐이다 - 필드 집합, id 정렬, 직렬화 형식. 항목 하나를 몰래 끼워
+    넣었는지는 여기가 아니라 `test_retrieval_index_and_fixtures_are_one_to_one` 이, 질문을
+    바꿔치기했는지는 `test_each_case_matches_its_retrieval_evalset_entry` 가 잡는다.
+
+    형태만 보는 것으로 충분한 이유는, 원본 `evalset.json` 이 CI 에 없어 내용 대조가 애초에
+    불가능하기 때문이다. 대신 "스크립트를 돌려 다시 만들었다"는 주장이 사실인지는 확인할 수
+    있다. 여기 걸리면 인덱스를 손으로 고친 것이므로 원본을 놓고 스크립트를 다시 돌린다.
+    """
+    committed = RETRIEVAL_INDEX.read_text(encoding="utf-8")
+    assert committed == dumps(canonical_index(json.loads(committed)["cases"])), RETRIEVAL_INDEX
+
+
 def test_expected_source_ids_are_non_empty_unique_and_well_formed():
     for raw in load_raw_cases():
         source_ids = raw["expected_source_ids"]
@@ -305,6 +429,41 @@ def test_every_fact_is_carried_by_at_least_one_expected_source():
             assert squeeze(fact["evidence_snippet"]), (raw["case_id"], fact["fact_id"])
             assert fact_evidence_sources(raw, fact), (
                 f"{raw['case_id']}/{fact['fact_id']}: {fact['evidence_snippet']}"
+            )
+
+
+def test_person_names_are_minable_from_the_excerpts():
+    """인물 규칙이 실제로 볼 이름이 있는지 먼저 확인한다.
+
+    이름 목록이 비면 `test_every_fact_statement_matches_its_evidence` 의 인물 검사는 아무
+    문장도 걸러내지 못한 채 통과한다. 방어선이 있는 척하는 쪽이 없는 것보다 나쁘다.
+    """
+    names = person_names()
+    assert len(names) >= MINIMUM_PERSON_NAMES, sorted(names)
+
+
+def test_every_fact_statement_matches_its_evidence():
+    """사실 문장의 판별 토큰이 근거 발췌 하나 안에 전부 있어야 한다.
+
+    스니펫이 실재하는지만 보면 문장이 근거에 없는 담당자·날짜·업무 코드를 덧붙여도 통과한다.
+    정답지가 틀리면 그 위에서 나온 품질 지표가 전부 틀리므로, 기계로 판정할 수 있는 어긋남은
+    여기서 끊는다. 무엇을 토큰으로 보고 무엇이 남는지는 모듈 docstring 에 적었다.
+    """
+    names = person_names()
+    for raw in load_raw_cases():
+        for fact in raw["must_include_facts"]:
+            excerpts = [
+                raw["expected_source_excerpts"][source_id]
+                for source_id in fact_evidence_sources(raw, fact)
+            ]
+            assert excerpts, (raw["case_id"], fact["fact_id"])
+
+            mismatches = [
+                statement_mismatch(fact["statement"], excerpt, names) for excerpt in excerpts
+            ]
+            assert any(not missing for missing in mismatches), (
+                f"{raw['case_id']}/{fact['fact_id']}: {fact['statement']} "
+                f"- 근거에 없는 것 {sorted(min(mismatches, key=len))}"
             )
 
 
