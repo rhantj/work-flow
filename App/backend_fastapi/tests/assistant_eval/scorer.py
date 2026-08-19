@@ -54,7 +54,7 @@ LLM 을 쓰지 않는다. 출처는 식별자 집합이라 결정적으로 대�
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Iterable, List
 
 from tests.assistant_eval.test_dataset import fact_evidence_sources
@@ -63,11 +63,13 @@ from tests.assistant_eval.test_dataset import fact_evidence_sources
 @dataclass(frozen=True)
 class GroundingScore:
     score: float
-    grounded_fact_ids: List[str]
-    ungrounded_fact_ids: List[str]
-    retrieved_sources: List[str]
+    # frozen 이어도 List 를 담으면 안이 바뀐다. 채점 결과가 소비자 쪽에서 조용히 달라지면
+    # 재현이 안 되므로 tuple 로 못 박는다.
+    grounded_fact_ids: tuple[str, ...]
+    ungrounded_fact_ids: tuple[str, ...]
+    retrieved_sources: tuple[str, ...]
     # 화이트리스트 밖에서 올라온 출처. 점수에는 넣지 않고 진단용으로만 남긴다.
-    off_whitelist_sources: List[str] = field(default_factory=list)
+    off_whitelist_sources: tuple[str, ...] = ()
 
 
 def score_grounding(raw: Dict, retrieved_source_ids: Iterable[str]) -> GroundingScore:
@@ -91,8 +93,8 @@ def score_grounding(raw: Dict, retrieved_source_ids: Iterable[str]) -> Grounding
 
     return GroundingScore(
         score=score,
-        grounded_fact_ids=grounded,
-        ungrounded_fact_ids=ungrounded,
-        retrieved_sources=sorted(retrieved),
-        off_whitelist_sources=sorted(retrieved - whitelist),
+        grounded_fact_ids=tuple(grounded),
+        ungrounded_fact_ids=tuple(ungrounded),
+        retrieved_sources=tuple(sorted(retrieved)),
+        off_whitelist_sources=tuple(sorted(retrieved - whitelist)),
     )

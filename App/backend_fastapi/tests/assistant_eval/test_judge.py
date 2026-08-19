@@ -230,18 +230,44 @@ def test_a_clean_run_reports_no_unparsed_items():
     assert score.score == 1.0
 
 
-def test_a_korean_yes_is_read_as_affirmative():
-    """프롬프트가 '예'만 요구해도 한국어 모델은 "네" 로 답한다.
+import pytest
 
-    빠뜨리면 두 번 틀린다 - 긍정 응답이 부정으로 채점되고, 판정을 못 한 것으로도 잡혀
-    신뢰도 지표까지 거짓 경보를 낸다.
-    """
+
+# 프롬프트가 한 단어만 요구해도 모델은 이렇게 답한다. 실측이 아니라 예상 목록이지만,
+# 하나라도 놓치면 점수가 틀리는 동시에 unparsed_count 가 거짓 경보를 낸다.
+@pytest.mark.parametrize(
+    "reply",
+    ["예", "네", "예.", "예!", '"예"', "  예  ", "예입니다", "네요", "Yes", "YES.", "y", "true"],
+)
+def test_affirmative_replies_are_read_as_yes(reply):
     score = judge_answer(
-        "답변",
-        [{"fact_id": "F1", "statement": "사실1"}],
-        [],
-        ask=lambda prompt: "네",
+        "답변", [{"fact_id": "F1", "statement": "사실1"}], [], ask=lambda prompt: reply
     )
 
-    assert score.coverage == 1.0
-    assert score.unparsed_count == 0
+    assert score.coverage == 1.0, reply
+    assert score.unparsed_count == 0, reply
+
+
+@pytest.mark.parametrize(
+    "reply", ["아니오", "아니요", "아니오.", '"아니오"', "아닙니다", "No", "n", "false"]
+)
+def test_negative_replies_are_read_as_no_and_count_as_parsed(reply):
+    """부정으로 채점되는 것과 판정을 못 한 것은 다르다. 뒤섞으면 신뢰도 지표가 무의미해진다."""
+    score = judge_answer(
+        "답변", [{"fact_id": "F1", "statement": "사실1"}], [], ask=lambda prompt: reply
+    )
+
+    assert score.coverage == 0.0, reply
+    assert score.unparsed_count == 0, reply
+
+
+@pytest.mark.parametrize("reply", ["예상됩니다", "예외적으로 그렇습니다", "네트워크 문제입니다"])
+def test_words_that_merely_start_with_yes_are_not_affirmative(reply):
+    """접두사로 매칭하면 이것들이 전부 긍정으로 잡힌다. 어미를 열거해 좁게 두는 이유다."""
+    score = judge_answer(
+        "답변", [{"fact_id": "F1", "statement": "사실1"}], [], ask=lambda prompt: reply
+    )
+
+    assert score.coverage == 0.0, reply
+    # 긍정도 부정도 아니므로 판정 불가로 잡혀야 한다. 조용히 부정으로 세면 안 된다.
+    assert score.unparsed_count == 1, reply

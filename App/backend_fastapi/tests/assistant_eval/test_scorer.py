@@ -32,15 +32,15 @@ def test_all_supporting_sources_retrieved_scores_one():
     score = score_grounding(_SPLIT_CASE, ["action_item#452", "meeting#75"])
 
     assert score.score == 1.0
-    assert score.grounded_fact_ids == ["F1", "F2"]
-    assert score.ungrounded_fact_ids == []
+    assert score.grounded_fact_ids == ("F1", "F2")
+    assert score.ungrounded_fact_ids == ()
 
 
 def test_no_sources_scores_zero():
     score = score_grounding(_SPLIT_CASE, [])
 
     assert score.score == 0.0
-    assert score.ungrounded_fact_ids == ["F1", "F2"]
+    assert score.ungrounded_fact_ids == ("F1", "F2")
 
 
 def test_whitelisted_source_does_not_ground_a_fact_it_does_not_carry():
@@ -53,9 +53,9 @@ def test_whitelisted_source_does_not_ground_a_fact_it_does_not_carry():
     score = score_grounding(_SPLIT_CASE, ["meeting#75"])
 
     assert score.score == 0.5
-    assert score.grounded_fact_ids == ["F2"]
-    assert score.ungrounded_fact_ids == ["F1"]
-    assert score.off_whitelist_sources == []
+    assert score.grounded_fact_ids == ("F2",)
+    assert score.ungrounded_fact_ids == ("F1",)
+    assert score.off_whitelist_sources == ()
 
 
 def test_duplicate_copies_of_a_source_are_interchangeable():
@@ -67,7 +67,7 @@ def test_duplicate_copies_of_a_source_are_interchangeable():
     second = score_grounding(_SPLIT_CASE, ["action_item#488"])
 
     assert first.score == second.score == 0.5
-    assert first.grounded_fact_ids == second.grounded_fact_ids == ["F1"]
+    assert first.grounded_fact_ids == second.grounded_fact_ids == ("F1",)
 
 
 def test_sources_outside_the_whitelist_are_reported_but_never_score():
@@ -78,8 +78,8 @@ def test_sources_outside_the_whitelist_are_reported_but_never_score():
     score = score_grounding(_SPLIT_CASE, ["task#62", "meeting#75"])
 
     assert score.score == 0.5
-    assert score.off_whitelist_sources == ["task#62"]
-    assert score.retrieved_sources == ["meeting#75", "task#62"]
+    assert score.off_whitelist_sources == ("task#62",)
+    assert score.retrieved_sources == ("meeting#75", "task#62")
 
 
 def test_every_fixture_case_is_perfectly_scorable_by_its_expected_sources():

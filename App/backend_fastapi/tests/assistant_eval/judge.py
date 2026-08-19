@@ -31,15 +31,26 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Sequence
+from typing import Callable, Dict, Sequence
 
-# "네" 를 넣는 이유: 프롬프트가 '예'/'아니오' 로만 답하라고 못 박아도 한국어 모델은 "네" 로
-# 답하는 일이 흔하다. 빠뜨리면 긍정 응답이 부정으로 채점되고, unparsed_count 까지 함께 올라
-# 신뢰도 지표가 거짓 경보를 낸다. meeting_eval/summary_judge 의 같은 집합에는 아직 없다 -
-# 그쪽은 이 하네스와 별개로 측정 이력이 쌓여 있어 지금 바꾸면 과거 점수와 비교할 수 없다.
-_AFFIRMATIVE = {"예", "네", "yes", "true", "y"}
-_NEGATIVE = {"아니오", "아니요", "no", "false", "n"}
+# 프롬프트가 '예'/'아니오' 한 단어만 요구해도 모델은 "네", "예입니다", '"예"', "예." 로
+# 답한다. 빠뜨리면 두 번 틀린다 - 긍정 응답이 부정으로 채점되고, 판정을 못 한 것으로도
+# 잡혀 unparsed_count 가 거짓 경보를 낸다.
+#
+# 접두사 매칭은 쓰지 않는다. "예" 로 시작하는 것만 보면 "예상됩니다"·"예외적으로" 가
+# 긍정으로 잡힌다. 붙을 수 있는 어미를 열거해 그것만 허용한다 - 넓히다 오탐을 만드는 것보다
+# 좁게 두고 unparsed_count 로 드러나게 두는 편이 낫다.
+#
+# meeting_eval/summary_judge 의 같은 규칙은 건드리지 않았다. 그쪽은 이 하네스와 별개로
+# 측정 이력이 쌓여 있어 지금 바꾸면 과거 점수와 비교할 수 없다.
+_AFFIRMATIVE = re.compile(r"^(예|네|yes|true|y)(입니다|요|맞습니다)?$")
+_NEGATIVE = re.compile(r"^(아니오|아니요|아니다|아닙니다|no|false|n)(입니다|요)?$")
+
+# 응답 양옆에서 걷어낼 것. 따옴표는 모델이 한 단어 답을 인용부호로 감싸는 경우고,
+# 문장부호는 "예." 나 "예?" 처럼 붙어 오는 경우다.
+_STRIPPABLE = " \t\n\"'`“”‘’.!?,·"
 
 
 @dataclass(frozen=True)
@@ -59,8 +70,10 @@ class FaithfulnessScore:
     score: float
     coverage: float
     safety: float
-    fact_verdicts: List[ItemVerdict]
-    claim_verdicts: List[ItemVerdict]
+    # frozen 이어도 List 를 담으면 안이 바뀐다. 점수와 함께 넘어간 판정 목록이
+    # 소비자 쪽에서 조용히 달라지면 재현이 안 되므로 tuple 로 못 박는다.
+    fact_verdicts: tuple[ItemVerdict, ...]
+    claim_verdicts: tuple[ItemVerdict, ...]
 
     @property
     def unparsed_count(self) -> int:
@@ -114,8 +127,8 @@ def judge_answer(
         score=coverage * safety,
         coverage=coverage,
         safety=safety,
-        fact_verdicts=fact_verdicts,
-        claim_verdicts=claim_verdicts,
+        fact_verdicts=tuple(fact_verdicts),
+        claim_verdicts=tuple(claim_verdicts),
     )
 
 
@@ -168,13 +181,14 @@ def _is_affirmative(answer: str) -> bool:
     조용히 통과한다(충실도가 함께 0 이 되어 총점은 0 이지만, 축을 따로 읽으면 오해한다).
     그래서 규칙을 비틀어 감추는 대신 FaithfulnessScore.unparsed_count 로 드러낸다.
     """
-    return _normalize(answer) in _AFFIRMATIVE
+    return _AFFIRMATIVE.match(_normalize(answer)) is not None
 
 
 def _is_parseable(answer: str) -> bool:
     """심사기가 '예'/'아니오' 중 하나로 답했는가. 점수에는 쓰지 않고 신뢰도 표시에만 쓴다."""
-    return _normalize(answer) in _AFFIRMATIVE or _normalize(answer) in _NEGATIVE
+    normalized = _normalize(answer)
+    return _AFFIRMATIVE.match(normalized) is not None or _NEGATIVE.match(normalized) is not None
 
 
 def _normalize(answer: str) -> str:
-    return answer.strip().strip(".!").lower()
+    return answer.strip(_STRIPPABLE).lower()
