@@ -1,0 +1,521 @@
+[
+  {
+    "id": "A01",
+    "category": "identifier",
+    "question": "WF-207이 무슨 업무야?",
+    "gold_patterns": [
+      "WF-207(?!\\d)"
+    ],
+    "gold_ids": [
+      68
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A02",
+    "category": "identifier",
+    "question": "WF-195 알려줘",
+    "gold_patterns": [
+      "WF-195(?!\\d)"
+    ],
+    "gold_ids": [
+      56
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A03",
+    "category": "identifier",
+    "question": "WF-233은 어떤 내용이야?",
+    "gold_patterns": [
+      "WF-233(?!\\d)"
+    ],
+    "gold_ids": [
+      94
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A04",
+    "category": "identifier",
+    "question": "WF-259가 뭐지?",
+    "gold_patterns": [
+      "WF-259(?!\\d)"
+    ],
+    "gold_ids": [
+      120
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A05",
+    "category": "identifier",
+    "question": "WF-264 업무 설명해줘",
+    "gold_patterns": [
+      "WF-264(?!\\d)"
+    ],
+    "gold_ids": [
+      125
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A06",
+    "category": "identifier",
+    "question": "WF-184가 뭐야?",
+    "gold_patterns": [
+      "WF-184(?!\\d)"
+    ],
+    "gold_ids": [
+      309
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A07",
+    "category": "identifier",
+    "question": "WF-238 관련 업무 알려줘",
+    "gold_patterns": [
+      "WF-238(?!\\d)"
+    ],
+    "gold_ids": [
+      99
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A08",
+    "category": "identifier",
+    "question": "WF-256이 뭔지 알려줘",
+    "gold_patterns": [
+      "WF-256(?!\\d)"
+    ],
+    "gold_ids": [
+      117
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A09",
+    "category": "identifier",
+    "question": "WF-220 상태 알려줘",
+    "gold_patterns": [
+      "WF-220(?!\\d)"
+    ],
+    "gold_ids": [
+      150
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "A10",
+    "category": "identifier",
+    "question": "WF-243은 어떤 업무야",
+    "gold_patterns": [
+      "WF-243(?!\\d)"
+    ],
+    "gold_ids": [
+      104
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "B01",
+    "category": "semantic",
+    "question": "드래그해서 업무 상태를 옮기는 화면 관련 업무 있어?",
+    "gold_patterns": [
+      "칸반"
+    ],
+    "gold_ids": [
+      48,
+      107,
+      108
+    ],
+    "gold_count": 3,
+    "chance_hit5": 0.039
+  },
+  {
+    "id": "B02",
+    "category": "semantic",
+    "question": "문서를 검색 가능하게 색인하는 기능 알려줘",
+    "gold_patterns": [
+      "pgvector|RAG 인덱싱|임베딩 파이프라인"
+    ],
+    "gold_ids": [
+      93,
+      94,
+      105,
+      221
+    ],
+    "gold_count": 4,
+    "chance_hit5": 0.052
+  },
+  {
+    "id": "B03",
+    "category": "semantic",
+    "question": "외부 평가자가 팀원 성과를 확인하는 기능은?",
+    "gold_patterns": [
+      "기여도|심사자"
+    ],
+    "gold_ids": [
+      9,
+      27,
+      28,
+      50,
+      60,
+      114,
+      115,
+      116,
+      316,
+      323,
+      329,
+      336,
+      431,
+      443,
+      559,
+      573,
+      693,
+      708,
+      1004,
+      1011,
+      1016
+    ],
+    "gold_count": 21,
+    "chance_hit5": 0.25
+  },
+  {
+    "id": "B04",
+    "category": "semantic",
+    "question": "마감을 못 지킬 것 같은 업무를 미리 알려주는 기능 있어?",
+    "gold_patterns": [
+      "지연 위험도"
+    ],
+    "gold_ids": [
+      33,
+      42,
+      56,
+      87,
+      88,
+      104
+    ],
+    "gold_count": 6,
+    "chance_hit5": 0.077
+  },
+  {
+    "id": "B05",
+    "category": "semantic",
+    "question": "누가 뭘 볼 수 있는지 통제하는 부분은 어떻게 돼 있어?",
+    "gold_patterns": [
+      "RBAC|권한"
+    ],
+    "gold_ids": [
+      9,
+      13,
+      22,
+      23,
+      27,
+      28,
+      32,
+      51,
+      69,
+      98,
+      118,
+      119,
+      312
+    ],
+    "gold_count": 13,
+    "chance_hit5": 0.161
+  },
+  {
+    "id": "B06",
+    "category": "semantic",
+    "question": "회의 내용을 요약해서 할 일을 뽑아내는 기능",
+    "gold_patterns": [
+      "회의 분석|회의록 AI 분석|To-Do 후보"
+    ],
+    "gold_ids": [
+      15,
+      18,
+      33,
+      40,
+      76,
+      78,
+      80,
+      150,
+      418,
+      425,
+      986,
+      1066
+    ],
+    "gold_count": 12,
+    "chance_hit5": 0.15
+  },
+  {
+    "id": "B07",
+    "category": "semantic",
+    "question": "오래 걸리는 작업을 기다리지 않고 처리하는 구조",
+    "gold_patterns": [
+      "비동기|폴링|Redis Queue"
+    ],
+    "gold_ids": [
+      53,
+      79,
+      124,
+      125,
+      126,
+      127
+    ],
+    "gold_count": 6,
+    "chance_hit5": 0.077
+  },
+  {
+    "id": "B08",
+    "category": "semantic",
+    "question": "슬라이드 만드는 건 누가 하기로 했어?",
+    "gold_patterns": [
+      "발표자료"
+    ],
+    "gold_ids": [
+      6,
+      313,
+      315,
+      320,
+      328,
+      333,
+      428,
+      430,
+      435,
+      556,
+      558,
+      569,
+      576,
+      691,
+      703,
+      746,
+      747,
+      929,
+      1001,
+      1003,
+      1008,
+      1015,
+      1020,
+      1036,
+      1055
+    ],
+    "gold_count": 25,
+    "chance_hit5": 0.291
+  },
+  {
+    "id": "B09",
+    "category": "semantic",
+    "question": "프로젝트 현황을 한눈에 보는 화면 관련 업무",
+    "gold_patterns": [
+      "대시보드 카드/차트|dashboard summary|대시보드 기본 집계"
+    ],
+    "gold_ids": [
+      83,
+      84,
+      85,
+      222
+    ],
+    "gold_count": 4,
+    "chance_hit5": 0.052
+  },
+  {
+    "id": "B10",
+    "category": "semantic",
+    "question": "특정 팀원한테 일이 몰리는지 보는 기능 있어?",
+    "gold_patterns": [
+      "업무 편중|업무량"
+    ],
+    "gold_ids": [
+      43,
+      46,
+      91,
+      92,
+      100,
+      101,
+      312,
+      986,
+      987,
+      1039,
+      1044,
+      1062,
+      1065,
+      1070
+    ],
+    "gold_count": 14,
+    "chance_hit5": 0.173
+  },
+  {
+    "id": "C01",
+    "category": "mixed",
+    "question": "결제 API는 언제까지 하기로 했어?",
+    "gold_patterns": [
+      "결제 API"
+    ],
+    "gold_ids": [
+      1
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "C02",
+    "category": "mixed",
+    "question": "LightGBM 튜닝은 누가 맡았어?",
+    "gold_patterns": [
+      "LightGBM"
+    ],
+    "gold_ids": [
+      481,
+      505,
+      521
+    ],
+    "gold_count": 3,
+    "chance_hit5": 0.039
+  },
+  {
+    "id": "C03",
+    "category": "mixed",
+    "question": "KLUE-BERT 비교 결과는 언제 공유한대?",
+    "gold_patterns": [
+      "KLUE-BERT"
+    ],
+    "gold_ids": [
+      479,
+      519
+    ],
+    "gold_count": 2,
+    "chance_hit5": 0.026
+  },
+  {
+    "id": "C04",
+    "category": "mixed",
+    "question": "ERD 수정본 언제 공유해?",
+    "gold_patterns": [
+      "ERD"
+    ],
+    "gold_ids": [
+      576,
+      580,
+      583,
+      756,
+      759,
+      940,
+      948,
+      953,
+      956,
+      962,
+      968
+    ],
+    "gold_count": 11,
+    "chance_hit5": 0.138
+  },
+  {
+    "id": "C05",
+    "category": "mixed",
+    "question": "허영주가 맡은 일이 뭐야?",
+    "gold_patterns": [
+      "허영주"
+    ],
+    "gold_ids": [
+      8,
+      29,
+      410,
+      411,
+      412,
+      413,
+      414,
+      421,
+      423
+    ],
+    "gold_count": 9,
+    "chance_hit5": 0.114
+  },
+  {
+    "id": "C06",
+    "category": "mixed",
+    "question": "pgvector 스키마 만드는 업무가 뭐지?",
+    "gold_patterns": [
+      "pgvector"
+    ],
+    "gold_ids": [
+      94
+    ],
+    "gold_count": 1,
+    "chance_hit5": 0.013
+  },
+  {
+    "id": "C07",
+    "category": "mixed",
+    "question": "중간발표 언제야?",
+    "gold_patterns": [
+      "중간발표"
+    ],
+    "gold_ids": [
+      577,
+      749,
+      930,
+      957
+    ],
+    "gold_count": 4,
+    "chance_hit5": 0.052
+  },
+  {
+    "id": "C08",
+    "category": "mixed",
+    "question": "박상준이 어떤 구조로 설계한다고 했어?",
+    "gold_patterns": [
+      "박상준: AI Assistant는 RAG"
+    ],
+    "gold_ids": [
+      12,
+      21,
+      24
+    ],
+    "gold_count": 3,
+    "chance_hit5": 0.039
+  },
+  {
+    "id": "C09",
+    "category": "mixed",
+    "question": "OAuth 로그인 재발급 API는 누가 언제까지 한대?",
+    "gold_patterns": [
+      "OAuth 로그인과 JWT 재발급"
+    ],
+    "gold_ids": [
+      582,
+      758,
+      945,
+      967
+    ],
+    "gold_count": 4,
+    "chance_hit5": 0.052
+  },
+  {
+    "id": "C10",
+    "category": "mixed",
+    "question": "결측치는 어떻게 처리하기로 했어?",
+    "gold_patterns": [
+      "결측치"
+    ],
+    "gold_ids": [
+      475,
+      505,
+      515
+    ],
+    "gold_count": 3,
+    "chance_hit5": 0.039
+  }
+]
