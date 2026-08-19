@@ -94,14 +94,17 @@ task#62]`). 청크 id 는 답변 어디에도 나타나지 않아 채점에 쓸 
 
 대신 대조에 필요한 최소 정보(id, category, question)만 추린
 `tests/fixtures/assistant_eval_retrieval_index.json` 을 추적한다(4KB). CI 는 픽스처와 이
-인덱스를 대조하므로, 픽스처 질문을 손보면서 연결 키를 그대로 두거나 없는 id 를 가리키는
-드리프트는 CI 에서 잡힌다.
+인덱스를 대조하므로, 한쪽만 손대는 드리프트 - 픽스처 질문을 고치면서 연결 키를 그대로 두거나
+없는 id 를 가리키는 것 - 는 CI 에서 잡힌다.
 
-인덱스가 원본에서 밀리는 것은 원본이 CI 에 없는 이상 자동으로 못 잡는다. 대신 추림을 손이
-아니라 `rebuild_retrieval_index.py` 가 하게 해서 재생성을 재현 가능하게 만들었다. 검색
-평가셋을 다시 만들었으면 그 스크립트를 돌리고 diff 를 리뷰에 올린다. 스크립트가 내는 모양과
-커밋된 인덱스가 글자까지 같은지는 CI 가 보므로, 원본 없이 인덱스만 손으로 고친 흔적은 원본
-없이도 드러난다.
+못 잡는 것 (이 한 문단이 이 파일 전체의 한계 설명이다)
+------------------------------------------------------
+대조의 기준은 원본이 아니라 같은 커밋 안의 인덱스다. 그래서 픽스처와 인덱스를 나란히 고치면
+두 파일은 서로 맞아떨어져 전부 통과하고, 인덱스가 원본에서 밀린 것도 같은 이유로 드러나지
+않는다. 원본을 추적하지 않는 한 어떤 테스트 설계로도 메울 수 없는 구멍이므로, 인덱스 내용의
+정확성은 테스트가 아니라 재생성 절차가 담보한다. 추림을 손이 아니라
+`rebuild_retrieval_index.py` 가 하게 해두었으니, 검색 평가셋을 다시 만들었으면 그 스크립트를
+돌리고 diff 를 리뷰에 올린다. 사람이 그 diff 를 읽는 것이 유일한 대조 지점이다.
 """
 
 from __future__ import annotations
@@ -340,11 +343,11 @@ def test_case_number_matches_the_linked_retrieval_case_number():
         )
 
 
-def test_each_case_matches_its_retrieval_evalset_entry():
-    """연결한 검색 케이스의 질문·분류가 실제로 같은지 대조한다.
+def test_each_case_matches_its_retrieval_index_entry():
+    """연결한 검색 케이스의 질문·분류가 인덱스 항목과 같은지 대조한다.
 
     번호 규칙만 맞추면 존재하지 않는 id(A99)를 가리켜도, 픽스처 질문만 바꿔도 통과한다.
-    검색 평가셋 원본은 CI 에 없으므로 추적되는 인덱스와 대조한다(모듈 docstring 참고).
+    대조 상대는 원본 평가셋이 아니라 추적되는 인덱스다(모듈 docstring 참고).
     """
     index = load_retrieval_index()
     for raw in load_raw_cases():
@@ -359,23 +362,28 @@ def test_each_case_matches_its_retrieval_evalset_entry():
 
 
 def test_retrieval_index_and_fixtures_are_one_to_one():
-    """검색 케이스 전부에 답변 정답지가 하나씩 있어야 두 지표를 케이스별로 나란히 놓는다."""
+    """인덱스에 있는 검색 케이스 전부에 답변 정답지가 하나씩 있어야 두 지표를 나란히 놓는다."""
     index = load_retrieval_index()
     linked = sorted(raw["retrieval_case_id"] for raw in load_raw_cases())
 
     assert linked == sorted(index), (linked, sorted(index))
 
 
-def test_retrieval_index_is_in_the_canonical_generated_form():
-    """인덱스가 `rebuild_retrieval_index.py` 가 내는 모양 그대로인지 본다.
+def test_retrieval_index_shape_matches_the_rebuild_script():
+    """커밋된 인덱스가 `rebuild_retrieval_index.py` 의 출력 형태와 글자까지 같은지 본다.
 
-    보는 것은 파일의 형태뿐이다 - 필드 집합, id 정렬, 직렬화 형식. 항목 하나를 몰래 끼워
-    넣었는지는 여기가 아니라 `test_retrieval_index_and_fixtures_are_one_to_one` 이, 질문을
-    바꿔치기했는지는 `test_each_case_matches_its_retrieval_evalset_entry` 가 잡는다.
+    보는 것은 형태뿐이다 - 봉투(`source` 값, `fields` 목록), 케이스마다의 필드 집합과 키
+    순서, id 정렬, 직렬화 형식(들여쓰기 2, 비ASCII 그대로, 끝 줄바꿈). 질문이나 분류를
+    형태를 지킨 채 바꿔 쓰거나 항목을 정렬 자리에 맞춰 손으로 더하면 여기는 통과한다.
+    내용이 원본과 맞는지는 이 테스트가 보지 않는다(모듈 docstring 의 "못 잡는 것" 참고).
 
-    형태만 보는 것으로 충분한 이유는, 원본 `evalset.json` 이 CI 에 없어 내용 대조가 애초에
-    불가능하기 때문이다. 대신 "스크립트를 돌려 다시 만들었다"는 주장이 사실인지는 확인할 수
-    있다. 여기 걸리면 인덱스를 손으로 고친 것이므로 원본을 놓고 스크립트를 다시 돌린다.
+    그래도 두는 이유는 재생성 diff 를 읽을 수 있게 유지하는 것이 곧 그 절차의 전제이기
+    때문이다. 커밋된 파일이 스크립트 출력과 형태부터 어긋나 있으면 다시 돌렸을 때 diff 가
+    형식 잡음으로 덮여, 리뷰어가 봐야 할 내용 변화가 그 속에 묻힌다. 스크립트의
+    `FIELDS`·`SOURCE`·`dumps` 를 고치고 인덱스를 다시 쓰지 않은 경우도 여기서만 드러난다.
+
+    여기 걸리면 스크립트와 커밋된 파일 중 어느 쪽이 앞선 것인지 보고, 스크립트가 맞으면
+    원본을 놓고 다시 돌린다.
     """
     committed = RETRIEVAL_INDEX.read_text(encoding="utf-8")
     assert committed == dumps(canonical_index(json.loads(committed)["cases"])), RETRIEVAL_INDEX

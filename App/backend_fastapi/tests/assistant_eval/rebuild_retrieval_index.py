@@ -11,8 +11,9 @@
     python tests/assistant_eval/rebuild_retrieval_index.py \\
         ../../output/hybrid_rag_eval/data/evalset.json
 
-`canonical_index` / `dumps` 는 테스트도 함께 쓴다. 커밋된 인덱스가 이 함수들이 내는 모양과
-글자까지 같은지 CI 가 확인하므로, 원본 없이 손으로 고친 흔적은 원본이 없어도 드러난다.
+`canonical_index` / `dumps` 는 테스트도 함께 쓴다. 커밋된 인덱스가 이 함수들이 내는 형태와
+글자까지 같은지는 CI 가 확인한다. 형태까지다 - 인덱스 내용이 원본과 맞는지는 원본이 CI 에
+없어 확인하지 못한다(테스트 모듈 docstring 의 "못 잡는 것" 참고).
 """
 from __future__ import annotations
 
