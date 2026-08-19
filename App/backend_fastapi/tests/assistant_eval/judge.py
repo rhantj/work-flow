@@ -1,0 +1,126 @@
+"""답변의 사실 충실도와 환각 여부를 LLM 에게 문항 단위로 묻는다.
+
+답변은 정답이 하나가 아니라 문자열 대조가 불가능하다. 대신 케이스마다 "이건 담겼어야
+한다"(`must_include_facts`) / "이건 말하면 안 된다"(`must_not_claim`)를 적어두고 항목별
+예·아니오만 받는다. 항목을 한 번에 몰아 물으면 응답 형식이 흔들려서 하나씩 묻는다.
+
+**두 축을 평균하지 않고 곱한다.** 충실도(담겼는가)와 안전성(지어내지 않았는가)은 실패
+방향이 반대라 평균하면 서로를 가려준다. 아무 말도 안 한 답변은 환각 문항을 거저 통과하므로,
+평균이면 그것만으로 0.5 를 받는다 - 회의록 평가에서 날짜와 이름을 아예 쓰지 않는 규칙 기반
+요약이 그 방식으로 1위(0.792)를 했다(`meeting_eval/summary_judge` docstring). 곱하면 담아낸
+것이 없는 답은 안전해도 0 이고, 담아냈어도 지어냈으면 0 이다.
+
+기본값은 두 축이 다르다. 충실도 문항이 없으면 0.0, 안전성 문항이 없으면 1.0 이다. 잰 것이
+없으면 점수를 줄 근거가 없지만(충실도), 걸어둔 제약이 없으면 어긴 것도 없다(안전성).
+반대로 두면 문항을 빠뜨린 케이스가 조용히 만점을 받는다. 픽스처 검증이 두 목록 모두 비지
+않도록 막고 있으므로 기본값이 실제로 쓰이는 것은 단위 테스트뿐이다.
+
+**심사기에 넘기는 것은 답변문뿐이다.**
+회의록 평가에서 심사기에 요약과 원문을 같이 넘겨, 문항은 "요약에 담겼나"인데 실제로 잰 것은
+"어딘가에 있나"가 된 사고가 있었다(PR #611). 규칙 기반 점수가 내려가야 할 자리에서
+0.649 -> 0.794 로 오른 것이 누수의 단서였다. 여기서 새어 들어올 수 있는 것은 사실의
+`evidence_snippet` 과 `expected_source_excerpts` 다 - 둘 다 원문에서 떠온 것이라 함께
+넘기면 심사기가 답변 대신 그쪽을 읽고 답한다. 문항 문면(`statement`)이 무엇을 확인해야
+하는지 이미 적고 있으므로 원문 없이 답할 수 있다.
+
+안전성 문항도 답변문만 넘긴다. 회의록 쪽 안전성 문항("요약에 적힌 날짜가 모두 원문에
+나오는가")은 대조 대상이 있어야 원리상 답할 수 있었지만, 여기 `must_not_claim` 은 "마감일을
+특정한다"처럼 답변만 보고 판정할 수 있는 형태로 적혀 있다. `reason` 도 넘기지 않는다 -
+"근거 발언에 기한이 없다"처럼 원문 사정을 적은 것이라 판정 근거가 아니라 정답지 메모다.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Sequence
+
+_AFFIRMATIVE = {"예", "yes", "true", "y"}
+
+
+@dataclass(frozen=True)
+class ItemVerdict:
+    item_id: str
+    statement: str
+    # 충실도는 "담겼다", 안전성은 "말하지 않았다"가 통과다. 심사기 응답을 그대로 담으면
+    # 축마다 참의 의미가 뒤집혀 읽는 쪽이 헷갈리므로 통과 여부로 적어둔다.
+    passed: bool
+
+
+@dataclass(frozen=True)
+class FaithfulnessScore:
+    score: float
+    coverage: float
+    safety: float
+    fact_verdicts: List[ItemVerdict]
+    claim_verdicts: List[ItemVerdict]
+
+
+def judge_answer(
+    answer: str,
+    facts: Sequence[Dict],
+    forbidden_claims: Sequence[Dict],
+    ask: Callable[[str], str],
+) -> FaithfulnessScore:
+    fact_verdicts = [
+        ItemVerdict(
+            item_id=fact["fact_id"],
+            statement=fact["statement"],
+            passed=_is_affirmative(ask(build_fact_prompt(answer, fact["statement"]))),
+        )
+        for fact in facts
+    ]
+    claim_verdicts = [
+        ItemVerdict(
+            item_id=claim["claim_id"],
+            statement=claim["statement"],
+            # 심사기는 "이 주장을 했는가"에 답한다. 했으면 환각이므로 통과가 아니다.
+            passed=not _is_affirmative(ask(build_claim_prompt(answer, claim["statement"]))),
+        )
+        for claim in forbidden_claims
+    ]
+
+    coverage = _ratio(fact_verdicts, default=0.0)
+    safety = _ratio(claim_verdicts, default=1.0)
+
+    return FaithfulnessScore(
+        score=coverage * safety,
+        coverage=coverage,
+        safety=safety,
+        fact_verdicts=fact_verdicts,
+        claim_verdicts=claim_verdicts,
+    )
+
+
+def build_fact_prompt(answer: str, statement: str) -> str:
+    return (
+        "아래 어시스턴트 답변을 읽고 질문에 '예' 또는 '아니오' 한 단어로만 답하세요.\n"
+        "답변에 적힌 내용만 근거로 삼고, 답변에 없으면 '아니오'라고 답하세요.\n\n"
+        f"[답변]\n{answer}\n\n"
+        f"[질문]\n답변이 다음 내용을 담고 있습니까? {statement}"
+    )
+
+
+def build_claim_prompt(answer: str, statement: str) -> str:
+    return (
+        "아래 어시스턴트 답변을 읽고 질문에 '예' 또는 '아니오' 한 단어로만 답하세요.\n"
+        "답변에 적힌 내용만 근거로 삼고, 답변에 없으면 '아니오'라고 답하세요.\n\n"
+        f"[답변]\n{answer}\n\n"
+        f"[질문]\n답변이 다음을 하고 있습니까? {statement}"
+    )
+
+
+def _ratio(verdicts: Sequence[ItemVerdict], default: float) -> float:
+    if not verdicts:
+        return default
+    return sum(1 for verdict in verdicts if verdict.passed) / len(verdicts)
+
+
+def _is_affirmative(answer: str) -> bool:
+    """'예'/'아니오' 외의 응답은 부정으로 센다.
+
+    충실도에서는 판단 못 한 응답이 실패가 되고, 환각에서는 "그런 주장은 없었다"가 된다.
+    후자가 느슨해 보이지만, 알 수 없는 응답을 환각으로 세면 심사기가 흔들릴 때마다 안전성이
+    0 으로 내려가 점수 전체가 심사기 잡음에 지배된다. 둘 다 '예'라는 명시적 응답에만
+    반응한다는 한 가지 규칙으로 둔다.
+    """
+    return answer.strip().strip(".!").lower() in _AFFIRMATIVE
