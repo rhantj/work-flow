@@ -27,6 +27,10 @@ from core.security import verify_internal_api_key
 from llm_rag_assistant.app.routers.chat_router import router as rag_router
 from llm_rag_assistant.app.routers.assistant_router import router as assistant_router
 from llm_rag_assistant.app.graph.assistant_graph import close_graph
+from llm_rag_assistant.app.services.query_log_service import (
+    start_retention_purge,
+    stop_retention_purge,
+)
 from llm_rag_assistant.app.services.embedding_service import preload_embedding_model
 from llm_rag_assistant.app.services.rag_queue_service import RagQueueWorker
 from ml_workload_score.app.routers.workload_router import router as workload_router
@@ -111,7 +115,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await rag_queue_worker.start()
     except Exception:
         logger.exception("RAG 큐 워커 기동 실패 - RAG 채팅은 복구 전까지 응답하지 못합니다.")
+    # 질의 로그의 만료 행을 지우는 일일 작업. 기록 스위치가 꺼져 있어도 돈다 - 이미 쌓인
+    # 행의 보존기간은 기록 여부와 무관하게 지켜져야 한다(개인정보 보존 약속).
+    try:
+        await start_retention_purge()
+    except Exception:
+        logger.exception("질의 로그 만료 삭제 작업 기동 실패 - 보존기간이 자동으로 적용되지 않습니다.")
     yield
+    await stop_retention_purge()
     await rag_queue_worker.stop()
     # 명령 그래프 체크포인터가 잡은 Redis 연결을 닫는다.
     await close_graph()

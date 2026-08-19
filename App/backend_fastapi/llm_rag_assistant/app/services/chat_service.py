@@ -13,6 +13,7 @@ from llm_rag_assistant.app.services.generation_service import (
     resolve_generation_provider,
 )
 from llm_rag_assistant.app.services.project_stats_service import fetch_project_stats
+from llm_rag_assistant.app.services.query_log_service import record_query_log
 from llm_rag_assistant.app.services.query_rewrite_service import rewrite_question
 from llm_rag_assistant.app.services.rag_stats import (
     pinned_stats_day,
@@ -205,6 +206,16 @@ async def answer_question(
                     # 두 카운터가 자정을 사이에 두고 다른 날 키로 갈릴 구간 자체가 없다.
                     # 실패해도 _increment_daily_counters 가 삼켜 답변 경로를 죽이지 않는다.
                     await record_cache_hit()
+                    # 캐시 히트도 로그에 남긴다. 여기서 빠뜨리면 자주 묻는 질문이 통째로
+                    # 빠져 질문 분포가 왜곡되고, 로그를 남긴 목적(실사용 질문이 어떻게
+                    # 생겼는가)이 편향된 표본으로 답해진다.
+                    await record_query_log(
+                        pool,
+                        project_id=project_id,
+                        question=effective_question,
+                        source_ids=[source.source_id for source in cached_response.sources],
+                        provider=_CACHE_HIT_PROVIDER,
+                    )
                     # 캐시에 저장된 값은 그대로 두고 읽는 시점에만 덮는다. 저장 포맷이 바뀌지
                     # 않으므로 _ANSWER_CACHE_SCHEMA_VERSION 을 올릴 필요가 없다.
                     return cached_response.model_copy(update={"provider": _CACHE_HIT_PROVIDER})
@@ -250,6 +261,19 @@ async def answer_question(
         for row in rows
     )
     response = RagQueryResponse(answer=answer, sources=sources, provider=generated.provider)
+
+    # 검색에 실제로 쓰인 문장(effective_question)을 남긴다. 재는 것이 검색 실패율이라,
+    # 사용자가 친 원문("그거 언제까지야?")을 남기면 질문과 source_ids 가 서로 다른 문장을
+    # 가리켜 실패로 잘못 읽힌다. 히스토리가 없으면 두 값은 같다.
+    # 실패해도 답변 경로를 죽이지 않는다(record_query_log 참고).
+    await record_query_log(
+        pool,
+        project_id=project_id,
+        question=effective_question,
+        source_ids=[source.source_id for source in sources],
+        provider=generated.provider,
+    )
+
     if redis_client is not None and cache_key is not None and cache_epoch is not None:
         latest_epoch = await _read_project_cache_epoch(redis_client, project_id)
         if latest_epoch == cache_epoch:
