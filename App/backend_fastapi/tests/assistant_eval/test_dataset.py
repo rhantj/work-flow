@@ -498,3 +498,22 @@ def test_forbidden_claims_are_non_empty_with_reasons():
             assert claim["reason"].strip(), (raw["case_id"], claim["claim_id"])
         claim_ids = [claim["claim_id"] for claim in claims]
         assert len(claim_ids) == len(set(claim_ids)), (raw["case_id"], claim_ids)
+
+
+def test_evidence_snippets_are_long_enough_to_be_discriminative() -> None:
+    """조각은 검색된 청크 본문에서 부분 문자열로 찾는다(scorer.score_grounding).
+    짧고 상투적인 조각은 무관한 청크에도 걸려 근거 있음으로 오판된다.
+
+    하한은 현재 실측 최소값(10자)이다. 여유를 두지 않는 것은 이 저장소의 하한 규약과
+    같다 - 여유를 두면 그만큼 짧아져도 아무도 모른다. 더 짧은 조각이 정말 필요하면
+    이 값을 내리되, 그 조각이 무엇과 충돌하지 않는지 확인하고 이유를 남긴다.
+    """
+    minimum = 10
+    too_short = [
+        (raw["case_id"], fact["fact_id"], fact["evidence_snippet"])
+        for raw in load_raw_cases()
+        for fact in raw["must_include_facts"]
+        if len(squeeze(fact["evidence_snippet"])) < minimum
+    ]
+
+    assert too_short == []
