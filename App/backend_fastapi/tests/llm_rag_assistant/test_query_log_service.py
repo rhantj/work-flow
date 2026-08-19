@@ -93,6 +93,12 @@ def test_email_addresses_are_replaced_before_storage(raw: str) -> None:
         "010 1234 5678 확인",
         "사무실 02-123-4567 맞아?",
         "+82-10-1234-5678 국제번호",
+        # 국번을 010 계열로만 좁히면 +82 유선번호가 남고, 구분자에 괄호가 없으면
+        # 사람이 흔히 쓰는 (010) 1234-5678 표기가 통째로 새어 나간다.
+        "+82-2-1234-5678 사무실",
+        "+82 2 1234 5678 확인",
+        "(010) 1234-5678 로 연락",
+        "02)1234-5678 내선",
     ],
 )
 def test_korean_phone_numbers_are_replaced_before_storage(raw: str) -> None:
@@ -152,6 +158,25 @@ async def test_stored_columns_are_exactly_the_agreed_five(logging_enabled) -> No
     assert args == (7, "로그인 API 누가 맡았어", [3, 9], "gemini")
     assert "user_id" not in query
     assert "answer" not in query
+
+
+@pytest.mark.asyncio
+async def test_nothing_is_purged_while_logging_is_switched_off(monkeypatch) -> None:
+    """보존기간의 알려진 구멍을 실행 가능한 형태로 못박는다.
+
+    만료 삭제가 쓰기 경로에 얹혀 있어, 스위치를 끄면 기록만이 아니라 삭제도 멈춘다.
+    끄면서 데이터까지 비우려면 사람이 직접 DELETE 해야 한다 - 결정 기록의 "되돌리는 법"
+    1단계가 그렇게 고쳐져 있다. 이 테스트가 실패한다면 둘 중 하나다: 삭제 주체가 바뀌었거나
+    (그렇다면 문서를 되돌려야 한다), 스위치가 삭제를 막지 못하게 됐거나.
+    """
+    monkeypatch.delenv("ASSISTANT_QUERY_LOG_ENABLED", raising=False)
+    conn = _FakeConn()
+
+    await record_query_log(
+        _FakePool(conn), project_id=1, question="질문", source_ids=[1], provider="ollama"
+    )
+
+    assert conn.calls == []
 
 
 @pytest.mark.asyncio
