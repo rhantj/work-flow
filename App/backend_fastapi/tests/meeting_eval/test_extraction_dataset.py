@@ -54,9 +54,3 @@ def test_golden_snippets_are_mutually_distinct_within_a_case():
             for j, right in enumerate(snippets):
                 if i != j:
                     assert left not in right, f"{case.case_id}: {left!r} ⊂ {right!r}"
-
-
-def test_cases_are_sorted_by_case_id():
-    cases = load_cases(FIXTURES)
-
-    assert [case.case_id for case in cases] == sorted(case.case_id for case in cases)

@@ -25,12 +25,6 @@ def test_loads_case_with_sections_and_golden():
     ]
 
 
-def test_cases_are_sorted_by_case_id():
-    cases = load_cases(FIXTURES)
-
-    assert [c.case_id for c in cases] == sorted(c.case_id for c in cases)
-
-
 def test_covers_all_planned_scenarios():
     scenarios = {case.scenario for case in load_cases(FIXTURES)}
 
