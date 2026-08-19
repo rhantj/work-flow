@@ -1,0 +1,35 @@
+{
+  "case_id": "mixed-07",
+  "category": "mixed",
+  "retrieval_case_id": "C07",
+  "question": "중간발표 언제야?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "중간발표는 7월 17일이다",
+      "evidence_snippet": "중간발표가 7월 17일이라"
+    }
+  ],
+  "expected_source_ids": [
+    "action_item#517",
+    "action_item#604",
+    "task#369"
+  ],
+  "expected_source_excerpts": {
+    "action_item#517": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다 근거: 준호: 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다",
+    "action_item#604": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다 근거: 준호: 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다",
+    "task#369": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "중간발표 장소나 시각을 특정한다",
+      "reason": "근거에 날짜만 있고 장소·시각이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "중간발표 발표자를 특정한다",
+      "reason": "근거에 발표자 정보가 없다"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "case_id": "semantic-04",
+  "category": "semantic",
+  "retrieval_case_id": "B04",
+  "question": "마감을 못 지킬 것 같은 업무를 미리 알려주는 기능 있어?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "ML 지연 위험도 예측을 제공하는 업무가 있다",
+      "evidence_snippet": "ML 지연 위험도 예측을 제공한다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "지연 위험도 baseline 모델 구현 업무가 있다",
+      "evidence_snippet": "지연 위험도 baseline 모델 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#36",
+    "task#81",
+    "task#82",
+    "task#50"
+  ],
+  "expected_source_excerpts": {
+    "task#36": "ML 지연 위험도 예측을 제공한다 - [Jira01 재검증 테스트 삽입] WF-181",
+    "task#81": "ML 지연 위험도 예측을 제공한다 - [Jira01 재검증 테스트 삽입] WF-226",
+    "task#82": "지연 위험도 baseline 모델 구현 - [Jira01 재검증 테스트 삽입] WF-227",
+    "task#50": "FS-3 대시보드/지연 위험도 - [Jira01 재검증 테스트 삽입] WF-195"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "지연 위험도 예측의 정확도 수치를 말한다",
+      "reason": "근거에 성능 지표가 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "지연 위험 알림이 이메일이나 슬랙으로 발송된다고 말한다",
+      "reason": "근거에 알림 채널 정보가 없다"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "case_id": "semantic-02",
+  "category": "semantic",
+  "retrieval_case_id": "B02",
+  "question": "문서를 검색 가능하게 색인하는 기능 알려줘",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "프로젝트 문서를 RAG 인덱싱하는 업무가 있다",
+      "evidence_snippet": "프로젝트 문서를 RAG 인덱싱한다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "document_chunks 및 pgvector 스키마 구현 업무가 있다",
+      "evidence_snippet": "document_chunks 및 pgvector 스키마 구현"
+    },
+    {
+      "fact_id": "F3",
+      "statement": "임베딩 파이프라인 지원 구현 업무가 있다",
+      "evidence_snippet": "임베딩 파이프라인 지원 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#87",
+    "task#88",
+    "task#99",
+    "task#38"
+  ],
+  "expected_source_excerpts": {
+    "task#87": "프로젝트 문서를 RAG 인덱싱한다 - [Jira01 재검증 테스트 삽입] WF-232",
+    "task#88": "document_chunks 및 pgvector 스키마 구현 - [Jira01 재검증 테스트 삽입] WF-233",
+    "task#99": "임베딩 파이프라인 지원 구현 - [Jira01 재검증 테스트 삽입] WF-244",
+    "task#38": "프로젝트 문서를 RAG 인덱싱한다 - [Jira01 재검증 테스트 삽입] WF-183"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "사용 중인 임베딩 모델 이름을 특정한다",
+      "reason": "근거 청크 어디에도 모델 이름이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "색인된 문서 건수를 말한다",
+      "reason": "근거에 건수 정보가 없다"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-05",
+  "category": "identifier",
+  "retrieval_case_id": "A05",
+  "question": "WF-264 업무 설명해줘",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-264는 'Redis Queue 작업 처리 구조 구현' 업무다",
+      "evidence_snippet": "Redis Queue 작업 처리 구조 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#119"
+  ],
+  "expected_source_excerpts": {
+    "task#119": "Redis Queue 작업 처리 구조 구현 - [Jira01 재검증 테스트 삽입] WF-264"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "WF-264의 담당자를 특정한다",
+      "reason": "근거 청크 본문에 담당자 이름이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "Redis 대신 Celery나 RabbitMQ를 쓴다고 말한다",
+      "reason": "근거는 Redis Queue만 언급한다"
+    }
+  ]
+}

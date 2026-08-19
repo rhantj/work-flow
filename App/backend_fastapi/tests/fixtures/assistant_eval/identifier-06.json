@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-06",
+  "category": "identifier",
+  "retrieval_case_id": "A06",
+  "question": "WF-184가 뭐야?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-184는 '출처 포함 프로젝트 Q&A를 제공한다' 업무다",
+      "evidence_snippet": "출처 포함 프로젝트 Q&A를 제공한다"
+    }
+  ],
+  "expected_source_ids": [
+    "task#39"
+  ],
+  "expected_source_excerpts": {
+    "task#39": "출처 포함 프로젝트 Q&A를 제공한다(수정됨) - [Jira01 재검증 테스트 삽입] WF-184 저쪽 대시보드에서 보낸 업무 수정입니다...."
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "WF-184의 마감일을 특정한다",
+      "reason": "근거 청크 본문에 기한이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "수정 이력의 구체적 변경 내용을 지어낸다",
+      "reason": "근거에는 '수정됨' 표시와 짧은 메모만 있다"
+    }
+  ]
+}

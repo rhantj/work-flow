@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-09",
+  "category": "identifier",
+  "retrieval_case_id": "A09",
+  "question": "WF-220 상태 알려줘",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-220은 'To-Do 후보 검토/수정 UI 구현' 업무다",
+      "evidence_snippet": "To-Do 후보 검토/수정 UI 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#75"
+  ],
+  "expected_source_excerpts": {
+    "task#75": "To-Do 후보 검토/수정 UI 구현ddddd - [Jira01 재검증 테스트 삽입] WF-220"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "WF-220이 '진행 중'이나 '완료' 같은 특정 상태라고 답한다",
+      "reason": "질문은 상태를 묻지만 근거 청크에 상태 값이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "WF-220의 담당자를 특정한다",
+      "reason": "근거 청크 본문에 담당자 이름이 없다"
+    }
+  ]
+}

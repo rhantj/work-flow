@@ -1,0 +1,31 @@
+{
+  "case_id": "mixed-06",
+  "category": "mixed",
+  "retrieval_case_id": "C06",
+  "question": "pgvector 스키마 만드는 업무가 뭐지?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-233은 'document_chunks 및 pgvector 스키마 구현' 업무다",
+      "evidence_snippet": "document_chunks 및 pgvector 스키마 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#88"
+  ],
+  "expected_source_excerpts": {
+    "task#88": "document_chunks 및 pgvector 스키마 구현 - [Jira01 재검증 테스트 삽입] WF-233"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "테이블 컬럼 구성이나 인덱스 종류를 구체적으로 말한다",
+      "reason": "근거는 업무 제목뿐이라 스키마 상세가 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "WF-233의 담당자를 특정한다",
+      "reason": "근거 청크 본문에 담당자 이름이 없다"
+    }
+  ]
+}

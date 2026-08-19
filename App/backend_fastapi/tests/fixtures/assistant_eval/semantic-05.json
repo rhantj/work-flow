@@ -1,0 +1,40 @@
+{
+  "case_id": "semantic-05",
+  "category": "semantic",
+  "retrieval_case_id": "B05",
+  "question": "누가 뭘 볼 수 있는지 통제하는 부분은 어떻게 돼 있어?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "프로젝트별로 팀장·팀원·심사자 권한을 구분한다",
+      "evidence_snippet": "프로젝트별 팀장/팀원/심사자 권한"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "팀장과 팀원은 심사자 화면에 접근하지 못하게 권한 테스트가 필요하다",
+      "evidence_snippet": "팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다"
+    }
+  ],
+  "expected_source_ids": [
+    "action_item#4",
+    "action_item#7",
+    "task#10"
+  ],
+  "expected_source_excerpts": {
+    "action_item#4": "Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권… - Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다",
+    "action_item#7": "다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다 - 다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다",
+    "task#10": "다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다 - 다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "권한 검사가 프론트엔드에서만 이뤄진다고 말한다",
+      "reason": "근거에 검사 위치 정보가 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "팀장·팀원·심사자 외의 역할이 더 있다고 말한다",
+      "reason": "근거는 세 역할만 언급한다"
+    }
+  ]
+}

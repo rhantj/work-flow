@@ -1,0 +1,35 @@
+{
+  "case_id": "semantic-01",
+  "category": "semantic",
+  "retrieval_case_id": "B01",
+  "question": "드래그해서 업무 상태를 옮기는 화면 관련 업무 있어?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "칸반 보드 UI와 드래그 상태 이동 구현(WF-247) 업무가 있다",
+      "evidence_snippet": "칸반 보드 UI와 드래그 상태 이동 구현"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "상태 기반 칸반 업무 보드를 제공한다는 상위 업무가 있다",
+      "evidence_snippet": "상태 기반 칸반 업무 보드를 제공한다"
+    }
+  ],
+  "expected_source_ids": [
+    "task#42",
+    "task#101",
+    "task#102"
+  ],
+  "expected_source_excerpts": {
+    "task#42": "상태 기반 칸반 업무 보드를 제공한다 - [Jira01 재검증 테스트 삽입] WF-187",
+    "task#101": "상태 기반 칸반 업무 보드를 제공한다 - [Jira01 재검증 테스트 삽입] WF-246",
+    "task#102": "칸반 보드 UI와 드래그 상태 이동 구현 - [Jira01 재검증 테스트 삽입] WF-247"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "드래그 이동 기능이 이미 배포됐다고 단정한다",
+      "reason": "근거는 업무 목록일 뿐 진행 상태를 담지 않는다"
+    }
+  ]
+}

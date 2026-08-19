@@ -1,0 +1,40 @@
+{
+  "case_id": "mixed-09",
+  "category": "mixed",
+  "retrieval_case_id": "C09",
+  "question": "OAuth 로그인 재발급 API는 누가 언제까지 한대?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "태민이 담당하기로 했다",
+      "evidence_snippet": "저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "완료 기한은 7월 15일이다",
+      "evidence_snippet": "7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성"
+    }
+  ],
+  "expected_source_ids": [
+    "action_item#522",
+    "action_item#609",
+    "task#374"
+  ],
+  "expected_source_excerpts": {
+    "action_item#522": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 태민: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다",
+    "action_item#609": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 태민: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다",
+    "task#374": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "OAuth 제공자나 토큰 만료 시간을 특정한다",
+      "reason": "근거 발언에 그런 상세가 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "해당 API가 이미 완성됐다고 말한다",
+      "reason": "근거는 완성하겠다는 예정 발언이다"
+    }
+  ]
+}

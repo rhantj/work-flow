@@ -1,0 +1,31 @@
+{
+  "case_id": "mixed-01",
+  "category": "mixed",
+  "retrieval_case_id": "C01",
+  "question": "결제 API는 언제까지 하기로 했어?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "결제 API는 다음 주 화요일까지 완료하기로 결정했다",
+      "evidence_snippet": "결제 API는 다음 주 화요일까지 완료하기로 결정했습니다"
+    }
+  ],
+  "expected_source_ids": [
+    "meeting#1"
+  ],
+  "expected_source_excerpts": {
+    "meeting#1": "오늘 회의에서는 로그인 페이지 UI 개선과 결제 API 연동 일정을 논의했습니다. 결제 API는 다음 주 화요일까지 완료하기로 결정했습니다."
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "결제 API 마감을 특정 달력 날짜로 단정한다",
+      "reason": "근거는 '다음 주 화요일'이라는 상대 표현뿐이라 절대 날짜를 알 수 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "결제 API 담당자를 특정한다",
+      "reason": "근거에 담당자가 없다"
+    }
+  ]
+}

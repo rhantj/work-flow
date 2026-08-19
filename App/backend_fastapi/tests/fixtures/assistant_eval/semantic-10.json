@@ -1,0 +1,49 @@
+{
+  "case_id": "semantic-10",
+  "category": "semantic",
+  "retrieval_case_id": "B10",
+  "question": "특정 팀원한테 일이 몰리는지 보는 기능 있어?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "팀원별 업무량을 표시하는 업무가 있다",
+      "evidence_snippet": "팀원별 업무량을 표시한다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "업무 편중 점수 모델을 제공하는 업무가 있다",
+      "evidence_snippet": "업무 편중 점수 모델을 제공한다"
+    },
+    {
+      "fact_id": "F3",
+      "statement": "팀원별 업무량 차트와 과부하 표시를 구현하는 업무가 있다",
+      "evidence_snippet": "팀원별 업무량 차트/과부하 표시 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#37",
+    "task#40",
+    "task#85",
+    "task#86",
+    "task#94"
+  ],
+  "expected_source_excerpts": {
+    "task#37": "팀원별 업무량을 표시한다 - [Jira01 재검증 테스트 삽입] WF-182",
+    "task#40": "업무 편중 점수 모델을 제공한다 - [Jira01 재검증 테스트 삽입] WF-185",
+    "task#85": "팀원별 업무량을 표시한다 - [Jira01 재검증 테스트 삽입] WF-230",
+    "task#86": "팀원별 업무량 차트/과부하 표시 구현 - [Jira01 재검증 테스트 삽입] WF-231",
+    "task#94": "업무 편중 점수 모델을 제공한다 - [Jira01 재검증 테스트 삽입] WF-239"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "과부하 판정 임계값을 특정한다",
+      "reason": "근거에 임계값이 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "업무가 몰린 실제 팀원 이름을 지목한다",
+      "reason": "근거는 기능 목록일 뿐 실측값이 아니다"
+    }
+  ]
+}

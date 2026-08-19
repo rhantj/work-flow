@@ -1,0 +1,51 @@
+{
+  "case_id": "semantic-07",
+  "category": "semantic",
+  "retrieval_case_id": "B07",
+  "question": "오래 걸리는 작업을 기다리지 않고 처리하는 구조",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "비동기 처리와 상태 폴링 기반을 구축하는 업무가 있다",
+      "evidence_snippet": "비동기 처리와 상태 폴링 기반을 구축한다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "Redis Queue 작업 처리 구조 구현 업무가 있다",
+      "evidence_snippet": "Redis Queue 작업 처리 구조 구현"
+    },
+    {
+      "fact_id": "F3",
+      "statement": "공통 작업 상태 폴링 컴포넌트 구현 업무가 있다",
+      "evidence_snippet": "공통 작업 상태 폴링 컴포넌트 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#47",
+    "task#73",
+    "task#118",
+    "task#119",
+    "task#120",
+    "task#121"
+  ],
+  "expected_source_excerpts": {
+    "task#47": "비동기 처리와 상태 폴링 기반을 구축한다 - [Jira01 재검증 테스트 삽입] WF-192",
+    "task#73": "분석 상태 폴링 및 오류 처리 구현 - [Jira01 재검증 테스트 삽입] WF-218",
+    "task#118": "비동기 처리와 상태 폴링 기반을 구축한다 - [Jira01 재검증 테스트 삽입] WF-263",
+    "task#119": "Redis Queue 작업 처리 구조 구현 - [Jira01 재검증 테스트 삽입] WF-264",
+    "task#120": "공통 작업 상태 폴링 컴포넌트 구현 - [Jira01 재검증 테스트 삽입] WF-265",
+    "task#121": "실제 비동기 분석 처리 구현 - [Jira01 재검증 테스트 삽입] WF-266"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "완료를 웹소켓 푸시로 알린다고 말한다",
+      "reason": "근거는 폴링 방식만 언급한다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "폴링 주기를 초 단위로 특정한다",
+      "reason": "근거에 주기 값이 없다"
+    }
+  ]
+}

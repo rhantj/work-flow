@@ -1,0 +1,31 @@
+{
+  "case_id": "identifier-02",
+  "category": "identifier",
+  "retrieval_case_id": "A02",
+  "question": "WF-195 알려줘",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "WF-195는 'FS-3 대시보드/지연 위험도' 업무다",
+      "evidence_snippet": "FS-3 대시보드/지연 위험도"
+    }
+  ],
+  "expected_source_ids": [
+    "task#50"
+  ],
+  "expected_source_excerpts": {
+    "task#50": "FS-3 대시보드/지연 위험도 - [Jira01 재검증 테스트 삽입] WF-195"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "WF-195의 진행 상태를 특정한다",
+      "reason": "근거 청크 본문에 상태가 없다"
+    },
+    {
+      "claim_id": "N2",
+      "statement": "WF-195가 지연 위험도 모델 학습 업무라고 말한다",
+      "reason": "근거 청크는 상위 기능 묶음 제목만 담고 학습·평가 언급이 없다"
+    }
+  ]
+}

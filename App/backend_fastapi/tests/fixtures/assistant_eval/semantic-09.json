@@ -1,0 +1,40 @@
+{
+  "case_id": "semantic-09",
+  "category": "semantic",
+  "retrieval_case_id": "B09",
+  "question": "프로젝트 현황을 한눈에 보는 화면 관련 업무",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "프로젝트 대시보드 기본 집계를 제공하는 업무가 있다",
+      "evidence_snippet": "프로젝트 대시보드 기본 집계를 제공한다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "대시보드 카드/차트 UI 구현 업무가 있다",
+      "evidence_snippet": "대시보드 카드/차트 UI 구현"
+    },
+    {
+      "fact_id": "F3",
+      "statement": "dashboard summary/workload API 구현 업무가 있다",
+      "evidence_snippet": "dashboard summary/workload API 구현"
+    }
+  ],
+  "expected_source_ids": [
+    "task#77",
+    "task#78",
+    "task#79"
+  ],
+  "expected_source_excerpts": {
+    "task#77": "프로젝트 대시보드 기본 집계를 제공한다 - [Jira01 재검증 테스트 삽입] WF-222",
+    "task#78": "대시보드 카드/차트 UI 구현 - [Jira01 재검증 테스트 삽입] WF-223",
+    "task#79": "dashboard summary/workload API 구현 - [Jira01 재검증 테스트 삽입] WF-224"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "대시보드에 표시되는 지표 항목을 구체적으로 열거한다",
+      "reason": "근거는 업무 제목뿐이라 지표 목록이 없다"
+    }
+  ]
+}

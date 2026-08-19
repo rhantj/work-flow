@@ -1,0 +1,33 @@
+{
+  "case_id": "mixed-03",
+  "category": "mixed",
+  "retrieval_case_id": "C03",
+  "question": "KLUE-BERT 비교 결과는 언제 공유한대?",
+  "must_include_facts": [
+    {
+      "fact_id": "F1",
+      "statement": "수빈이 7월 13일까지 비교 결과를 공유하기로 했다",
+      "evidence_snippet": "7월 13일까지 결과를 공유하겠습니다"
+    },
+    {
+      "fact_id": "F2",
+      "statement": "비교 대상은 KLUE-BERT와 sentence-transformers다",
+      "evidence_snippet": "KLUE-BERT와 sentence-transformers를 비교"
+    }
+  ],
+  "expected_source_ids": [
+    "action_item#451",
+    "action_item#487"
+  ],
+  "expected_source_excerpts": {
+    "action_item#451": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 수빈: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다",
+    "action_item#487": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 수빈: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다"
+  },
+  "must_not_claim": [
+    {
+      "claim_id": "N1",
+      "statement": "비교 결과의 승패나 성능 수치를 말한다",
+      "reason": "근거는 공유 예정 발언이고 결과가 아직 없다"
+    }
+  ]
+}
