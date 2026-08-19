@@ -228,3 +228,20 @@ def test_a_clean_run_reports_no_unparsed_items():
 
     assert score.unparsed_count == 0
     assert score.score == 1.0
+
+
+def test_a_korean_yes_is_read_as_affirmative():
+    """프롬프트가 '예'만 요구해도 한국어 모델은 "네" 로 답한다.
+
+    빠뜨리면 두 번 틀린다 - 긍정 응답이 부정으로 채점되고, 판정을 못 한 것으로도 잡혀
+    신뢰도 지표까지 거짓 경보를 낸다.
+    """
+    score = judge_answer(
+        "답변",
+        [{"fact_id": "F1", "statement": "사실1"}],
+        [],
+        ask=lambda prompt: "네",
+    )
+
+    assert score.coverage == 1.0
+    assert score.unparsed_count == 0

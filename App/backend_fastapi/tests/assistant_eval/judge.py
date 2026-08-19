@@ -34,7 +34,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Sequence
 
-_AFFIRMATIVE = {"예", "yes", "true", "y"}
+# "네" 를 넣는 이유: 프롬프트가 '예'/'아니오' 로만 답하라고 못 박아도 한국어 모델은 "네" 로
+# 답하는 일이 흔하다. 빠뜨리면 긍정 응답이 부정으로 채점되고, unparsed_count 까지 함께 올라
+# 신뢰도 지표가 거짓 경보를 낸다. meeting_eval/summary_judge 의 같은 집합에는 아직 없다 -
+# 그쪽은 이 하네스와 별개로 측정 이력이 쌓여 있어 지금 바꾸면 과거 점수와 비교할 수 없다.
+_AFFIRMATIVE = {"예", "네", "yes", "true", "y"}
 _NEGATIVE = {"아니오", "아니요", "no", "false", "n"}
 
 
