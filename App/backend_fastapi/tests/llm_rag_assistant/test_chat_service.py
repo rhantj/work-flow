@@ -1329,3 +1329,144 @@ async def test_answers_cached_before_the_provider_field_are_not_served() -> None
 
     generate.assert_awaited()
     assert result.answer == "새 답변"
+
+
+@pytest.mark.asyncio
+async def test_answered_question_is_written_to_the_query_log() -> None:
+    """실사용 질문이 남지 않으면 '코드 없는 고유명사 질문의 검색 실패율'을 잴 수 없다(#626).
+
+    검색 결과가 함께 남아야 실패(0건)와 성공을 구분할 수 있으므로 source_id 목록을 같이 넘긴다.
+    """
+    rows = [
+        {"source_type": "task", "source_id": 12, "content": "로그인 API", "similarity": 0.9},
+        {"source_type": "task", "source_id": 12, "content": "로그인 API 상세", "similarity": 0.8},
+        {"source_type": "meeting", "source_id": 4, "content": "회의록", "similarity": 0.7},
+    ]
+    pool = object()
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.embed_text",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(return_value=rows),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.generate_answer",
+            new=AsyncMock(return_value=_generated("답변", provider="gemini")),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.record_query_log",
+            new=AsyncMock(),
+        ) as record_log,
+    ):
+        await answer_question(pool, project_id=5, question="로그인 담당자 누구야")
+
+    record_log.assert_awaited_once_with(
+        pool,
+        project_id=5,
+        question="로그인 담당자 누구야",
+        source_ids=[12, 4],
+        provider="gemini",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_cache_hit_is_also_written_to_the_query_log() -> None:
+    """캐시 히트를 빠뜨리면 자주 묻는 질문이 통째로 로그에서 빠져 질문 분포가 왜곡된다.
+
+    캐시된 응답에도 sources 와 provider 가 들어 있어 기록에 필요한 값은 모두 있다.
+    provider 는 이번 요청에 실제로 일어난 일("cache")을 싣는다 - 저장된 값은 과거에 답한
+    백엔드라 그대로 남기면 "그때 gemini 가 살아있었다"로 오독된다.
+    """
+    cached = RagQueryResponse(
+        answer="캐시된 답변",
+        sources=[
+            RagSource(source_type="task", source_id=12, content_snippet="로그인 API", similarity=0.9)
+        ],
+    )
+    cache = _FakeAsyncRedis({_answer_cache_key(5, None, "질문"): cached.model_dump_json()})
+    pool = object()
+
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.get_async_redis_client",
+            return_value=cache,
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.record_query_log",
+            new=AsyncMock(),
+        ) as record_log,
+    ):
+        result = await answer_question(pool, project_id=5, question="질문")
+
+    assert result.answer == "캐시된 답변"
+    record_log.assert_awaited_once_with(
+        pool, project_id=5, question="질문", source_ids=[12], provider="cache"
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_logged_question_is_the_one_the_search_actually_saw() -> None:
+    """재는 것이 검색 실패율이다. 후속 질문의 원문("그거 언제까지야?")을 남기면 질문과
+    source_ids 가 서로 다른 문장을 가리켜 멀쩡한 검색이 실패로 읽힌다."""
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.rewrite_question",
+            new=AsyncMock(return_value="로그인 API 구현 업무의 마감일은?"),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.embed_text",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.generate_answer",
+            new=AsyncMock(return_value=_generated("답변")),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.record_query_log",
+            new=AsyncMock(),
+        ) as record_log,
+    ):
+        await answer_question(
+            object(),
+            project_id=5,
+            question="그거 언제까지야?",
+            history=[{"role": "user", "content": "로그인 API 구현 업무 알려줘"}],
+        )
+
+    assert record_log.await_args.kwargs["question"] == "로그인 API 구현 업무의 마감일은?"
+
+
+@pytest.mark.asyncio
+async def test_a_broken_query_log_does_not_lose_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """로그 저장이 답변을 죽이면 관측을 붙이려다 기능을 잃는다. pool 이 성치 않아도 답은 나간다.
+
+    스위치를 켜야 이 테스트가 의미를 갖는다. 기본값이 꺼짐이라 켜지 않으면
+    record_query_log 가 pool 을 보기도 전에 반환해, 망가진 pool 을 넘겨도 아무 일이
+    일어나지 않는다 - 통과는 하는데 아무것도 막지 못하는 테스트가 된다.
+    """
+    monkeypatch.setenv("ASSISTANT_QUERY_LOG_ENABLED", "true")
+    with (
+        patch(
+            "llm_rag_assistant.app.services.chat_service.embed_text",
+            new=AsyncMock(return_value=[0.1]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.search_chunks_for_question",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "llm_rag_assistant.app.services.chat_service.generate_answer",
+            new=AsyncMock(return_value=_generated("답변")),
+        ),
+    ):
+        result = await answer_question(object(), project_id=5, question="질문")
+
+    assert result.answer == "답변"

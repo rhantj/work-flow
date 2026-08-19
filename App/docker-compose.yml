@@ -195,6 +195,10 @@ services:
       # 모델을 이만큼 메모리에 붙들어 둔다. ollama 기본값 5분으로는 질문 간격이 조금만 벌어져도
       # 모델이 내려가 다음 질문에 로드 시간이 그대로 얹힌다(웜 33초 → 콜드 44.6초, 2026-07-28 실측).
       RAG_OLLAMA_KEEP_ALIVE: ${RAG_OLLAMA_KEEP_ALIVE:-30m}
+      # 어시스턴트 질의 로그(assistant_query_log). 질문 원문을 남기므로 기본은 꺼짐이고
+      # 켜는 쪽이 명시적이어야 한다. 끄면 배포 없이 기록만 멈춘다
+      # (docs/decisions/2026-08-19-assistant-query-logging.md).
+      ASSISTANT_QUERY_LOG_ENABLED: ${ASSISTANT_QUERY_LOG_ENABLED:-false}
       HF_MEETING_ANALYSIS_ENDPOINT: ${HF_MEETING_ANALYSIS_ENDPOINT:-https://router.huggingface.co/v1/chat/completions}
       HF_MEETING_ANALYSIS_TIMEOUT_SECONDS: ${HF_MEETING_ANALYSIS_TIMEOUT_SECONDS:-35}
       # 900 토큰으로는 요약+결정사항+위험요소+투두 여러 건을 포함한 JSON이 완성되기 전에
