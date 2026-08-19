@@ -54,6 +54,10 @@ _ROUTED_BASE_FLAGS = ("codes_truncated", "code_miss", "ids_referenced", "id_miss
 # 답을 만든 백엔드별 카운터 (rag_stats._PROVIDER_FIELD_PREFIX 와 같은 값).
 _PROVIDER_PREFIX = "provider_"
 
+# 캐시에서 바로 돌려준 질의 (rag_stats._CACHE_HIT_FIELD 와 같은 값). total 과 별개로 세므로
+# 전체 질의는 total + cache_hit 이다.
+_CACHE_HIT = "cache_hit"
+
 
 def _connect() -> Redis:
     """컨테이너에 이미 있는 자격 증명을 그대로 쓴다. 새 환경변수를 만들지 않는다."""
@@ -90,13 +94,21 @@ def _percent(count: int, total: int) -> str:
 
 def _render(totals: Counter, seen_days: list[str], days: int) -> str:
     total = totals.get("total", 0)
-    if total == 0:
+    cache_hit = totals.get(_CACHE_HIT, 0)
+    all_queries = total + cache_hit
+    if all_queries == 0:
         return f"최근 {days}일(UTC)에 기록된 질의가 없습니다."
 
     lines = [
         f"기간: 최근 {days}일(UTC) 중 데이터가 있는 {len(seen_days)}일 "
         f"({seen_days[0]} ~ {seen_days[-1]})",
-        f"질의 총계: {total}건",
+        f"질의 총계: {all_queries}건",
+        f"  캐시 미스 {total:>6}  {_percent(total, all_queries)}  <- 아래 모든 분포의 분모",
+        f"  캐시 히트 {cache_hit:>6}  {_percent(cache_hit, all_queries)}",
+        "",
+        # 캐시 히트는 검색이 돌지 않아 코드 개수·플래그·프로바이더를 낼 수 없다. 아래 분포는
+        # 전부 캐시 미스만 본 것이고, 위 캐시 히트 비중이 그 사각지대의 크기다.
+        "아래 분포는 캐시 미스 질의만 본다 (캐시 히트는 검색이 돌지 않아 셀 수 없다).",
         "",
         "코드 개수 분포 (개인화 질문 제외)",
     ]
@@ -147,6 +159,7 @@ def _render(totals: Counter, seen_days: list[str], days: int) -> str:
         if name not in _FLAGS
         and name not in _CODE_BUCKETS
         and name != "total"
+        and name != _CACHE_HIT
         and not name.startswith("proj_")
         and not name.startswith(_PROVIDER_PREFIX)
     )

@@ -42,6 +42,9 @@ _CODE_BUCKET_CAP = 5
 # 답을 만든 백엔드별 카운터의 접두사. generation_service 의 프로바이더 이름이 그대로 붙는다.
 _PROVIDER_FIELD_PREFIX = "provider_"
 
+# 캐시에서 바로 돌려준 질의의 카운터. total 과 나눠 세는 이유는 record_cache_hit 에 적었다.
+_CACHE_HIT_FIELD = "cache_hit"
+
 # 한 질의가 쓸 날짜 키. pinned_stats_day 안에서만 채워진다. 두 경로에서 각각 다른 이유로
 # 안전하다: HTTP 요청은 질의마다 별도의 asyncio Task 라 컨텍스트가 복제돼 동시 질의끼리
 # 섞이지 않고, 한 Task 를 재사용하며 잡을 하나씩 처리하는 큐 워커(RagQueueWorker._run_loop)는
@@ -153,6 +156,21 @@ async def record_answer_provider(provider: str) -> None:
     날짜를 쓰므로, 생성 중 자정을 넘긴 질의에서 분모와 분자가 다른 날에 흩어진다.
     """
     await _increment_daily_counters({f"{_PROVIDER_FIELD_PREFIX}{provider}": 1})
+
+
+async def record_cache_hit() -> None:
+    """캐시에서 바로 돌려준 질의 한 건을 집계한다.
+
+    total 에 넣지 않고 별도 필드로 세는 이유: total 은 지금까지 캐시 미스만 세 왔고,
+    같은 이름으로 다른 것을 세기 시작하면 이미 쌓인 일별 키와 비교할 수 없게 된다.
+    앞으로 전체 질의 수는 total + cache_hit 이다.
+
+    **알려진 한계**: codes_* 같은 버킷 필드는 검색이 돌아야 계산되므로 캐시 히트에서는
+    낼 수 없다. 코드 분포는 여전히 캐시 미스만 본다. 이 카운터의 목적은 그 사각지대의
+    크기를 알려주는 것이다 - 캐시 히트가 5% 면 분포를 그대로 믿어도 되고, 50% 면
+    그때 검색 없이 버킷을 계산하는 방법에 투자한다.
+    """
+    await _increment_daily_counters({_CACHE_HIT_FIELD: 1})
 
 
 async def _increment_daily_counters(fields: dict[str, int]) -> None:
