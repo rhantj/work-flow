@@ -2,17 +2,17 @@
   "case_id": "mixed-05",
   "category": "mixed",
   "retrieval_case_id": "C05",
-  "question": "구성원A가 맡은 일이 뭐야?",
+  "question": "구성원나가 맡은 일이 뭐야?",
   "must_include_facts": [
     {
       "fact_id": "F1",
-      "statement": "구성원A가 삭제 버그 재현을 담당한다",
-      "evidence_snippet": "구성원A가 버그 재현 담당"
+      "statement": "구성원나가 삭제 버그 재현을 담당한다",
+      "evidence_snippet": "구성원나가 버그 재현 담당"
     },
     {
       "fact_id": "F2",
-      "statement": "구성원A가 브라우저 fetch 재현 테스트를 담당한다",
-      "evidence_snippet": "브라우저 fetch 재현 테스트에 대한 담당을 구성원A가 맡았음"
+      "statement": "구성원나가 브라우저 fetch 재현 테스트를 담당한다",
+      "evidence_snippet": "브라우저 fetch 재현 테스트에 대한 담당을 구성원나가 맡았음"
     }
   ],
   "expected_source_ids": [
@@ -22,20 +22,20 @@
     "action_item#412"
   ],
   "expected_source_excerpts": {
-    "meeting#65": "삭제 버그 재현을 논의하고, 구성원A가 담당, 구성원B이 리뷰를 맡기로 했다. 결정사항: 구성원A가 버그 재현 담당, 구성원B이 리뷰 담당으로 결정됨",
-    "action_item#410": "버그 재현 수행하기 - 삭제 버그의 재현을 수행한다. 근거: 구성원A가 버그 재현 담당, 구성원B이 리뷰 담당으로 결정되었습니다.",
-    "meeting#66": "브라우저 fetch 재현 테스트에 대한 담당을 구성원A가 맡았음",
-    "action_item#412": "fetch 재현 테스트하기 - 브라우저 fetch 기능을 재현하여 테스트 수행 근거: 구성원A가 담당."
+    "meeting#65": "삭제 버그 재현을 논의하고, 구성원나가 담당, 구성원다이 리뷰를 맡기로 했다. 결정사항: 구성원나가 버그 재현 담당, 구성원다이 리뷰 담당으로 결정됨",
+    "action_item#410": "버그 재현 수행하기 - 삭제 버그의 재현을 수행한다. 근거: 구성원나가 버그 재현 담당, 구성원다이 리뷰 담당으로 결정되었습니다.",
+    "meeting#66": "브라우저 fetch 재현 테스트에 대한 담당을 구성원나가 맡았음",
+    "action_item#412": "fetch 재현 테스트하기 - 브라우저 fetch 기능을 재현하여 테스트 수행 근거: 구성원나가 담당."
   },
   "must_not_claim": [
     {
       "claim_id": "N1",
-      "statement": "구성원A가 삭제 버그 리뷰도 맡았다고 말한다",
-      "reason": "근거는 리뷰 담당을 구성원B으로 명시한다"
+      "statement": "구성원나가 삭제 버그 리뷰도 맡았다고 말한다",
+      "reason": "근거는 리뷰 담당을 구성원다으로 명시한다"
     },
     {
       "claim_id": "N2",
-      "statement": "구성원A가 맡은 일의 마감일을 특정한다",
+      "statement": "구성원나가 맡은 일의 마감일을 특정한다",
       "reason": "근거에 기한이 없다"
     }
   ]

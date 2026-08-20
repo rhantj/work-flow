@@ -1,11 +1,11 @@
 {"assignee_id": null, "content": "오늘 회의에서는 로그인 페이지 UI 개선과 결제 API 연동 일정을 논의했습니다. 결제 API는 다음 주 화요일까지 완료하기로 결정했습니다.", "id": 1, "source_id": 1, "source_type": "meeting"}
 {"assignee_id": null, "content": "발표자료 초안을 작성한다 - 발표자료 초안을 작성한다", "id": 6, "source_id": 2, "source_type": "action_item"}
 {"assignee_id": null, "content": "테스트 회의록입니다 - 테스트 회의록입니다", "id": 7, "source_id": 1, "source_type": "action_item"}
-{"assignee_id": null, "content": "회의 제목: 캡스톤디자인 WorkFlow AI 착수 회의 회의 일자: 2026… - 회의 제목: 캡스톤디자인 WorkFlow AI 착수 회의 회의 일자: 2026-07-09 프로젝트 유형: 캡스톤디자인 참석자: 구성원E, 구성원K, 구성원G, 구성원A, 구성원C, 구성원B, 구성원D [회의 내용] 구성원E: 오…", "id": 8, "source_id": 3, "source_type": "action_item"}
+{"assignee_id": null, "content": "회의 제목: 캡스톤디자인 WorkFlow AI 착수 회의 회의 일자: 2026… - 회의 제목: 캡스톤디자인 WorkFlow AI 착수 회의 회의 일자: 2026-07-09 프로젝트 유형: 캡스톤디자인 참석자: 구성원바, 구성원타, 구성원아, 구성원나, 구성원라, 구성원다, 구성원마 [회의 내용] 구성원바: 오…", "id": 8, "source_id": 3, "source_type": "action_item"}
 {"assignee_id": null, "content": "Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권… - Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다", "id": 9, "source_id": 4, "source_type": "action_item"}
 {"assignee_id": null, "content": "할 일, 진행 중, 보류/블로커, 완료로 구성하고, 회의록에서 생성된 To-D… - 할 일, 진행 중, 보류/블로커, 완료로 구성하고, 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다", "id": 10, "source_id": 5, "source_type": "action_item"}
 {"assignee_id": null, "content": "분석 결과 화면과 업무 보드 등록 흐름 연결 - 분석 결과 화면과 업무 보드 등록 흐름 연결", "id": 11, "source_id": 10, "source_type": "action_item"}
-{"assignee_id": null, "content": "구성원B: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원B: AI Assistant는 RAG 구조로 설계하겠습니다", "id": 12, "source_id": 6, "source_type": "action_item"}
+{"assignee_id": null, "content": "구성원다: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원다: AI Assistant는 RAG 구조로 설계하겠습니다", "id": 12, "source_id": 6, "source_type": "action_item"}
 {"assignee_id": null, "content": "다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다 - 다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다", "id": 13, "source_id": 7, "source_type": "action_item"}
 {"assignee_id": null, "content": "둘째, 회의록 AI는 문서 업로드를 먼저 구현하고 STT는 후순위로 둡니다 - 둘째, 회의록 AI는 문서 업로드를 먼저 구현하고 STT는 후순위로 둡니다", "id": 14, "source_id": 8, "source_type": "action_item"}
 {"assignee_id": null, "content": "회의록 AI 분석 API 구현 - 회의록 AI 분석 API 구현", "id": 15, "source_id": 9, "source_type": "action_item"}
@@ -14,19 +14,19 @@
 {"assignee_id": null, "content": "회의록 AI 분석 API 구현 - 회의록 AI 분석 API 구현", "id": 18, "source_id": 15, "source_type": "task"}
 {"assignee_id": null, "content": "팀장 검토용 To-Do 승인 화면 점검 - 팀장 검토용 To-Do 승인 화면 점검", "id": 19, "source_id": 17, "source_type": "task"}
 {"assignee_id": null, "content": "분석 결과 화면과 업무 보드 등록 흐름 연결 - 분석 결과 화면과 업무 보드 등록 흐름 연결", "id": 20, "source_id": 16, "source_type": "task"}
-{"assignee_id": null, "content": "구성원B: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원B: AI Assistant는 RAG 구조로 설계하겠습니다", "id": 21, "source_id": 8, "source_type": "task"}
+{"assignee_id": null, "content": "구성원다: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원다: AI Assistant는 RAG 구조로 설계하겠습니다", "id": 21, "source_id": 8, "source_type": "task"}
 {"assignee_id": null, "content": "다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다 - 다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다", "id": 22, "source_id": 10, "source_type": "task"}
 {"assignee_id": null, "content": "다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다 - 다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다", "id": 23, "source_id": 9, "source_type": "task"}
-{"assignee_id": null, "content": "구성원B: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원B: AI Assistant는 RAG 구조로 설계하겠습니다", "id": 24, "source_id": 7, "source_type": "task"}
+{"assignee_id": null, "content": "구성원다: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원다: AI Assistant는 RAG 구조로 설계하겠습니다", "id": 24, "source_id": 7, "source_type": "task"}
 {"assignee_id": null, "content": "할 일, 진행 중, 보류/블로커, 완료로 구성하고, 회의록에서 생성된 To-D… - 할 일, 진행 중, 보류/블로커, 완료로 구성하고, 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다", "id": 25, "source_id": 6, "source_type": "task"}
 {"assignee_id": null, "content": "할 일, 진행 중, 보류/블로커, 완료로 구성하고, 회의록에서 생성된 To-D… - 할 일, 진행 중, 보류/블로커, 완료로 구성하고, 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다", "id": 26, "source_id": 5, "source_type": "task"}
 {"assignee_id": null, "content": "Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권… - Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다", "id": 27, "source_id": 4, "source_type": "task"}
 {"assignee_id": null, "content": "Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권… - Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다", "id": 28, "source_id": 3, "source_type": "task"}
-{"assignee_id": null, "content": "회의 제목: 캡스톤디자인 WorkFlow AI 착수 회의 회의 일자: 2026… - 회의 제목: 캡스톤디자인 WorkFlow AI 착수 회의 회의 일자: 2026-07-09 프로젝트 유형: 캡스톤디자인 참석자: 구성원E, 구성원K, 구성원G, 구성원A, 구성원C, 구성원B, 구성원D [회의 내용] 구성원E: 오…", "id": 29, "source_id": 2, "source_type": "task"}
+{"assignee_id": null, "content": "회의 제목: 캡스톤디자인 WorkFlow AI 착수 회의 회의 일자: 2026… - 회의 제목: 캡스톤디자인 WorkFlow AI 착수 회의 회의 일자: 2026-07-09 프로젝트 유형: 캡스톤디자인 참석자: 구성원바, 구성원타, 구성원아, 구성원나, 구성원라, 구성원다, 구성원마 [회의 내용] 구성원바: 오…", "id": 29, "source_id": 2, "source_type": "task"}
 {"assignee_id": null, "content": "둘째, 회의록 AI는 문서 업로드를 먼저 구현하고 STT는 후순위로 둡니다 - 둘째, 회의록 AI는 문서 업로드를 먼저 구현하고 STT는 후순위로 둡니다", "id": 30, "source_id": 14, "source_type": "task"}
 {"assignee_id": null, "content": "둘째, 회의록 AI는 문서 업로드를 먼저 구현하고 STT는 후순위로 둡니다 - 둘째, 회의록 AI는 문서 업로드를 먼저 구현하고 STT는 후순위로 둡니다", "id": 31, "source_id": 12, "source_type": "task"}
 {"assignee_id": null, "content": "다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다 - 다만 팀장과 팀원은 이 화면에 접근하지 못하게 권한 테스트가 필요합니다", "id": 32, "source_id": 11, "source_type": "task"}
-{"assignee_id": null, "content": "meeting_01 내용을 분석해 핵심 결정사항 5건, 업무 후보 6건, 위험요소 3건을 추출했습니다. 결정사항: 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다, 할 일, 진행 중, 보류/블로커, 완료로 구성하고, 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다, 회의록, 업무, 산출물 데이터를 임베딩하고 사용자가 프로젝트 관련 질문을 하면 근거와 함께 답변하도록 하겠습니다, 구성원E: 오늘 결정사항은 세 가지입니다, success, data, error 구조로 통일하는 게 좋겠습니다 위험요소: 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다, ML 지연 위험도는 처음에는 규칙 기반으로 만들고, 데이터가 생기면 모델로 바꾸는 방향이 좋겠습니다, 구성원E: 위험요소는 일정이 촉박하다는 점입니다", "id": 33, "source_id": 2, "source_type": "meeting"}
+{"assignee_id": null, "content": "meeting_01 내용을 분석해 핵심 결정사항 5건, 업무 후보 6건, 위험요소 3건을 추출했습니다. 결정사항: 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다, 할 일, 진행 중, 보류/블로커, 완료로 구성하고, 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다, 회의록, 업무, 산출물 데이터를 임베딩하고 사용자가 프로젝트 관련 질문을 하면 근거와 함께 답변하도록 하겠습니다, 구성원바: 오늘 결정사항은 세 가지입니다, success, data, error 구조로 통일하는 게 좋겠습니다 위험요소: 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다, ML 지연 위험도는 처음에는 규칙 기반으로 만들고, 데이터가 생기면 모델로 바꾸는 방향이 좋겠습니다, 구성원바: 위험요소는 일정이 촉박하다는 점입니다", "id": 33, "source_id": 2, "source_type": "meeting"}
 {"assignee_id": null, "content": "회의록_회의록_meeting_04_20260713_20260714 내용을 분석해 핵심 결정사항 2건, 업무 후보 3건, 위험요소 1건을 추출했습니다. 결정사항: 회의록 분석 결과를 요약, 결정사항, To-Do, 위험요소로 구조화한다., 생성된 To-Do는 팀장 검토 후 업무 보드에 등록한다. 위험요소: 담당자와 마감일이 명확하지 않은 업무는 일정 지연으로 이어질 수 있다.", "id": 34, "source_id": 3, "source_type": "meeting"}
 {"assignee_id": 1, "content": "로그인과 JWT 세션을 제공한다 - [Jira01 재검증 테스트 삽입] WF-174", "id": 35, "source_id": 29, "source_type": "task"}
 {"assignee_id": 2, "content": "프로젝트 생성과 멤버 초대를 제공한다 - [Jira01 재검증 테스트 삽입] WF-175", "id": 36, "source_id": 30, "source_type": "task"}
@@ -140,18 +140,18 @@
 {"assignee_id": 4, "content": "출처 포함 프로젝트 Q&A를 제공한다(수정됨) - [Jira01 재검증 테스트 삽입] WF-184 저쪽 대시보드에서 보낸 업무 수정입니다....", "id": 309, "source_id": 39, "source_type": "task"}
 {"assignee_id": 4, "content": "FS-1 인증/프로젝트/RBAC - [Jira01 재검증 테스트 삽입] WF-193 저쪽 대시보드/팀원별 업무량에서 보내려다 실패하고 또 보내려다 실패했지만 결국 보내는 데 성공한 업무 수정입니다..... [업무 수정 후 다시 업무 배정 리스트로 이동되는지 테스트]", "id": 312, "source_id": 48, "source_type": "task"}
 {"assignee_id": null, "content": "공모전 제안서와 발표자료의 구조 및 담당을 결정하고, 각 구성 요소별로 마감일을 설정했다. 결정사항: 제안서 목차는 문제 정의, 기존 서비스 한계, 우리 서비스 차별점, 기능 구성, 기대효과 순서로 구성한다., 발표자료는 문제-해결-차별화-기술-기대효과 흐름으로 구성한다., 제안서와 발표자료는 7월 15일 1차 초안 완성을 목표로 진행한다. 위험요소: 자료가 너무 기술 중심으로 보일 수 있다. 심사위원이 바로 이해할 수 있도록 '사용자 문제'를 먼저 보여줘야 한다., 기존 서비스와의 차별성이 약해 보일 수 있다. Jira, Notion, Clova Note와 비교해서 우리 서비스가 팀프로젝트 평가까지 지원한다는 점을 강조해야 한다.", "id": 313, "source_id": 61, "source_type": "meeting"}
-{"assignee_id": null, "content": "공모전 제출 마감이 7월 21일입니다 - 공모전 제출 마감이 7월 21일입니다 근거: 구성원R: 공모전 제출 마감이 7월 21일입니다", "id": 314, "source_id": 374, "source_type": "action_item"}
-{"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다 근거: 구성원R: 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 315, "source_id": 375, "source_type": "action_item"}
-{"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다 근거: 구성원U: 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 316, "source_id": 376, "source_type": "action_item"}
-{"assignee_id": null, "content": "첫 장에는 팀 회의 장면이나 대시보드 예시 … - 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다 근거: 구성원N: 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "id": 317, "source_id": 377, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 14일까지 제안서 초안을 쓰 - 제가 7월 14일까지 제안서 초안을 쓰겠습니다 근거: 구성원M: 제가 7월 14일까지 제안서 초안을 쓰겠습니다", "id": 318, "source_id": 378, "source_type": "action_item"}
-{"assignee_id": null, "content": "기존 서비스 비교 표도 같이 넣 - 기존 서비스 비교 표도 같이 넣겠습니다 근거: 구성원M: 기존 서비스 비교 표도 같이 넣겠습니다", "id": 319, "source_id": 379, "source_type": "action_item"}
-{"assignee_id": null, "content": "발표자료 초안 - 저는 발표자료 초안을 맡겠습니다 근거: 구성원U: 저는 발표자료 초안을 맡겠습니다", "id": 320, "source_id": 380, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 15일까지 1차 디자인을 공유 - 7월 15일까지 1차 디자인을 공유하겠습니다 근거: 구성원U: 7월 15일까지 1차 디자인을 공유하겠습니다", "id": 321, "source_id": 381, "source_type": "action_item"}
-{"assignee_id": null, "content": "서비스 화면 목업과 아이콘은 제가 - 서비스 화면 목업과 아이콘은 제가 만들겠습니다 근거: 구성원N: 서비스 화면 목업과 아이콘은 제가 만들겠습니다", "id": 322, "source_id": 382, "source_type": "action_item"}
-{"assignee_id": null, "content": "특히 회의록 업로드 화면, 업무 보드 화면,… - 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다 근거: 구성원N: 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "id": 323, "source_id": 383, "source_type": "action_item"}
-{"assignee_id": null, "content": "전체 문장 톤과 제출 양식 검수 - 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다 근거: 구성원R: 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "id": 324, "source_id": 384, "source_type": "action_item"}
-{"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다 근거: 구성원R: 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 326, "source_id": 385, "source_type": "action_item"}
+{"assignee_id": null, "content": "공모전 제출 마감이 7월 21일입니다 - 공모전 제출 마감이 7월 21일입니다 근거: 구성원버: 공모전 제출 마감이 7월 21일입니다", "id": 314, "source_id": 374, "source_type": "action_item"}
+{"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다 근거: 구성원버: 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 315, "source_id": 375, "source_type": "action_item"}
+{"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다 근거: 구성원저: 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 316, "source_id": 376, "source_type": "action_item"}
+{"assignee_id": null, "content": "첫 장에는 팀 회의 장면이나 대시보드 예시 … - 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다 근거: 구성원너: 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "id": 317, "source_id": 377, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 14일까지 제안서 초안을 쓰 - 제가 7월 14일까지 제안서 초안을 쓰겠습니다 근거: 구성원하: 제가 7월 14일까지 제안서 초안을 쓰겠습니다", "id": 318, "source_id": 378, "source_type": "action_item"}
+{"assignee_id": null, "content": "기존 서비스 비교 표도 같이 넣 - 기존 서비스 비교 표도 같이 넣겠습니다 근거: 구성원하: 기존 서비스 비교 표도 같이 넣겠습니다", "id": 319, "source_id": 379, "source_type": "action_item"}
+{"assignee_id": null, "content": "발표자료 초안 - 저는 발표자료 초안을 맡겠습니다 근거: 구성원저: 저는 발표자료 초안을 맡겠습니다", "id": 320, "source_id": 380, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 15일까지 1차 디자인을 공유 - 7월 15일까지 1차 디자인을 공유하겠습니다 근거: 구성원저: 7월 15일까지 1차 디자인을 공유하겠습니다", "id": 321, "source_id": 381, "source_type": "action_item"}
+{"assignee_id": null, "content": "서비스 화면 목업과 아이콘은 제가 - 서비스 화면 목업과 아이콘은 제가 만들겠습니다 근거: 구성원너: 서비스 화면 목업과 아이콘은 제가 만들겠습니다", "id": 322, "source_id": 382, "source_type": "action_item"}
+{"assignee_id": null, "content": "특히 회의록 업로드 화면, 업무 보드 화면,… - 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다 근거: 구성원너: 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "id": 323, "source_id": 383, "source_type": "action_item"}
+{"assignee_id": null, "content": "전체 문장 톤과 제출 양식 검수 - 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다 근거: 구성원버: 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "id": 324, "source_id": 384, "source_type": "action_item"}
+{"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다 근거: 구성원버: 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 326, "source_id": 385, "source_type": "action_item"}
 {"assignee_id": null, "content": "공모전 제출 마감이 7월 21일입니다 - 공모전 제출 마감이 7월 21일입니다", "id": 327, "source_id": 284, "source_type": "task"}
 {"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 328, "source_id": 285, "source_type": "task"}
 {"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 329, "source_id": 286, "source_type": "task"}
@@ -166,114 +166,114 @@
 {"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 338, "source_id": 295, "source_type": "task"}
 {"assignee_id": 2, "content": "알림지연테스트", "id": 339, "source_id": 296, "source_type": "task"}
 {"assignee_id": 2, "content": "알림지연테스트2", "id": 409, "source_id": 309, "source_type": "task"}
-{"assignee_id": null, "content": "삭제 버그 재현을 논의하고, 구성원A가 담당, 구성원B이 리뷰를 맡기로 했다. 결정사항: 구성원A가 버그 재현 담당, 구성원B이 리뷰 담당으로 결정됨", "id": 410, "source_id": 65, "source_type": "meeting"}
-{"assignee_id": 1, "content": "버그 재현 수행하기 - 삭제 버그의 재현을 수행한다. 근거: 구성원A가 버그 재현 담당, 구성원B이 리뷰 담당으로 결정되었습니다.", "id": 411, "source_id": 410, "source_type": "action_item"}
-{"assignee_id": null, "content": "버그 리뷰 수행하기 - 삭제 버그의 리뷰를 수행한다. 근거: 구성원A가 버그 재현 담당, 구성원B이 리뷰 담당으로 결정되었습니다.", "id": 412, "source_id": 411, "source_type": "action_item"}
-{"assignee_id": null, "content": "브라우저 fetch 재현 테스트에 대한 담당을 구성원A가 맡았음", "id": 413, "source_id": 66, "source_type": "meeting"}
-{"assignee_id": 1, "content": "fetch 재현 테스트하기 - 브라우저 fetch 기능을 재현하여 테스트 수행 근거: 구성원A가 담당.", "id": 414, "source_id": 412, "source_type": "action_item"}
+{"assignee_id": null, "content": "삭제 버그 재현을 논의하고, 구성원나가 담당, 구성원다이 리뷰를 맡기로 했다. 결정사항: 구성원나가 버그 재현 담당, 구성원다이 리뷰 담당으로 결정됨", "id": 410, "source_id": 65, "source_type": "meeting"}
+{"assignee_id": 1, "content": "버그 재현 수행하기 - 삭제 버그의 재현을 수행한다. 근거: 구성원나가 버그 재현 담당, 구성원다이 리뷰 담당으로 결정되었습니다.", "id": 411, "source_id": 410, "source_type": "action_item"}
+{"assignee_id": null, "content": "버그 리뷰 수행하기 - 삭제 버그의 리뷰를 수행한다. 근거: 구성원나가 버그 재현 담당, 구성원다이 리뷰 담당으로 결정되었습니다.", "id": 412, "source_id": 411, "source_type": "action_item"}
+{"assignee_id": null, "content": "브라우저 fetch 재현 테스트에 대한 담당을 구성원나가 맡았음", "id": 413, "source_id": 66, "source_type": "meeting"}
+{"assignee_id": 1, "content": "fetch 재현 테스트하기 - 브라우저 fetch 기능을 재현하여 테스트 수행 근거: 구성원나가 담당.", "id": 414, "source_id": 412, "source_type": "action_item"}
 {"assignee_id": null, "content": "leader 브라우저 fetch 재현 테스트에 대한 회의가 진행되었음", "id": 415, "source_id": 67, "source_type": "meeting"}
 {"assignee_id": null, "content": "leader 브라우저 fetch 재현 테스트… - leader 브라우저 fetch 재현 테스트 회의록입니다 근거: leader 브라우저 fetch 재현 테스트 회의록입니다", "id": 416, "source_id": 413, "source_type": "action_item"}
 {"assignee_id": null, "content": "회의는 디버깅 테스트에 대한 내용을 다루었으나 구체적인 결정이나 업무 배정이 없었다.", "id": 417, "source_id": 68, "source_type": "meeting"}
 {"assignee_id": null, "content": "회의록 AI 분석 API 구현 - 회의록 AI 분석 API 구현", "id": 418, "source_id": 414, "source_type": "action_item"}
 {"assignee_id": null, "content": "분석 결과 화면과 업무 보드 등록 흐름 연결 - 분석 결과 화면과 업무 보드 등록 흐름 연결", "id": 419, "source_id": 415, "source_type": "action_item"}
 {"assignee_id": null, "content": "팀장 검토용 To-Do 승인 화면 점검 - 팀장 검토용 To-Do 승인 화면 점검", "id": 420, "source_id": 416, "source_type": "action_item"}
-{"assignee_id": null, "content": "구성원A가 재분석 테스트 담당으로 지정됨", "id": 421, "source_id": 69, "source_type": "meeting"}
-{"assignee_id": null, "content": "재분석 테스트 수행하기 - 재분석 테스트를 수행하여 결과를 검토하고 보고 근거: 구성원A가 재분석 테스트 담당.", "id": 423, "source_id": 417, "source_type": "action_item"}
+{"assignee_id": null, "content": "구성원나가 재분석 테스트 담당으로 지정됨", "id": 421, "source_id": 69, "source_type": "meeting"}
+{"assignee_id": null, "content": "재분석 테스트 수행하기 - 재분석 테스트를 수행하여 결과를 검토하고 보고 근거: 구성원나가 재분석 테스트 담당.", "id": 423, "source_id": 417, "source_type": "action_item"}
 {"assignee_id": null, "content": "회의 내용은 두 번째 수정본에 대한 언급만 포함되어 있으며 구체적인 결정이나 업무 배정이 없습니다.", "id": 424, "source_id": 71, "source_type": "meeting"}
 {"assignee_id": null, "content": "회의록 AI 분석 API 구현 - 회의록 AI 분석 API 구현", "id": 425, "source_id": 418, "source_type": "action_item"}
 {"assignee_id": null, "content": "분석 결과 화면과 업무 보드 등록 흐름 연결 - 분석 결과 화면과 업무 보드 등록 흐름 연결", "id": 426, "source_id": 419, "source_type": "action_item"}
 {"assignee_id": null, "content": "팀장 검토용 To-Do 승인 화면 점검 - 팀장 검토용 To-Do 승인 화면 점검", "id": 427, "source_id": 420, "source_type": "action_item"}
 {"assignee_id": null, "content": "공모전 제안서와 발표자료의 구조 및 책임을 결정하고, 각 구성원이 특정 업무를 맡아 7월 15일까지 1차 초안을 완성하기로 했다. 결정사항: 제안서는 문제 정의, 기존 서비스 한계, 우리 서비스 차별점, 기능 구성, 기대효과 순서로 구성한다., 발표자료는 문제-해결-차별화-기술-기대효과 흐름으로 구성한다., 제안서와 발표자료는 7월 15일 1차 초안 완성을 목표로 진행한다. 위험요소: 자료가 너무 기술 중심으로 보일 수 있다., 기존 서비스와의 차별성이 약해 보일 수 있다.", "id": 428, "source_id": 62, "source_type": "meeting"}
-{"assignee_id": null, "content": "공모전 제출 마감이 7월 21일입니다 - 공모전 제출 마감이 7월 21일입니다 근거: 구성원R: 공모전 제출 마감이 7월 21일입니다", "id": 429, "source_id": 421, "source_type": "action_item"}
-{"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다 근거: 구성원R: 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 430, "source_id": 422, "source_type": "action_item"}
-{"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다 근거: 구성원U: 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 431, "source_id": 423, "source_type": "action_item"}
-{"assignee_id": null, "content": "첫 장에는 팀 회의 장면이나 대시보드 예시 … - 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다 근거: 구성원N: 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "id": 432, "source_id": 424, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 14일까지 제안서 초안을 쓰 - 제가 7월 14일까지 제안서 초안을 쓰겠습니다 근거: 구성원M: 제가 7월 14일까지 제안서 초안을 쓰겠습니다", "id": 433, "source_id": 425, "source_type": "action_item"}
-{"assignee_id": null, "content": "기존 서비스 비교 표도 같이 넣 - 기존 서비스 비교 표도 같이 넣겠습니다 근거: 구성원M: 기존 서비스 비교 표도 같이 넣겠습니다", "id": 434, "source_id": 426, "source_type": "action_item"}
-{"assignee_id": null, "content": "발표자료 초안 - 저는 발표자료 초안을 맡겠습니다 근거: 구성원U: 저는 발표자료 초안을 맡겠습니다", "id": 435, "source_id": 427, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 15일까지 1차 디자인을 공유 - 7월 15일까지 1차 디자인을 공유하겠습니다 근거: 구성원U: 7월 15일까지 1차 디자인을 공유하겠습니다", "id": 440, "source_id": 428, "source_type": "action_item"}
-{"assignee_id": null, "content": "서비스 화면 목업과 아이콘은 제가 - 서비스 화면 목업과 아이콘은 제가 만들겠습니다 근거: 구성원N: 서비스 화면 목업과 아이콘은 제가 만들겠습니다", "id": 442, "source_id": 429, "source_type": "action_item"}
-{"assignee_id": null, "content": "특히 회의록 업로드 화면, 업무 보드 화면,… - 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다 근거: 구성원N: 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "id": 443, "source_id": 430, "source_type": "action_item"}
-{"assignee_id": null, "content": "전체 문장 톤과 제출 양식 검수 - 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다 근거: 구성원R: 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "id": 444, "source_id": 431, "source_type": "action_item"}
-{"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다 근거: 구성원R: 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 445, "source_id": 432, "source_type": "action_item"}
-{"assignee_id": null, "content": "그래서 텍스트는 원문을 유지하고, 임베딩 모… - 그래서 텍스트는 원문을 유지하고, 임베딩 모델만 바꾸는 방향이 좋겠습니다 근거: 구성원P: 그래서 텍스트는 원문을 유지하고, 임베딩 모델만 바꾸는 방향이 좋겠습니다", "id": 467, "source_id": 445, "source_type": "action_item"}
-{"assignee_id": null, "content": "제출 마감이 7월 18일이라 모델 실험 로그… - 제출 마감이 7월 18일이라 모델 실험 로그를 정리하지 않으면 나중에 어떤 조합이 좋았는지 헷갈릴 것 같습니다 근거: 구성원T: 제출 마감이 7월 18일이라 모델 실험 로그를 정리하지 않으면 나중에 어떤 조합이 좋았는지 헷갈릴 것 같습니다", "id": 468, "source_id": 446, "source_type": "action_item"}
-{"assignee_id": null, "content": "실험 관리 표를 만들어야 - 실험 관리 표를 만들어야 합니다 근거: 구성원T: 실험 관리 표를 만들어야 합니다", "id": 471, "source_id": 447, "source_type": "action_item"}
-{"assignee_id": null, "content": "결정사항 정리 - 결정사항을 정리하겠습니다 근거: 구성원L: 결정사항을 정리하겠습니다", "id": 473, "source_id": 448, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 12일까지 결측치 처리 코드 정리 - 제가 7월 12일까지 결측치 처리 코드를 정리하겠습니다 근거: 구성원X: 제가 7월 12일까지 결측치 처리 코드를 정리하겠습니다", "id": 475, "source_id": 449, "source_type": "action_item"}
-{"assignee_id": null, "content": "텍스트 임베딩 실험 - 저는 텍스트 임베딩 실험을 맡겠습니다 근거: 구성원P: 저는 텍스트 임베딩 실험을 맡겠습니다", "id": 477, "source_id": 450, "source_type": "action_item"}
-{"assignee_id": null, "content": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 구성원P: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다", "id": 479, "source_id": 451, "source_type": "action_item"}
-{"assignee_id": null, "content": "LightGBM 하이퍼파라미터 튜닝은 제가 - LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다 근거: 구성원W: LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다", "id": 481, "source_id": 452, "source_type": "action_item"}
-{"assignee_id": null, "content": "learning_rate, num_leave… - learning_rate, num_leaves, max_depth를 중심으로 실험하겠습니다 근거: 구성원W: learning_rate, num_leaves, max_depth를 중심으로 실험하겠습니다", "id": 483, "source_id": 453, "source_type": "action_item"}
-{"assignee_id": null, "content": "실험 로그 템플릿과 제출 파일 검증 스크립트… - 실험 로그 템플릿과 제출 파일 검증 스크립트는 제가 만들겠습니다 근거: 구성원T: 실험 로그 템플릿과 제출 파일 검증 스크립트는 제가 만들겠습니다", "id": 485, "source_id": 454, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 12일 밤까지 공유 - 7월 12일 밤까지 공유하겠습니다 근거: 구성원T: 7월 12일 밤까지 공유하겠습니다", "id": 487, "source_id": 455, "source_type": "action_item"}
-{"assignee_id": null, "content": "전처리 과정에서 테스트 데이터를 기준으로 통… - 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 합니다 근거: 구성원L: 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 합니다", "id": 488, "source_id": 456, "source_type": "action_item"}
+{"assignee_id": null, "content": "공모전 제출 마감이 7월 21일입니다 - 공모전 제출 마감이 7월 21일입니다 근거: 구성원버: 공모전 제출 마감이 7월 21일입니다", "id": 429, "source_id": 421, "source_type": "action_item"}
+{"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다 근거: 구성원버: 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 430, "source_id": 422, "source_type": "action_item"}
+{"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다 근거: 구성원저: 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 431, "source_id": 423, "source_type": "action_item"}
+{"assignee_id": null, "content": "첫 장에는 팀 회의 장면이나 대시보드 예시 … - 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다 근거: 구성원너: 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "id": 432, "source_id": 424, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 14일까지 제안서 초안을 쓰 - 제가 7월 14일까지 제안서 초안을 쓰겠습니다 근거: 구성원하: 제가 7월 14일까지 제안서 초안을 쓰겠습니다", "id": 433, "source_id": 425, "source_type": "action_item"}
+{"assignee_id": null, "content": "기존 서비스 비교 표도 같이 넣 - 기존 서비스 비교 표도 같이 넣겠습니다 근거: 구성원하: 기존 서비스 비교 표도 같이 넣겠습니다", "id": 434, "source_id": 426, "source_type": "action_item"}
+{"assignee_id": null, "content": "발표자료 초안 - 저는 발표자료 초안을 맡겠습니다 근거: 구성원저: 저는 발표자료 초안을 맡겠습니다", "id": 435, "source_id": 427, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 15일까지 1차 디자인을 공유 - 7월 15일까지 1차 디자인을 공유하겠습니다 근거: 구성원저: 7월 15일까지 1차 디자인을 공유하겠습니다", "id": 440, "source_id": 428, "source_type": "action_item"}
+{"assignee_id": null, "content": "서비스 화면 목업과 아이콘은 제가 - 서비스 화면 목업과 아이콘은 제가 만들겠습니다 근거: 구성원너: 서비스 화면 목업과 아이콘은 제가 만들겠습니다", "id": 442, "source_id": 429, "source_type": "action_item"}
+{"assignee_id": null, "content": "특히 회의록 업로드 화면, 업무 보드 화면,… - 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다 근거: 구성원너: 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "id": 443, "source_id": 430, "source_type": "action_item"}
+{"assignee_id": null, "content": "전체 문장 톤과 제출 양식 검수 - 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다 근거: 구성원버: 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "id": 444, "source_id": 431, "source_type": "action_item"}
+{"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다 근거: 구성원버: 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 445, "source_id": 432, "source_type": "action_item"}
+{"assignee_id": null, "content": "그래서 텍스트는 원문을 유지하고, 임베딩 모… - 그래서 텍스트는 원문을 유지하고, 임베딩 모델만 바꾸는 방향이 좋겠습니다 근거: 구성원러: 그래서 텍스트는 원문을 유지하고, 임베딩 모델만 바꾸는 방향이 좋겠습니다", "id": 467, "source_id": 445, "source_type": "action_item"}
+{"assignee_id": null, "content": "제출 마감이 7월 18일이라 모델 실험 로그… - 제출 마감이 7월 18일이라 모델 실험 로그를 정리하지 않으면 나중에 어떤 조합이 좋았는지 헷갈릴 것 같습니다 근거: 구성원어: 제출 마감이 7월 18일이라 모델 실험 로그를 정리하지 않으면 나중에 어떤 조합이 좋았는지 헷갈릴 것 같습니다", "id": 468, "source_id": 446, "source_type": "action_item"}
+{"assignee_id": null, "content": "실험 관리 표를 만들어야 - 실험 관리 표를 만들어야 합니다 근거: 구성원어: 실험 관리 표를 만들어야 합니다", "id": 471, "source_id": 447, "source_type": "action_item"}
+{"assignee_id": null, "content": "결정사항 정리 - 결정사항을 정리하겠습니다 근거: 구성원파: 결정사항을 정리하겠습니다", "id": 473, "source_id": 448, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 12일까지 결측치 처리 코드 정리 - 제가 7월 12일까지 결측치 처리 코드를 정리하겠습니다 근거: 구성원터: 제가 7월 12일까지 결측치 처리 코드를 정리하겠습니다", "id": 475, "source_id": 449, "source_type": "action_item"}
+{"assignee_id": null, "content": "텍스트 임베딩 실험 - 저는 텍스트 임베딩 실험을 맡겠습니다 근거: 구성원러: 저는 텍스트 임베딩 실험을 맡겠습니다", "id": 477, "source_id": 450, "source_type": "action_item"}
+{"assignee_id": null, "content": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 구성원러: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다", "id": 479, "source_id": 451, "source_type": "action_item"}
+{"assignee_id": null, "content": "LightGBM 하이퍼파라미터 튜닝은 제가 - LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다 근거: 구성원커: LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다", "id": 481, "source_id": 452, "source_type": "action_item"}
+{"assignee_id": null, "content": "learning_rate, num_leave… - learning_rate, num_leaves, max_depth를 중심으로 실험하겠습니다 근거: 구성원커: learning_rate, num_leaves, max_depth를 중심으로 실험하겠습니다", "id": 483, "source_id": 453, "source_type": "action_item"}
+{"assignee_id": null, "content": "실험 로그 템플릿과 제출 파일 검증 스크립트… - 실험 로그 템플릿과 제출 파일 검증 스크립트는 제가 만들겠습니다 근거: 구성원어: 실험 로그 템플릿과 제출 파일 검증 스크립트는 제가 만들겠습니다", "id": 485, "source_id": 454, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 12일 밤까지 공유 - 7월 12일 밤까지 공유하겠습니다 근거: 구성원어: 7월 12일 밤까지 공유하겠습니다", "id": 487, "source_id": 455, "source_type": "action_item"}
+{"assignee_id": null, "content": "전처리 과정에서 테스트 데이터를 기준으로 통… - 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 합니다 근거: 구성원파: 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 합니다", "id": 488, "source_id": 456, "source_type": "action_item"}
 {"assignee_id": null, "content": "데이터 전처리 전략을 논의하고, 결측치, 텍스트 처리, 모델 선택, 실험 관리 등에 대한 결정과 할당을 진행했다. 결정사항: 결측치는 그룹별 중앙값으로 처리한다, 기본 모델은 LightGBM으로 고정한다, 텍스트 컬럼은 원문을 유지하고 임베딩 방식만 추가 실험한다 위험요소: 데이터 누수 발생 위험: 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 한다, 제출 파일 형식 오류 발생 위험: 제출 전 검증 스크립트를 반드시 돌려야 한다", "id": 505, "source_id": 75, "source_type": "meeting"}
-{"assignee_id": null, "content": "그래서 텍스트는 원문을 유지하고, 임베딩 모… - 그래서 텍스트는 원문을 유지하고, 임베딩 모델만 바꾸는 방향이 좋겠습니다 근거: 구성원P: 그래서 텍스트는 원문을 유지하고, 임베딩 모델만 바꾸는 방향이 좋겠습니다", "id": 507, "source_id": 481, "source_type": "action_item"}
-{"assignee_id": null, "content": "제출 마감이 7월 18일이라 모델 실험 로그… - 제출 마감이 7월 18일이라 모델 실험 로그를 정리하지 않으면 나중에 어떤 조합이 좋았는지 헷갈릴 것 같습니다 근거: 구성원T: 제출 마감이 7월 18일이라 모델 실험 로그를 정리하지 않으면 나중에 어떤 조합이 좋았는지 헷갈릴 것 같습니다", "id": 509, "source_id": 482, "source_type": "action_item"}
-{"assignee_id": null, "content": "실험 관리 표를 만들어야 - 실험 관리 표를 만들어야 합니다 근거: 구성원T: 실험 관리 표를 만들어야 합니다", "id": 511, "source_id": 483, "source_type": "action_item"}
-{"assignee_id": null, "content": "결정사항 정리 - 결정사항을 정리하겠습니다 근거: 구성원L: 결정사항을 정리하겠습니다", "id": 513, "source_id": 484, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 12일까지 결측치 처리 코드 정리 - 제가 7월 12일까지 결측치 처리 코드를 정리하겠습니다 근거: 구성원X: 제가 7월 12일까지 결측치 처리 코드를 정리하겠습니다", "id": 515, "source_id": 485, "source_type": "action_item"}
-{"assignee_id": null, "content": "텍스트 임베딩 실험 - 저는 텍스트 임베딩 실험을 맡겠습니다 근거: 구성원P: 저는 텍스트 임베딩 실험을 맡겠습니다", "id": 517, "source_id": 486, "source_type": "action_item"}
-{"assignee_id": null, "content": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 구성원P: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다", "id": 519, "source_id": 487, "source_type": "action_item"}
-{"assignee_id": null, "content": "LightGBM 하이퍼파라미터 튜닝은 제가 - LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다 근거: 구성원W: LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다", "id": 521, "source_id": 488, "source_type": "action_item"}
-{"assignee_id": null, "content": "learning_rate, num_leave… - learning_rate, num_leaves, max_depth를 중심으로 실험하겠습니다 근거: 구성원W: learning_rate, num_leaves, max_depth를 중심으로 실험하겠습니다", "id": 523, "source_id": 489, "source_type": "action_item"}
-{"assignee_id": null, "content": "실험 로그 템플릿과 제출 파일 검증 스크립트… - 실험 로그 템플릿과 제출 파일 검증 스크립트는 제가 만들겠습니다 근거: 구성원T: 실험 로그 템플릿과 제출 파일 검증 스크립트는 제가 만들겠습니다", "id": 525, "source_id": 490, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 12일 밤까지 공유 - 7월 12일 밤까지 공유하겠습니다 근거: 구성원T: 7월 12일 밤까지 공유하겠습니다", "id": 527, "source_id": 491, "source_type": "action_item"}
-{"assignee_id": null, "content": "전처리 과정에서 테스트 데이터를 기준으로 통… - 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 합니다 근거: 구성원L: 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 합니다", "id": 529, "source_id": 492, "source_type": "action_item"}
+{"assignee_id": null, "content": "그래서 텍스트는 원문을 유지하고, 임베딩 모… - 그래서 텍스트는 원문을 유지하고, 임베딩 모델만 바꾸는 방향이 좋겠습니다 근거: 구성원러: 그래서 텍스트는 원문을 유지하고, 임베딩 모델만 바꾸는 방향이 좋겠습니다", "id": 507, "source_id": 481, "source_type": "action_item"}
+{"assignee_id": null, "content": "제출 마감이 7월 18일이라 모델 실험 로그… - 제출 마감이 7월 18일이라 모델 실험 로그를 정리하지 않으면 나중에 어떤 조합이 좋았는지 헷갈릴 것 같습니다 근거: 구성원어: 제출 마감이 7월 18일이라 모델 실험 로그를 정리하지 않으면 나중에 어떤 조합이 좋았는지 헷갈릴 것 같습니다", "id": 509, "source_id": 482, "source_type": "action_item"}
+{"assignee_id": null, "content": "실험 관리 표를 만들어야 - 실험 관리 표를 만들어야 합니다 근거: 구성원어: 실험 관리 표를 만들어야 합니다", "id": 511, "source_id": 483, "source_type": "action_item"}
+{"assignee_id": null, "content": "결정사항 정리 - 결정사항을 정리하겠습니다 근거: 구성원파: 결정사항을 정리하겠습니다", "id": 513, "source_id": 484, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 12일까지 결측치 처리 코드 정리 - 제가 7월 12일까지 결측치 처리 코드를 정리하겠습니다 근거: 구성원터: 제가 7월 12일까지 결측치 처리 코드를 정리하겠습니다", "id": 515, "source_id": 485, "source_type": "action_item"}
+{"assignee_id": null, "content": "텍스트 임베딩 실험 - 저는 텍스트 임베딩 실험을 맡겠습니다 근거: 구성원러: 저는 텍스트 임베딩 실험을 맡겠습니다", "id": 517, "source_id": 486, "source_type": "action_item"}
+{"assignee_id": null, "content": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 구성원러: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다", "id": 519, "source_id": 487, "source_type": "action_item"}
+{"assignee_id": null, "content": "LightGBM 하이퍼파라미터 튜닝은 제가 - LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다 근거: 구성원커: LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다", "id": 521, "source_id": 488, "source_type": "action_item"}
+{"assignee_id": null, "content": "learning_rate, num_leave… - learning_rate, num_leaves, max_depth를 중심으로 실험하겠습니다 근거: 구성원커: learning_rate, num_leaves, max_depth를 중심으로 실험하겠습니다", "id": 523, "source_id": 489, "source_type": "action_item"}
+{"assignee_id": null, "content": "실험 로그 템플릿과 제출 파일 검증 스크립트… - 실험 로그 템플릿과 제출 파일 검증 스크립트는 제가 만들겠습니다 근거: 구성원어: 실험 로그 템플릿과 제출 파일 검증 스크립트는 제가 만들겠습니다", "id": 525, "source_id": 490, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 12일 밤까지 공유 - 7월 12일 밤까지 공유하겠습니다 근거: 구성원어: 7월 12일 밤까지 공유하겠습니다", "id": 527, "source_id": 491, "source_type": "action_item"}
+{"assignee_id": null, "content": "전처리 과정에서 테스트 데이터를 기준으로 통… - 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 합니다 근거: 구성원파: 전처리 과정에서 테스트 데이터를 기준으로 통계를 계산하지 않도록 주의해야 합니다", "id": 529, "source_id": 492, "source_type": "action_item"}
 {"assignee_id": null, "content": "공모전 제안서와 발표자료의 구조 및 담당을 결정하고, 각 구성 요소별로 마감일을 설정했다. 결정사항: 제안서 목차는 문제 정의, 기존 서비스 한계, 우리 서비스 차별점, 기능 구성, 기대효과 순서로 구성한다., 발표자료는 문제-해결-차별화-기술-기대효과 흐름으로 구성한다., 제안서와 발표자료는 7월 15일 1차 초안 완성을 목표로 진행한다. 위험요소: 자료가 너무 기술 중심으로 보일 수 있다. 심사위원이 바로 이해할 수 있도록 '사용자 문제'를 먼저 보여줘야 한다., 기존 서비스와의 차별성이 약해 보일 수 있다. Jira, Notion, Clova Note와 비교해서 우리 서비스가 팀프로젝트 평가까지 지원한다는 점을 강조해야 한다.", "id": 556, "source_id": 77, "source_type": "meeting"}
-{"assignee_id": null, "content": "공모전 제출 마감이 7월 21일입니다 - 공모전 제출 마감이 7월 21일입니다 근거: 구성원R: 공모전 제출 마감이 7월 21일입니다", "id": 557, "source_id": 505, "source_type": "action_item"}
-{"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다 근거: 구성원R: 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 558, "source_id": 506, "source_type": "action_item"}
-{"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다 근거: 구성원U: 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 559, "source_id": 507, "source_type": "action_item"}
-{"assignee_id": null, "content": "첫 장에는 팀 회의 장면이나 대시보드 예시 … - 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다 근거: 구성원N: 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "id": 560, "source_id": 508, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 14일까지 제안서 초안을 쓰 - 제가 7월 14일까지 제안서 초안을 쓰겠습니다 근거: 구성원M: 제가 7월 14일까지 제안서 초안을 쓰겠습니다", "id": 561, "source_id": 509, "source_type": "action_item"}
-{"assignee_id": null, "content": "기존 서비스 비교 표도 같이 넣 - 기존 서비스 비교 표도 같이 넣겠습니다 근거: 구성원M: 기존 서비스 비교 표도 같이 넣겠습니다", "id": 565, "source_id": 510, "source_type": "action_item"}
-{"assignee_id": null, "content": "발표자료 초안 - 저는 발표자료 초안을 맡겠습니다 근거: 구성원U: 저는 발표자료 초안을 맡겠습니다", "id": 569, "source_id": 511, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 15일까지 1차 디자인을 공유 - 7월 15일까지 1차 디자인을 공유하겠습니다 근거: 구성원U: 7월 15일까지 1차 디자인을 공유하겠습니다", "id": 571, "source_id": 512, "source_type": "action_item"}
-{"assignee_id": null, "content": "서비스 화면 목업과 아이콘은 제가 - 서비스 화면 목업과 아이콘은 제가 만들겠습니다 근거: 구성원N: 서비스 화면 목업과 아이콘은 제가 만들겠습니다", "id": 572, "source_id": 513, "source_type": "action_item"}
-{"assignee_id": null, "content": "특히 회의록 업로드 화면, 업무 보드 화면,… - 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다 근거: 구성원N: 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "id": 573, "source_id": 514, "source_type": "action_item"}
-{"assignee_id": null, "content": "전체 문장 톤과 제출 양식 검수 - 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다 근거: 구성원R: 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "id": 574, "source_id": 515, "source_type": "action_item"}
-{"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다 근거: 구성원R: 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 575, "source_id": 516, "source_type": "action_item"}
+{"assignee_id": null, "content": "공모전 제출 마감이 7월 21일입니다 - 공모전 제출 마감이 7월 21일입니다 근거: 구성원버: 공모전 제출 마감이 7월 21일입니다", "id": 557, "source_id": 505, "source_type": "action_item"}
+{"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다 근거: 구성원버: 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 558, "source_id": 506, "source_type": "action_item"}
+{"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다 근거: 구성원저: 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 559, "source_id": 507, "source_type": "action_item"}
+{"assignee_id": null, "content": "첫 장에는 팀 회의 장면이나 대시보드 예시 … - 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다 근거: 구성원너: 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "id": 560, "source_id": 508, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 14일까지 제안서 초안을 쓰 - 제가 7월 14일까지 제안서 초안을 쓰겠습니다 근거: 구성원하: 제가 7월 14일까지 제안서 초안을 쓰겠습니다", "id": 561, "source_id": 509, "source_type": "action_item"}
+{"assignee_id": null, "content": "기존 서비스 비교 표도 같이 넣 - 기존 서비스 비교 표도 같이 넣겠습니다 근거: 구성원하: 기존 서비스 비교 표도 같이 넣겠습니다", "id": 565, "source_id": 510, "source_type": "action_item"}
+{"assignee_id": null, "content": "발표자료 초안 - 저는 발표자료 초안을 맡겠습니다 근거: 구성원저: 저는 발표자료 초안을 맡겠습니다", "id": 569, "source_id": 511, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 15일까지 1차 디자인을 공유 - 7월 15일까지 1차 디자인을 공유하겠습니다 근거: 구성원저: 7월 15일까지 1차 디자인을 공유하겠습니다", "id": 571, "source_id": 512, "source_type": "action_item"}
+{"assignee_id": null, "content": "서비스 화면 목업과 아이콘은 제가 - 서비스 화면 목업과 아이콘은 제가 만들겠습니다 근거: 구성원너: 서비스 화면 목업과 아이콘은 제가 만들겠습니다", "id": 572, "source_id": 513, "source_type": "action_item"}
+{"assignee_id": null, "content": "특히 회의록 업로드 화면, 업무 보드 화면,… - 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다 근거: 구성원너: 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "id": 573, "source_id": 514, "source_type": "action_item"}
+{"assignee_id": null, "content": "전체 문장 톤과 제출 양식 검수 - 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다 근거: 구성원버: 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "id": 574, "source_id": 515, "source_type": "action_item"}
+{"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다 근거: 구성원버: 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 575, "source_id": 516, "source_type": "action_item"}
 {"assignee_id": null, "content": "프론트엔드, 백엔드, 데이터베이스 및 발표자료 관련 진행 상황을 점검하고, API 형식, 토큰 저장 방식, ERD 구조 등에 대한 결정사항을 도출하며, 각 항목의 마감일을 설정했다. 결정사항: API 응답 형식을 success, data, error로 통일한다, refresh token을 DB에 저장한다, comments를 개인과 팀 코멘트로 구분한다 위험요소: API 명세 지연과 발표자료 이미지 부족이 발생할 수 있다", "id": 576, "source_id": 78, "source_type": "meeting"}
-{"assignee_id": null, "content": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다 근거: 구성원S: 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다", "id": 577, "source_id": 517, "source_type": "action_item"}
-{"assignee_id": null, "content": "로그인 화면과 메인 대시보드 화면까지 만들었 - 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다 근거: 구성원Q: 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다", "id": 578, "source_id": 518, "source_type": "action_item"}
-{"assignee_id": null, "content": "다만 API 응답 형식이 아직 확정되지 않아… - 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다 근거: 구성원Q: 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다", "id": 579, "source_id": 519, "source_type": "action_item"}
-{"assignee_id": null, "content": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 구성원O: 데이터베이스 ERD는 1차로 만들었습니다", "id": 580, "source_id": 520, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 14일까지 대시보드 화면에 mock 데… - 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다 근거: 구성원Q: 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다", "id": 581, "source_id": 521, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 구성원V: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다", "id": 582, "source_id": 522, "source_type": "action_item"}
-{"assignee_id": null, "content": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 구성원O: ERD 수정본은 오늘 밤까지 공유하겠습니다", "id": 583, "source_id": 523, "source_type": "action_item"}
-{"assignee_id": null, "content": "공모전 제출 마감이 7월 212131231일… - 공모전 제출 마감이 7월 212131231일입니다 근거: 구성원R: 공모전 제출 마감이 7월 212131231일입니다", "id": 689, "source_id": 573, "source_type": "action_item"}
-{"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다 근거: 구성원R: 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 691, "source_id": 574, "source_type": "action_item"}
-{"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다 근거: 구성원U: 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 693, "source_id": 575, "source_type": "action_item"}
-{"assignee_id": null, "content": "첫 장에는 팀 회의 장면이나 대시보드 예시 … - 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다 근거: 구성원N: 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "id": 696, "source_id": 576, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 14일까지 제안서 초안을 쓰 - 제가 7월 14일까지 제안서 초안을 쓰겠습니다 근거: 구성원M: 제가 7월 14일까지 제안서 초안을 쓰겠습니다", "id": 698, "source_id": 577, "source_type": "action_item"}
-{"assignee_id": null, "content": "기존 서비스 비교 표도 같이 넣 - 기존 서비스 비교 표도 같이 넣겠습니다 근거: 구성원M: 기존 서비스 비교 표도 같이 넣겠습니다", "id": 701, "source_id": 578, "source_type": "action_item"}
-{"assignee_id": null, "content": "발표자료 초안 - 저는 발표자료 초안을 맡겠습니다 근거: 구성원U: 저는 발표자료 초안을 맡겠습니다", "id": 703, "source_id": 579, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 15일까지 1차 디자인을 공유 - 7월 15일까지 1차 디자인을 공유하겠습니다 근거: 구성원U: 7월 15일까지 1차 디자인을 공유하겠습니다", "id": 705, "source_id": 580, "source_type": "action_item"}
-{"assignee_id": null, "content": "서비스 화면 목업과 아이콘은 제가 - 서비스 화면 목업과 아이콘은 제가 만들겠습니다 근거: 구성원N: 서비스 화면 목업과 아이콘은 제가 만들겠습니다", "id": 707, "source_id": 581, "source_type": "action_item"}
-{"assignee_id": null, "content": "특히 회의록 업로드 화면, 업무 보드 화면,… - 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다 근거: 구성원N: 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "id": 708, "source_id": 582, "source_type": "action_item"}
-{"assignee_id": null, "content": "전체 문장 톤과 제출 양식 검수 - 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다 근거: 구성원R: 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "id": 709, "source_id": 583, "source_type": "action_item"}
-{"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다 근거: 구성원R: 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 710, "source_id": 584, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다 근거: 구성원서: 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다", "id": 577, "source_id": 517, "source_type": "action_item"}
+{"assignee_id": null, "content": "로그인 화면과 메인 대시보드 화면까지 만들었 - 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다 근거: 구성원머: 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다", "id": 578, "source_id": 518, "source_type": "action_item"}
+{"assignee_id": null, "content": "다만 API 응답 형식이 아직 확정되지 않아… - 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다 근거: 구성원머: 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다", "id": 579, "source_id": 519, "source_type": "action_item"}
+{"assignee_id": null, "content": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 구성원더: 데이터베이스 ERD는 1차로 만들었습니다", "id": 580, "source_id": 520, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 14일까지 대시보드 화면에 mock 데… - 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다 근거: 구성원머: 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다", "id": 581, "source_id": 521, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 구성원처: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다", "id": 582, "source_id": 522, "source_type": "action_item"}
+{"assignee_id": null, "content": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 구성원더: ERD 수정본은 오늘 밤까지 공유하겠습니다", "id": 583, "source_id": 523, "source_type": "action_item"}
+{"assignee_id": null, "content": "공모전 제출 마감이 7월 212131231일… - 공모전 제출 마감이 7월 212131231일입니다 근거: 구성원버: 공모전 제출 마감이 7월 212131231일입니다", "id": 689, "source_id": 573, "source_type": "action_item"}
+{"assignee_id": null, "content": "제안서 목차와 발표자료 역할을 나누 - 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다 근거: 구성원버: 오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "id": 691, "source_id": 574, "source_type": "action_item"}
+{"assignee_id": null, "content": "회의록 AI가 업무와 기여도 평가로 연결된다… - 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다 근거: 구성원저: 핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "id": 693, "source_id": 575, "source_type": "action_item"}
+{"assignee_id": null, "content": "첫 장에는 팀 회의 장면이나 대시보드 예시 … - 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다 근거: 구성원너: 첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "id": 696, "source_id": 576, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 14일까지 제안서 초안을 쓰 - 제가 7월 14일까지 제안서 초안을 쓰겠습니다 근거: 구성원하: 제가 7월 14일까지 제안서 초안을 쓰겠습니다", "id": 698, "source_id": 577, "source_type": "action_item"}
+{"assignee_id": null, "content": "기존 서비스 비교 표도 같이 넣 - 기존 서비스 비교 표도 같이 넣겠습니다 근거: 구성원하: 기존 서비스 비교 표도 같이 넣겠습니다", "id": 701, "source_id": 578, "source_type": "action_item"}
+{"assignee_id": null, "content": "발표자료 초안 - 저는 발표자료 초안을 맡겠습니다 근거: 구성원저: 저는 발표자료 초안을 맡겠습니다", "id": 703, "source_id": 579, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 15일까지 1차 디자인을 공유 - 7월 15일까지 1차 디자인을 공유하겠습니다 근거: 구성원저: 7월 15일까지 1차 디자인을 공유하겠습니다", "id": 705, "source_id": 580, "source_type": "action_item"}
+{"assignee_id": null, "content": "서비스 화면 목업과 아이콘은 제가 - 서비스 화면 목업과 아이콘은 제가 만들겠습니다 근거: 구성원너: 서비스 화면 목업과 아이콘은 제가 만들겠습니다", "id": 707, "source_id": 581, "source_type": "action_item"}
+{"assignee_id": null, "content": "특히 회의록 업로드 화면, 업무 보드 화면,… - 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다 근거: 구성원너: 특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "id": 708, "source_id": 582, "source_type": "action_item"}
+{"assignee_id": null, "content": "전체 문장 톤과 제출 양식 검수 - 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다 근거: 구성원버: 저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "id": 709, "source_id": 583, "source_type": "action_item"}
+{"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다 근거: 구성원버: 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 710, "source_id": 584, "source_type": "action_item"}
 {"assignee_id": null, "content": "제안서 구조 정의하기 - 기능 구성, 기대 효과, 기존 서비스 비교 순으로 제안서를 구성한다. 근거: 발표자료 구성 회의 회", "id": 746, "source_id": 602, "source_type": "action_item"}
 {"assignee_id": null, "content": "사용자 중심 구성 검토하기 - 사용자 이해를 위해 문제를 중심으로 구성하고, 바로 이해할 수 있도록 한다. 근거: 발표자료 구성 회의 회", "id": 747, "source_id": 603, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다 근거: 구성원S: 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다", "id": 749, "source_id": 604, "source_type": "action_item"}
-{"assignee_id": null, "content": "로그인 화면과 메인 대시보드 화면까지 만들었 - 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다 근거: 구성원Q: 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다", "id": 750, "source_id": 605, "source_type": "action_item"}
-{"assignee_id": null, "content": "다만 API 응답 형식이 아직 확정되지 않아… - 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다 근거: 구성원Q: 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다", "id": 751, "source_id": 606, "source_type": "action_item"}
-{"assignee_id": null, "content": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 구성원O: 데이터베이스 ERD는 1차로 만들었습니다", "id": 756, "source_id": 607, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 14일까지 대시보드 화면에 mock 데… - 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다 근거: 구성원Q: 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다", "id": 757, "source_id": 608, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 구성원V: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다", "id": 758, "source_id": 609, "source_type": "action_item"}
-{"assignee_id": null, "content": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 구성원O: ERD 수정본은 오늘 밤까지 공유하겠습니다", "id": 759, "source_id": 610, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다 근거: 구성원서: 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다", "id": 749, "source_id": 604, "source_type": "action_item"}
+{"assignee_id": null, "content": "로그인 화면과 메인 대시보드 화면까지 만들었 - 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다 근거: 구성원머: 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다", "id": 750, "source_id": 605, "source_type": "action_item"}
+{"assignee_id": null, "content": "다만 API 응답 형식이 아직 확정되지 않아… - 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다 근거: 구성원머: 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다", "id": 751, "source_id": 606, "source_type": "action_item"}
+{"assignee_id": null, "content": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 구성원더: 데이터베이스 ERD는 1차로 만들었습니다", "id": 756, "source_id": 607, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 14일까지 대시보드 화면에 mock 데… - 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다 근거: 구성원머: 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다", "id": 757, "source_id": 608, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 구성원처: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다", "id": 758, "source_id": 609, "source_type": "action_item"}
+{"assignee_id": null, "content": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 구성원더: ERD 수정본은 오늘 밤까지 공유하겠습니다", "id": 759, "source_id": 610, "source_type": "action_item"}
 {"assignee_id": null, "content": "회의 원문 테스트입니다 - 회의 원문 테스트입니다 근거: 회의 원문 테스트입니다", "id": 761, "source_id": 611, "source_type": "action_item"}
 {"assignee_id": null, "content": "담당자 배정 논의 - 담당자 배정 논의 근거: 담당자 배정 논의", "id": 762, "source_id": 612, "source_type": "action_item"}
 {"assignee_id": 1, "content": "로컬 compose 스모크 테스트 업무", "id": 876, "source_id": 345, "source_type": "task"}
 {"assignee_id": null, "content": "프론트엔드, 백엔드, 데이터베이스, 발표자료 관련 업무를 분산하여 마감일을 설정하고, API 명세 통일 및 리프레시 토큰 저장 방식을 결정했다. 결정사항: API 응답 형식은 success, data, error로 통일한다, 리프레시 토큰은 DB에 저장한다, comments는 개인 코멘트와 팀 코멘트를 type으로 구분한다 위험요소: API 명세 지연과 발표자료 이미지 부족", "id": 929, "source_id": 110, "source_type": "meeting"}
-{"assignee_id": null, "content": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다 근거: 구성원S: 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다", "id": 930, "source_id": 680, "source_type": "action_item"}
-{"assignee_id": null, "content": "로그인 화면과 메인 대시보드 화면까지 만들었 - 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다 근거: 구성원Q: 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다", "id": 935, "source_id": 681, "source_type": "action_item"}
-{"assignee_id": null, "content": "다만 API 응답 형식이 아직 확정되지 않아… - 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다 근거: 구성원Q: 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다", "id": 938, "source_id": 682, "source_type": "action_item"}
-{"assignee_id": null, "content": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 구성원O: 데이터베이스 ERD는 1차로 만들었습니다", "id": 940, "source_id": 683, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 14일까지 대시보드 화면에 mock 데… - 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다 근거: 구성원Q: 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다", "id": 943, "source_id": 684, "source_type": "action_item"}
-{"assignee_id": null, "content": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 구성원V: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다", "id": 945, "source_id": 685, "source_type": "action_item"}
-{"assignee_id": null, "content": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 구성원O: ERD 수정본은 오늘 밤까지 공유하겠습니다", "id": 948, "source_id": 686, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 17일이라 오늘은 기능별 진행률과 블로… - 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다 근거: 구성원서: 중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다", "id": 930, "source_id": 680, "source_type": "action_item"}
+{"assignee_id": null, "content": "로그인 화면과 메인 대시보드 화면까지 만들었 - 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다 근거: 구성원머: 프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다", "id": 935, "source_id": 681, "source_type": "action_item"}
+{"assignee_id": null, "content": "다만 API 응답 형식이 아직 확정되지 않아… - 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다 근거: 구성원머: 다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다", "id": 938, "source_id": 682, "source_type": "action_item"}
+{"assignee_id": null, "content": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 구성원더: 데이터베이스 ERD는 1차로 만들었습니다", "id": 940, "source_id": 683, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 14일까지 대시보드 화면에 mock 데… - 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다 근거: 구성원머: 제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다", "id": 943, "source_id": 684, "source_type": "action_item"}
+{"assignee_id": null, "content": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 구성원처: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다", "id": 945, "source_id": 685, "source_type": "action_item"}
+{"assignee_id": null, "content": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 구성원더: ERD 수정본은 오늘 밤까지 공유하겠습니다", "id": 948, "source_id": 686, "source_type": "action_item"}
 {"assignee_id": 11, "content": "7월 17일이라 오늘은 기능별 진행률과 블로…", "id": 950, "source_id": 362, "source_type": "task"}
 {"assignee_id": 9, "content": "로그인 화면과 메인 대시보드 화면까지 만들었", "id": 951, "source_id": 363, "source_type": "task"}
 {"assignee_id": 4, "content": "다만 API 응답 형식이 아직 확정되지 않아…", "id": 952, "source_id": 364, "source_type": "task"}

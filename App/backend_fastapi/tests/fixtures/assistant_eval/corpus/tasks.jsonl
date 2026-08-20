@@ -108,7 +108,7 @@
 {"assignee_id": 11, "description": "경쟁사 분석", "due_date": null, "id": 231, "priority": "medium", "status": "todo", "title": "시장 조사"}
 {"assignee_id": 4, "description": null, "due_date": "2026-08-28", "id": 232, "priority": "medium", "status": "done", "title": "GitHub 연동"}
 {"assignee_id": null, "description": null, "due_date": "2026-09-30", "id": 233, "priority": "medium", "status": "done", "title": "DB 연결"}
-{"assignee_id": 11, "description": null, "due_date": "2026-09-30", "id": 234, "priority": "medium", "status": "todo", "title": "구성원I test"}
+{"assignee_id": 11, "description": null, "due_date": "2026-09-30", "id": 234, "priority": "medium", "status": "todo", "title": "구성원차 test"}
 {"assignee_id": null, "description": null, "due_date": "2026-09-01", "id": 242, "priority": "medium", "status": "todo", "title": "테스트"}
 {"assignee_id": 1, "description": "대시보드 테스트1", "due_date": "2026-10-01", "id": 247, "priority": "low", "status": "done", "title": "대시보드 테스트1"}
 {"assignee_id": 1, "description": "테스트/대시보드-전체 업무 관리", "due_date": "2026-07-26", "id": 249, "priority": "medium", "status": "done", "title": "테스트/대시보드-전체 업무 관리"}

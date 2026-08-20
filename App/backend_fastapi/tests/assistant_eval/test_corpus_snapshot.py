@@ -36,7 +36,8 @@ SPEAKER_SLOT_VOCABULARY = frozenset(
     {"근거", "목적", "시나리오", "기능", "결정사항", "위험요소", "제목", "일자", "유형", "참석자", "위험"}
 )
 
-# 마스킹 대상이던 실명 21개의 해시.
+# 마스킹 대상이던 실명 26개의 해시. 이 코퍼스에 나오는 21명뿐 아니라 레포 다른 곳에서만
+# 나오는 5명도 넣는다. 코퍼스가 갱신되며 그 이름이 흘러들어와도 걸리게 하려는 것이다.
 #
 # 이것은 **비밀이 아니다.** 소금이 바로 아래 평문으로 있고 평문 공간은 2~3자 한글 이름이라
 # 전수 대입이 몇 분이면 끝난다. 실명을 감추는 장치로 오해하지 말 것. 이름을 목록으로
@@ -48,23 +49,45 @@ SPEAKER_SLOT_VOCABULARY = frozenset(
 # 이름이 `담당` 뒤에 와서 두 패턴 어디에도 안 걸렸다. 그래서 위치를 보지 않고 본문 전체의
 # 한글 토막을 훑는다.
 _NAME_SALT = "workflow-eval-corpus"
-# 아래 집합에 4자 이상 이름의 해시를 더하면 이 길이도 같이 늘려야 한다. 안 그러면 스캐너가
-# 그 길이의 토막을 아예 만들지 않아 조용히 검사에서 빠진다.
-_NAME_LENGTHS = (2, 3)
+# 아래 집합에 5자 이상 이름의 해시를 더하면 이 길이도 같이 늘려야 한다. 안 그러면 스캐너가
+# 그 길이의 토막을 아예 만들지 않아 조용히 검사에서 빠진다. 실제로 4자 이름 하나가
+# 그렇게 빠져 있었다.
+_NAME_LENGTHS = (2, 3, 4)
 _MASKED_NAME_DIGESTS = frozenset({
-    "0caf46d9cc98b270", "21d04170e1d5e683", "6628a5b7ec7dbc2d", "67f9f12ef2bc840b",
-    "7996afcdbb255f45", "7db2409daea2f22c", "7dfc8160a34b4e6a", "8428808ad5ef33d1",
-    "92f68284bc72edae", "ac8eb1c5d8d2bf10", "b336e8c7f08598af", "c1b33cc7f9801f97",
+    "039663d820936be7", "0caf46d9cc98b270", "21d04170e1d5e683", "545102e38816f071",
+    "5b55593f59f06c05", "6628a5b7ec7dbc2d", "67f9f12ef2bc840b", "7996afcdbb255f45",
+    "7db2409daea2f22c", "7dfc8160a34b4e6a", "8428808ad5ef33d1", "92f68284bc72edae",
+    "ac8eb1c5d8d2bf10", "ad51f062c96f79a2", "b336e8c7f08598af", "c1b33cc7f9801f97",
     "c305ab6f5363a4e2", "ca58aa8badd9e4c0", "d5fd402f53904123", "d8f273e313f43f23",
-    "d91e5e55aa129107", "d9554fbbef4b182c", "ea1a7a442026fb19", "ee83264f4b686b84",
-    "f41370c68bf47384",
+    "d91e5e55aa129107", "d9554fbbef4b182c", "e4136ee9f3d7ab6f", "ea1a7a442026fb19",
+    "ee83264f4b686b84", "f41370c68bf47384",
 })
 _HANGUL_RUN = re.compile(r"[가-힣]+")
 
-_ALIAS = re.compile(r"^구성원[A-Z]$")
-# 별칭(`구성원A:`)도 잡아야 한다. 한글만 잡으면 화자 자리에 오는 별칭이 아예 안 걸려서
-# 아래 _ALIAS 검사가 한 번도 실행되지 않는 죽은 가지가 된다.
-_SPEAKER_SLOT = re.compile(r"(?:^|[\s,\[])([가-힣]{2,4}[A-Z]?)\s*:")
+# 별칭은 순수 한글 4자다(`구성원나`). 라틴 문자를 섞으면 운영 코드의 이름 추출이
+# `[가-힣]{2,4}` 라서 별칭을 통째로 못 보고, 화자·담당자 파싱이 빈 값으로 지나간다.
+# 끝음절은 조사(`은`·`는`·`이`·`가`)와 겹치지 않는 것만 쓴다 - 겹치면 정규식이 역추적해
+# `구성원` 만 잡아내고 별칭이 쪼개진다.
+_ALIAS = re.compile(r"^구성원[가-힣]$")
+
+
+def _known_aliases() -> frozenset[str]:
+    """실제로 쓰이는 별칭 집합. `구성원[가-힣]` 같은 느슨한 패턴으로 대신하면 안 된다.
+
+    그 패턴은 "각 구성원이 업무를 맡아" 처럼 별칭이 아닌 평범한 낱말까지 별칭으로 본다.
+    아래 _blank_aliases 가 그 자리를 지워 버리면 그 네 글자는 다시는 훑지 않는다.
+    """
+    people = json.loads((CORPUS / "people.json").read_text(encoding="utf-8"))
+    names = frozenset(people["users"].values()) | frozenset(people["transcript_only"])
+    # 지우는 쪽이 무엇을 지우는지 스스로 확인해야 한다. people.json 에 실명이 섞여 들어오면
+    # 그 이름이 있는 자리가 통째로 검사에서 빠진다.
+    bad = sorted(n for n in names if not _ALIAS.fullmatch(n))
+    assert not bad, f"people.json 에 별칭 형식이 아닌 항목이 있다: {bad}"
+    return names
+
+
+_ALIAS_OCCURRENCE = re.compile("|".join(re.escape(a) for a in sorted(_known_aliases())))
+_SPEAKER_SLOT = re.compile(r"(?:^|[\s,\[])([가-힣]{2,4})\s*:")
 _ATTENDEE_LINE = re.compile(r"참석자:\s*([^\[\]\n]+)")
 
 
@@ -116,10 +139,21 @@ def _digest(token: str) -> str:
     return hashlib.sha256((_NAME_SALT + token).encode("utf-8")).hexdigest()[:16]
 
 
+def _blank_aliases(text: str) -> str:
+    """별칭 자리를 같은 길이의 비한글로 덮는다.
+
+    별칭 뒤에 조사가 바로 붙으면 경계를 걸친 토막이 우연히 실명과 같아진다 - 실제로
+    `구성원다` + `은` 이 화자 이름 하나와 똑같아졌다. 실명이 남은 게 아니라 이어 붙어
+    생긴 것이므로 훑기 전에 걷어낸다. 별칭 자리만 덮으므로 그 뒤에 진짜 실명이 붙어
+    있으면 그건 그대로 걸린다. 길이를 유지해야 실패 메시지의 오프셋이 실제 위치를 가리킨다.
+    """
+    return _ALIAS_OCCURRENCE.sub(lambda m: "_" * len(m.group()), text)
+
+
 def _masked_names_in(text: str) -> list[tuple[int, str]]:
     """(오프셋, 걸린 토큰) 목록. 어디서 걸렸는지 알아야 고칠 수 있다."""
     hits = []
-    for run in _HANGUL_RUN.finditer(text):
+    for run in _HANGUL_RUN.finditer(_blank_aliases(text)):
         chunk = run.group()
         for size in _NAME_LENGTHS:
             for i in range(len(chunk) - size + 1):
