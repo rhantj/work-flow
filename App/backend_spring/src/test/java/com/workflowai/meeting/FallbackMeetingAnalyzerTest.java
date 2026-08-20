@@ -12,15 +12,15 @@ class FallbackMeetingAnalyzerTest {
     private final FallbackMeetingAnalyzer analyzer = new FallbackMeetingAnalyzer();
 
     private static final String CAPSTONE_KICKOFF_TRANSCRIPT = """
-        고무서: 전체 범위와 1주차 개발 목표를 정리하겠습니다.
-        곽진아: 인증과 권한 구조는 제가 먼저 잡겠습니다. Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다.
-        박지수: 저는 회의록 AI 분석을 맡겠습니다. 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다.
-        허영주: 업무 보드는 네 개 상태로 가면 될 것 같습니다. 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다.
-        유소은: 대시보드는 완료율, 마감 임박 업무, 블로커, 팀원별 업무량을 보여주겠습니다. ML 지연 위험도는 처음에는 규칙 기반으로 만들겠습니다.
-        박상준: AI Assistant는 RAG 구조로 설계하겠습니다.
-        이은주: 심사자 화면에서는 개인별 기여도 리포트와 AI 평가 근거를 볼 수 있게 하겠습니다.
-        곽진아: API 명세는 공통 응답 형식을 맞춰야 합니다.
-        박지수: 회의록 분석 결과는 summary, decisions, todos, risks, keywords 형식으로 고정하겠습니다.
+        구성원자: 전체 범위와 1주차 개발 목표를 정리하겠습니다.
+        구성원타: 인증과 권한 구조는 제가 먼저 잡겠습니다. Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다.
+        구성원카: 저는 회의록 AI 분석을 맡겠습니다. 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다.
+        구성원나: 업무 보드는 네 개 상태로 가면 될 것 같습니다. 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다.
+        구성원라: 대시보드는 완료율, 마감 임박 업무, 블로커, 팀원별 업무량을 보여주겠습니다. ML 지연 위험도는 처음에는 규칙 기반으로 만들겠습니다.
+        구성원다: AI Assistant는 RAG 구조로 설계하겠습니다.
+        구성원사: 심사자 화면에서는 개인별 기여도 리포트와 AI 평가 근거를 볼 수 있게 하겠습니다.
+        구성원타: API 명세는 공통 응답 형식을 맞춰야 합니다.
+        구성원카: 회의록 분석 결과는 summary, decisions, todos, risks, keywords 형식으로 고정하겠습니다.
         """;
 
     @Test
@@ -33,7 +33,7 @@ class FallbackMeetingAnalyzerTest {
             "document",
             "kickoff.txt",
             CAPSTONE_KICKOFF_TRANSCRIPT,
-            List.of("김민준", "이서연", "박지수", "최동혁")
+            List.of("김민준", "이서연", "구성원카", "최동혁")
         );
 
         MeetingAnalysisResult result = analyzer.analyze(request);
@@ -43,11 +43,11 @@ class FallbackMeetingAnalyzerTest {
             .collect(Collectors.groupingBy(name -> name, Collectors.counting()));
 
         // 선택된 참석자/프로젝트 멤버가 아닌 이름은 담당 후보로 채택하지 않고 미배정으로 남겨야 한다.
-        assertThat(candidateCounts.keySet()).contains("박지수", "");
+        assertThat(candidateCounts.keySet()).contains("구성원카", "");
         assertThat(candidateCounts.keySet()).doesNotContain(
-            "고무서", "곽진아", "허영주", "유소은", "박상준", "이은주"
+            "구성원자", "구성원타", "구성원나", "구성원라", "구성원다", "구성원사"
         );
-        assertThat(candidateCounts.get("박지수")).isLessThan((long) result.todos().size());
+        assertThat(candidateCounts.get("구성원카")).isLessThan((long) result.todos().size());
     }
 
     @Test
@@ -59,15 +59,15 @@ class FallbackMeetingAnalyzerTest {
             "정기회의",
             "document",
             "notes.txt",
-            "유소은은 API 문서를 정리한다. 김민준이 발표자료를 작성한다.",
-            List.of("김민준", "이서연", "박지수", "최동혁")
+            "구성원라는 API 문서를 정리한다. 김민준이 발표자료를 작성한다.",
+            List.of("김민준", "이서연", "구성원카", "최동혁")
         );
 
         MeetingAnalysisResult result = analyzer.analyze(request);
 
         List<String> candidates = result.todos().stream().map(MeetingTodo::assignee_candidate).toList();
         assertThat(candidates).contains("", "김민준");
-        assertThat(candidates).doesNotContain("유소은");
+        assertThat(candidates).doesNotContain("구성원라");
     }
 
     @Test

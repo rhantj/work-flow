@@ -85,7 +85,7 @@ public final class MeetingTemplateParser {
     private static final List<String> BOILERPLATE_PREFIXES = List.of("내용 (", "※");
 
     /**
-     * 실행항목 예시 행("(예시) 박지수 · ...")의 접두사. 목록에 문구 전체를 넣지 않은 이유는
+     * 실행항목 예시 행("(예시) 김민준 · ...")의 접두사. 목록에 문구 전체를 넣지 않은 이유는
      * 사용자가 예시를 지우지 않고 그 아래에 이어서 적는 경우가 흔한데, 그러면 뒤 문구가
      * 조금만 달라져도 목록 방식은 걸러내지 못하기 때문이다.
      */

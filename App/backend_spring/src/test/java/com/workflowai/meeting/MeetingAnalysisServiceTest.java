@@ -182,7 +182,7 @@ class MeetingAnalysisServiceTest {
         );
 
         service.analyze(
-            "demo-project", file, "PDF 회의록", "2026-07-20", "정기회의", "document", List.of("박지수"), null
+            "demo-project", file, "PDF 회의록", "2026-07-20", "정기회의", "document", List.of("구성원카"), null
         );
 
         ArgumentCaptor<AiAnalyzeRequest> requestCaptor = ArgumentCaptor.forClass(AiAnalyzeRequest.class);
@@ -233,7 +233,7 @@ class MeetingAnalysisServiceTest {
         );
 
         service.analyze(
-            "demo-project", file, "DOCX 회의록", "2026-07-20", "정기회의", "document", List.of("박지수"), null
+            "demo-project", file, "DOCX 회의록", "2026-07-20", "정기회의", "document", List.of("구성원카"), null
         );
 
         ArgumentCaptor<AiAnalyzeRequest> requestCaptor = ArgumentCaptor.forClass(AiAnalyzeRequest.class);
@@ -254,7 +254,7 @@ class MeetingAnalysisServiceTest {
         );
 
         service.analyze(
-            "demo-project", file, "한글 파일명 회의록", "2026-07-20", "정기회의", "document", List.of("박지수"), null
+            "demo-project", file, "한글 파일명 회의록", "2026-07-20", "정기회의", "document", List.of("구성원카"), null
         );
 
         ArgumentCaptor<Meeting> meetingCaptor = ArgumentCaptor.forClass(Meeting.class);
@@ -1156,7 +1156,7 @@ class MeetingAnalysisServiceTest {
 
     @Test
     void registerTasksUsesCurrentUserAsCreatedByNotHardcodedDemoUser() {
-        UserPrincipal otherLeader = new UserPrincipal(25L, "leader@example.com", "박지수");
+        UserPrincipal otherLeader = new UserPrincipal(25L, "leader@example.com", "구성원카");
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(otherLeader, null, List.of())
         );
@@ -1182,7 +1182,7 @@ class MeetingAnalysisServiceTest {
     // 목록/집계는 같은 tasks 테이블을 보므로 이미 맞았지만, 활동 로그는 이 경로만 통째로 빠져 있었다.
     @Test
     void registerTasksRecordsTaskCreatedActivityForDashboard() {
-        UserPrincipal leader = new UserPrincipal(25L, "leader@example.com", "박지수");
+        UserPrincipal leader = new UserPrincipal(25L, "leader@example.com", "구성원카");
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(leader, null, List.of())
         );
@@ -1260,7 +1260,7 @@ class MeetingAnalysisServiceTest {
     // 비어버리던 문제. 회의 날짜의 연도로 채워 업무보드와 어긋나지 않게 한다.
     @Test
     void registerTasksMapsNonIsoDueDateToTaskDueDate() {
-        UserPrincipal leader = new UserPrincipal(25L, "leader@example.com", "박지수");
+        UserPrincipal leader = new UserPrincipal(25L, "leader@example.com", "구성원카");
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(leader, null, List.of())
         );
@@ -1286,7 +1286,7 @@ class MeetingAnalysisServiceTest {
     // 역할분배 화면에서 MM.DD로 입력한 시작일이 업무의 시작일로 저장돼야 한다.
     @Test
     void registerTasksMapsStartDateToTask() {
-        UserPrincipal leader = new UserPrincipal(25L, "leader@example.com", "박지수");
+        UserPrincipal leader = new UserPrincipal(25L, "leader@example.com", "구성원카");
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(leader, null, List.of())
         );
@@ -1357,7 +1357,7 @@ class MeetingAnalysisServiceTest {
     // 회의록에서 등록한 업무는 보드 맨 위에 와야 하므로 기존 최솟값보다 작은 position을 받는다.
     @Test
     void registerTasksPlacesNewTaskAboveExistingOnes() {
-        UserPrincipal leader = new UserPrincipal(25L, "leader@example.com", "박지수");
+        UserPrincipal leader = new UserPrincipal(25L, "leader@example.com", "구성원카");
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(leader, null, List.of())
         );
@@ -1409,7 +1409,7 @@ class MeetingAnalysisServiceTest {
     void confirmSaveMarksSavedAtWithoutSendingASeparateNotification() {
         // 저장 확정 알림은 보내지 않는다 - 분석 완료 시(MeetingAnalysisPersistence)
         // 이미 MEETING_ANALYSIS_COMPLETED_NOTIFY_LEADER로 알림이 간 상태라 중복 알림을 막는다.
-        UserPrincipal uploader = new UserPrincipal(10L, "uploader@example.com", "박지수");
+        UserPrincipal uploader = new UserPrincipal(10L, "uploader@example.com", "구성원카");
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(uploader, null, List.of())
         );
@@ -1447,7 +1447,7 @@ class MeetingAnalysisServiceTest {
 
     @Test
     void createVersionSavesOnlyWhenTriggerAnalysisIsFalse() {
-        UserPrincipal editor = new UserPrincipal(10L, "editor@example.com", "박지수");
+        UserPrincipal editor = new UserPrincipal(10L, "editor@example.com", "구성원카");
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(editor, null, List.of())
         );

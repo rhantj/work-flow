@@ -32,12 +32,12 @@ public class DemoDataService implements ApplicationRunner {
     }
 
     private static final List<DemoMember> DEMO_MEMBERS = List.of(
-        new DemoMember("1", "허영주", ProjectRole.LEADER),
-        new DemoMember("2", "박상준", ProjectRole.MEMBER),
-        new DemoMember("3", "유소은", ProjectRole.MEMBER),
-        new DemoMember("4", "이은주", ProjectRole.MEMBER),
-        new DemoMember("5", "박지수", ProjectRole.MEMBER),
-        new DemoMember("6", "고무서", ProjectRole.REVIEWER),
+        new DemoMember("1", "김민준", ProjectRole.LEADER),
+        new DemoMember("2", "이서연", ProjectRole.MEMBER),
+        new DemoMember("3", "최동혁", ProjectRole.MEMBER),
+        new DemoMember("4", "김도현", ProjectRole.MEMBER),
+        new DemoMember("5", "정하늘", ProjectRole.MEMBER),
+        new DemoMember("6", "오세진", ProjectRole.REVIEWER),
         new DemoMember("7", "홍길동", ProjectRole.MEMBER)
     );
 

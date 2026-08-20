@@ -165,7 +165,7 @@ class TaskCommentControllerFeedbackTest {
         when(taskCommentRepository.save(any(TaskComment.class)))
             .thenAnswer(inv -> inv.getArgument(0));
         when(userRepository.findById(1L))
-            .thenReturn(Optional.of(new User("assignee@workflow.ai", "박지수", "demo", "3")));
+            .thenReturn(Optional.of(new User("assignee@workflow.ai", "구성원카", "demo", "3")));
 
         mockMvc.perform(post("/api/v1/projects/demo-project/tasks/42/comments")
                 .contentType(MediaType.APPLICATION_JSON)
