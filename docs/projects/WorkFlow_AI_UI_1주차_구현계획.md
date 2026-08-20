@@ -693,7 +693,7 @@ class BlockedTaskAgeTest {
     @Test
     void 막힌_지_하루면_경과일이_1이고_등급은_normal_이다() {
         BlockedTaskDto dto = BlockedTaskDto.of(
-            1L, "대시보드 테스트4", "디자인", 7L, "박상준", NOW.minusDays(1), NOW);
+            1L, "대시보드 테스트4", "디자인", 7L, "구성원다", NOW.minusDays(1), NOW);
         assertThat(dto.blockedDays()).isEqualTo(1);
         assertThat(dto.severity()).isEqualTo("normal");
     }
@@ -701,7 +701,7 @@ class BlockedTaskAgeTest {
     @Test
     void 이틀까지는_normal_이다() {
         BlockedTaskDto dto = BlockedTaskDto.of(
-            2L, "workload 서빙 구현", "AI/ML", 8L, "고무서", NOW.minusDays(2), NOW);
+            2L, "workload 서빙 구현", "AI/ML", 8L, "구성원자", NOW.minusDays(2), NOW);
         assertThat(dto.blockedDays()).isEqualTo(2);
         assertThat(dto.severity()).isEqualTo("normal");
     }
@@ -709,7 +709,7 @@ class BlockedTaskAgeTest {
     @Test
     void 사흘이면_warning_이다() {
         BlockedTaskDto dto = BlockedTaskDto.of(
-            3L, "노트북 정리", "AI/ML", 9L, "이은주", NOW.minusDays(3), NOW);
+            3L, "노트북 정리", "AI/ML", 9L, "구성원사", NOW.minusDays(3), NOW);
         assertThat(dto.blockedDays()).isEqualTo(3);
         assertThat(dto.severity()).isEqualTo("warning");
     }
@@ -717,7 +717,7 @@ class BlockedTaskAgeTest {
     @Test
     void 나흘부터는_danger_이다() {
         BlockedTaskDto dto = BlockedTaskDto.of(
-            4L, "LLM 분석 구조화", "AI/ML", 10L, "허영주", NOW.minusDays(4), NOW);
+            4L, "LLM 분석 구조화", "AI/ML", 10L, "구성원나", NOW.minusDays(4), NOW);
         assertThat(dto.blockedDays()).isEqualTo(4);
         assertThat(dto.severity()).isEqualTo("danger");
     }
@@ -725,7 +725,7 @@ class BlockedTaskAgeTest {
     @Test
     void 닷새도_danger_이다() {
         BlockedTaskDto dto = BlockedTaskDto.of(
-            6L, "ERD 수정본 공유", "DB", 11L, "유소은", NOW.minusDays(5), NOW);
+            6L, "ERD 수정본 공유", "DB", 11L, "구성원라", NOW.minusDays(5), NOW);
         assertThat(dto.blockedDays()).isEqualTo(5);
         assertThat(dto.severity()).isEqualTo("danger");
     }
@@ -766,7 +766,7 @@ public record BlockedTaskDto(
     @Schema(description = "업무 제목", example = "ERD 수정본 공유") String title,
     @Schema(description = "카테고리", example = "DB") String category,
     @Schema(description = "담당자 ID", example = "10") Long assigneeId,
-    @Schema(description = "담당자 이름", example = "유소은") String assigneeName,
+    @Schema(description = "담당자 이름", example = "구성원라") String assigneeName,
     @Schema(description = "막힌 지 며칠", example = "5") int blockedDays,
     @Schema(description = "등급 (normal/warning/danger)", example = "danger") String severity
 ) {

@@ -1,6 +1,6 @@
 # FS-3 대시보드·ML 네이밍 컨벤션
 
-> 최초 작성: 이은주 (FS-7) · FS-3 반영: 유소은 · 최종 코드 대조: 2026-07-27
+> 최초 작성: 구성원사 (FS-7) · FS-3 반영: 구성원라 · 최종 코드 대조: 2026-07-27
 
 이 문서는 대시보드 구현의 DB, Spring Boot, FastAPI, React 경계에서 사용하는 이름을 현재 코드 기준으로 정리한다. 팀 공통 규칙은 `convention/backend.md`, `convention/ai.md`, `convention/frontend.md`를 따르며, 아래의 **현재 코드 예외**는 임의로 정규화하지 않는다.
 

@@ -3,7 +3,7 @@
 App/frontend
 App/backend_spring
 App/scripts
-document_고무서
+document_*
 docs
 *.md
 .venv

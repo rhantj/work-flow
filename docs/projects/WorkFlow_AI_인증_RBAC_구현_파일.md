@@ -1,6 +1,6 @@
 # WorkFlow AI · 인증/프로젝트/RBAC 구현 파일 정리 (FR-01)
 
-> 담당: FS-1(박상준) · 관련 계획: `docs/projects/WorkFlow_AI_P0_업무분담.md`, `docs/projects/WorkFlow_AI_API_명세서.md`
+> 담당: FS-1(구성원다) · 관련 계획: `docs/projects/WorkFlow_AI_P0_업무분담.md`, `docs/projects/WorkFlow_AI_API_명세서.md`
 > 인증 방식: Google OAuth 2.0 전용 (비밀번호 없음, `users` 테이블에 provider/provider_id만 존재)
 
 이 문서는 회원가입/로그인(Google OAuth) → JWT 발급/검증 → 프로젝트 단위 RBAC(팀장/팀원/심사자) 구현에서

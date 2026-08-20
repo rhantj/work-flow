@@ -1,6 +1,6 @@
 # FS-7 DB 네이밍 컨벤션 (팀 공유용)
 
-> 작성: 이은주 (FS-7) · 다른 오너 테이블도 이 컨벤션 따라주면 충돌 없이 JOIN 가능
+> 작성: 구성원사 (FS-7) · 다른 오너 테이블도 이 컨벤션 따라주면 충돌 없이 JOIN 가능
 
 ## 1. 테이블 / 컬럼
 - 테이블명: `snake_case`, 복수형 (`contribution_reports`, `evaluation_scores`)
@@ -33,7 +33,7 @@ POST  /ai/ml/anomaly                  (FastAPI)
 - **공식 ERD에는 없고 FS-7 구현 중 내가 추가한 확장 필드** (DB 설계 담당자에게 공유 필요):
   - `contribution_reports`: task_completed_count, meeting_attendance_count, github_commit_count, deliverable_count (무임승차 탐지용 숫자 피처)
   - `comments`: author_role (심사자/팀장/팀원 구분, 작성 시점 스냅샷)
-- **정정 (2026-07-10):** `meeting_attendees` 테이블은 물리 ERD(14개 테이블)에 실제로 존재하지 않음 — 이전에 내가 필드 정보를 잘못 읽어서 있다고 말했던 것 정정. 회의 참석 데이터는 `activities` 테이블(type='meeting_attended' 등)로 흡수됐을 가능성이 높음. FS-2(박지수)에게 확인 필요.
+- **정정 (2026-07-10):** `meeting_attendees` 테이블은 물리 ERD(14개 테이블)에 실제로 존재하지 않음 — 이전에 내가 필드 정보를 잘못 읽어서 있다고 말했던 것 정정. 회의 참석 데이터는 `activities` 테이블(type='meeting_attended' 등)로 흡수됐을 가능성이 높음. FS-2(구성원카)에게 확인 필요.
 - **core ERD(workflow_ai_core_erd.html) 대조 결과 (2026-07-10):**
   - DB는 **PostgreSQL 확정** (문서상 "MySQL"은 오타였음, 팀 확인 완료)
   - "핵심 9개 테이블" 문서는 전체 스키마가 아니라 공통 코어만 정리한 것 — `contribution_reports`/`audit_logs`/`comments`가 안 보이는 건 정상 (FS-7 소유 확장 테이블이라 이 문서 범위 밖)
@@ -41,6 +41,6 @@ POST  /ai/ml/anomaly                  (FastAPI)
   - `project_members.role` 값은 영문 `team_lead`/`member`/`reviewer`로 저장 (한글 아님) — `Comment.AuthorRole` enum과 값 일치 확인됨
 
 ## 5. 다른 오너에게 요청할 것
-- FS-2(박지수) / FS-6(박지수): 회의 참석 데이터가 `activities`로 통합됐는지 별도 테이블인지 확인 필요, `github_records` 정확한 컬럼명도 공유 부탁 — `evidence` JSONB 매핑에 필요
-- FS-3(박지수): 이상치 탐지 결과는 `ml_predictions` 테이블 재사용 예정, `model_type='isolation_forest'`로 넣을 거라 미리 공지
+- FS-2(구성원카) / FS-6(구성원카): 회의 참석 데이터가 `activities`로 통합됐는지 별도 테이블인지 확인 필요, `github_records` 정확한 컬럼명도 공유 부탁 — `evidence` JSONB 매핑에 필요
+- FS-3(구성원카): 이상치 탐지 결과는 `ml_predictions` 테이블 재사용 예정, `model_type='isolation_forest'`로 넣을 거라 미리 공지
 - DB 설계 담당자: 위 확장 필드 2건 공식 ERD에 반영 요청
