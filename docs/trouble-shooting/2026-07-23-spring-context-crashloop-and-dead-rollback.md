@@ -374,7 +374,7 @@ restarts=0 running=true
   접속 정보가 평문 예시 명령으로 들어간 채 커밋된 적이 있다. 해당 커밋은 이력에서
   제거했고 브랜치 전체를 재검색해 남아 있지 않음을 확인했다.
 
-  원인은 보호 범위의 착각이었다. `document_고무서/oci-server.md`만
+  원인은 보호 범위의 착각이었다. `document_<작성자>/oci-server.md`만
   `.git/info/exclude`로 막혀 있고 **`docs/trouble-shooting/`은 추적 대상이다.**
   운영 문서에는 접속 정보를 넣지 말고 `oci-server.md` 참조로 대체한다. 서버 명령
   예시는 접속 부분을 빼고 원격에서 실행할 명령만 적는다.
@@ -399,5 +399,5 @@ restarts=0 running=true
 
 ## 관련 문서
 
-- [oci-server.md](../../document_고무서/oci-server.md) — 서버 운영 노트 (커밋 금지)
+- [oci-server.md](../../document_<작성자>/oci-server.md) — 서버 운영 노트 (커밋 금지)
 - [2026-07-23-redis-queue-oci.md](2026-07-23-redis-queue-oci.md)

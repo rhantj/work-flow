@@ -2,7 +2,7 @@
 
 - 날짜: 2026-07-27
 - 발견 경로: 배포 후 정기 점검 (운영 장애는 발생하지 않음)
-- 선행 기록: `document_허영주/2026-07-20-oci-cert-deploy-troubleshooting.md` (도메인 이전 당시)
+- 선행 기록: `document_<작성자>/2026-07-20-oci-cert-deploy-troubleshooting.md` (도메인 이전 당시)
 
 ## 증상
 
