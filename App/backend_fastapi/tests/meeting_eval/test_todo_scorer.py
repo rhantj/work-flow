@@ -5,14 +5,14 @@ from meeting_eval.dataset import GoldenTodo
 from meeting_eval.todo_scorer import score_todos
 
 
-def _golden(evidence_id="T1", title="임베딩 모델 교체", assignee="박지수",
+def _golden(evidence_id="T1", title="임베딩 모델 교체", assignee="구성원카",
             due_date="2026-08-14", priority="HIGH", snippet="임베딩 모델 교체"):
     return GoldenTodo(evidence_id=evidence_id, title=title, assignee=assignee,
                       due_date=due_date, priority=priority, evidence_snippet=snippet)
 
 
-def _predicted(title="임베딩 모델 교체", assignee="박지수", due_date="2026-08-14",
-               priority="HIGH", evidence="박지수 · 임베딩 모델 교체 · 8/14"):
+def _predicted(title="임베딩 모델 교체", assignee="구성원카", due_date="2026-08-14",
+               priority="HIGH", evidence="구성원카 · 임베딩 모델 교체 · 8/14"):
     return MeetingTodo(title=title, description="", assignee_candidate=assignee,
                        due_date=due_date, priority=priority, category="AI",
                        evidence_text=evidence)
@@ -46,7 +46,7 @@ def test_invented_todo_lowers_precision():
 
 
 def test_wrong_assignee_keeps_match_but_lowers_field_accuracy():
-    score = score_todos([_predicted(assignee="유소은")], [_golden()])
+    score = score_todos([_predicted(assignee="구성원라")], [_golden()])
 
     assert score.recall == 1.0
     assert score.assignee_accuracy == 0.0

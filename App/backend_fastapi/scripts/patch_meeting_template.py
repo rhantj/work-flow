@@ -19,9 +19,9 @@ TEMPLATE = (
     Path(__file__).resolve().parents[2]
     / "frontend" / "public" / "templates" / "meeting-minutes-template.docx"
 )
-EXAMPLE_ROW = "(예시) 박지수 · 로그인 오류 원인 파악 · 8/20"
+EXAMPLE_ROW = "(예시) 김민준 · 로그인 오류 원인 파악 · 8/20"
 ROW_HINT = "※ 항목이 더 필요하면 표에서 행을 추가하세요."
-PARTICIPANT_HINT = "(쉼표로 구분: 박지수, 유소은)"
+PARTICIPANT_HINT = "(쉼표로 구분: 김민준, 이서연)"
 
 ACTION_ITEM_ROW = 7          # 실행항목 행 (Step 5에서 확인)
 ACTION_ITEM_MERGED_CELL = 1  # 1~3번 셀은 가로 병합된 동일 셀. 하나만 쓴다

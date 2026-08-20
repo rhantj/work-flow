@@ -5,7 +5,7 @@ from tests.assistant_eval.judge import build_claim_prompt, build_fact_prompt, ju
 _FACTS = [
     {
         "fact_id": "F1",
-        "statement": "태오가 LightGBM 튜닝을 맡기로 했다",
+        "statement": "구성원커가 LightGBM 튜닝을 맡기로 했다",
         "evidence_snippet": "LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다",
     },
     {
@@ -42,7 +42,7 @@ def _answers(mapping):
 
 def test_all_facts_covered_and_nothing_invented_scores_one():
     score = judge_answer(
-        "태오가 LightGBM 튜닝을 맡습니다. 기본 모델은 LightGBM으로 고정합니다.",
+        "구성원커가 LightGBM 튜닝을 맡습니다. 기본 모델은 LightGBM으로 고정합니다.",
         _FACTS,
         _CLAIMS,
         ask=_answers({"담고 있습니까": "예", "하고 있습니까": "아니오"}),
@@ -74,7 +74,7 @@ def test_vacuous_answer_scores_zero():
 def test_hallucinated_answer_forfeits_its_coverage():
     """담아낸 내용이 아무리 많아도 지어낸 답변은 쓸 수 없다."""
     score = judge_answer(
-        "태오가 LightGBM 튜닝을 8월 30일까지 끝냅니다. 기본 모델은 LightGBM입니다.",
+        "구성원커가 LightGBM 튜닝을 8월 30일까지 끝냅니다. 기본 모델은 LightGBM입니다.",
         _FACTS,
         _CLAIMS,
         ask=_answers({"담고 있습니까": "예", "하고 있습니까": "예"}),
@@ -88,10 +88,10 @@ def test_hallucinated_answer_forfeits_its_coverage():
 
 def test_partially_covered_answer_scores_the_fraction():
     score = judge_answer(
-        "태오가 LightGBM 튜닝을 맡습니다.",
+        "구성원커가 LightGBM 튜닝을 맡습니다.",
         _FACTS,
         _CLAIMS,
-        ask=_answers({"태오가": "예", "기본 모델은": "아니오", "하고 있습니까": "아니오"}),
+        ask=_answers({"구성원커가": "예", "기본 모델은": "아니오", "하고 있습니까": "아니오"}),
     )
 
     assert score.coverage == 0.5
@@ -174,7 +174,7 @@ def test_question_ids_are_carried_back_for_diagnosis():
         "답변",
         _FACTS,
         _CLAIMS,
-        ask=_answers({"태오가": "예", "기본 모델은": "아니오", "하고 있습니까": "예"}),
+        ask=_answers({"구성원커가": "예", "기본 모델은": "아니오", "하고 있습니까": "예"}),
     )
 
     assert [(v.item_id, v.passed) for v in score.fact_verdicts] == [("F1", True), ("F2", False)]
@@ -292,7 +292,7 @@ def test_a_forged_section_marker_in_the_answer_cannot_open_a_fake_block(forged):
 
 def test_neutralizing_markers_does_not_disturb_ordinary_answers():
     """대괄호를 쓰지 않는 보통 답변은 한 글자도 바뀌지 않아야 한다."""
-    answer = "결제 API 마감은 8월 14일입니다. 담당자는 태오입니다."
+    answer = "결제 API 마감은 8월 14일입니다. 담당자는 구성원커입니다."
     prompt = build_fact_prompt(answer, "사실1")
 
     assert answer in prompt

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from meeting_eval.safety_check import check_invented_dates
 
-SOURCE = "박지수: 알림이 중복으로 갑니다.\n유소은: 8월 10일까지 원인을 정리해 문서로 남기겠습니다."
+SOURCE = "구성원카: 알림이 중복으로 갑니다.\n구성원라: 8월 10일까지 원인을 정리해 문서로 남기겠습니다."
 
 
 def test_summary_without_dates_is_safe():

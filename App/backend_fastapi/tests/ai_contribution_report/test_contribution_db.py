@@ -40,7 +40,7 @@ def test_merge_contribution_rows_combines_task_and_meeting_stats():
 
 
 def test_merge_contribution_rows_defaults_meeting_stats_to_zero_when_missing():
-    task_rows = [{"user_id": 3, "name": "박지수", "todo_total": 2, "todo_done": 1}]
+    task_rows = [{"user_id": 3, "name": "구성원카", "todo_total": 2, "todo_done": 1}]
     meeting_rows: list[dict] = []
 
     result = merge_contribution_rows(task_rows, meeting_rows)
@@ -48,7 +48,7 @@ def test_merge_contribution_rows_defaults_meeting_stats_to_zero_when_missing():
     assert result == [
         {
             "user_id": 3,
-            "name": "박지수",
+            "name": "구성원카",
             "todo_done": 1,
             "todo_total": 2,
             "meetings_attended": 0,

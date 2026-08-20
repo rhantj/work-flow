@@ -16,7 +16,7 @@ _SPLIT_CASE = {
     "must_include_facts": [
         {
             "fact_id": "F1",
-            "statement": "태오가 LightGBM 튜닝을 맡기로 했다",
+            "statement": "구성원커가 LightGBM 튜닝을 맡기로 했다",
             "evidence_snippet": "LightGBM 하이퍼파라미터 튜닝은 제가 맡겠습니다",
         },
         {

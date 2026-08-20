@@ -87,9 +87,9 @@ def _row(
 @pytest.mark.asyncio
 async def test_aggregates_total_and_per_status_counts() -> None:
     pool = _FakePool(_FakeConn([
-        _row("blocked", "허영주", 8),
+        _row("blocked", "구성원나", 8),
         _row("blocked", "김팀원", 4),
-        _row("inprogress", "허영주", 3),
+        _row("inprogress", "구성원나", 3),
         _row("done", "김팀원", 1),
     ]))
 
@@ -105,31 +105,31 @@ async def test_aggregates_total_and_per_status_counts() -> None:
 async def test_groups_blocked_tasks_by_assignee_most_first() -> None:
     pool = _FakePool(_FakeConn([
         _row("blocked", "김팀원", 4),
-        _row("blocked", "허영주", 8),
+        _row("blocked", "구성원나", 8),
         _row("blocked", None, 1),
-        _row("todo", "허영주", 9),
+        _row("todo", "구성원나", 9),
     ]))
 
     stats = await fetch_project_stats(pool, 1)
 
-    assert stats["blocked_by_assignee"] == [("허영주", 8), ("김팀원", 4), ("미배정", 1)]
+    assert stats["blocked_by_assignee"] == [("구성원나", 8), ("김팀원", 4), ("미배정", 1)]
 
 
 @pytest.mark.asyncio
 async def test_keeps_same_named_assignees_apart() -> None:
     pool = _FakePool(_FakeConn([
-        _row("blocked", "허영주", 8, assignee_id=1),
-        _row("blocked", "허영주", 4, assignee_id=2),
+        _row("blocked", "구성원나", 8, assignee_id=1),
+        _row("blocked", "구성원나", 4, assignee_id=2),
     ]))
 
     stats = await fetch_project_stats(pool, 1)
 
-    assert stats["blocked_by_assignee"] == [("허영주", 8), ("허영주", 4)]
+    assert stats["blocked_by_assignee"] == [("구성원나", 8), ("구성원나", 4)]
 
 
 @pytest.mark.asyncio
 async def test_due_soon_window_is_half_open() -> None:
-    conn = _FakeConn([_row("todo", "허영주", 1)])
+    conn = _FakeConn([_row("todo", "구성원나", 1)])
 
     await fetch_project_stats(_FakePool(conn), 1)
 
@@ -142,7 +142,7 @@ async def test_due_soon_window_is_half_open() -> None:
 @pytest.mark.asyncio
 async def test_sums_due_soon_counts_across_rows() -> None:
     pool = _FakePool(_FakeConn([
-        _row("inprogress", "허영주", 3, due_soon=2),
+        _row("inprogress", "구성원나", 3, due_soon=2),
         _row("todo", "김팀원", 2, due_soon=1),
     ]))
 
@@ -153,7 +153,7 @@ async def test_sums_due_soon_counts_across_rows() -> None:
 
 @pytest.mark.asyncio
 async def test_query_is_scoped_by_project_id() -> None:
-    conn = _FakeConn([_row("todo", "허영주", 1)])
+    conn = _FakeConn([_row("todo", "구성원나", 1)])
 
     await fetch_project_stats(_FakePool(conn), 42)
 
@@ -166,8 +166,8 @@ async def test_query_is_scoped_by_project_id() -> None:
 async def test_counts_the_askers_own_tasks_when_an_assignee_is_given() -> None:
     """'내 업무 알려줘'에 모델이 출처 5건을 세어 '총 5건'이라 답한다(실측: 실제 30건)."""
     pool = _FakePool(_FakeConn([
-        _row("todo", "허영주", 20, due_soon=3, assignee_id=1),
-        _row("done", "허영주", 10, assignee_id=1),
+        _row("todo", "구성원나", 20, due_soon=3, assignee_id=1),
+        _row("done", "구성원나", 10, assignee_id=1),
         _row("todo", "김팀원", 7, due_soon=2, assignee_id=2),
     ]))
 
@@ -182,10 +182,10 @@ async def test_personal_totals_survive_blocked_rows_from_other_people() -> None:
     """블로커 집계가 질문자 ID를 덮어쓰면 이후 행이 엉뚱한 사람과 비교된다(실측: 30건→25건)."""
     pool = _FakePool(_FakeConn([
         _row("blocked", "김팀원", 5, assignee_id=2),
-        _row("todo", "허영주", 15, assignee_id=1),
-        _row("blocked", "허영주", 3, assignee_id=1),
-        _row("done", "허영주", 9, assignee_id=1),
-        _row("inprogress", "허영주", 3, assignee_id=1),
+        _row("todo", "구성원나", 15, assignee_id=1),
+        _row("blocked", "구성원나", 3, assignee_id=1),
+        _row("done", "구성원나", 9, assignee_id=1),
+        _row("inprogress", "구성원나", 3, assignee_id=1),
     ]))
 
     stats = await fetch_project_stats(pool, 1, assignee_id=1)
@@ -196,7 +196,7 @@ async def test_personal_totals_survive_blocked_rows_from_other_people() -> None:
 
 @pytest.mark.asyncio
 async def test_has_no_personal_section_without_an_assignee() -> None:
-    pool = _FakePool(_FakeConn([_row("todo", "허영주", 20, assignee_id=1)]))
+    pool = _FakePool(_FakeConn([_row("todo", "구성원나", 20, assignee_id=1)]))
 
     stats = await fetch_project_stats(pool, 1)
 
@@ -206,7 +206,7 @@ async def test_has_no_personal_section_without_an_assignee() -> None:
 @pytest.mark.asyncio
 async def test_has_no_personal_section_when_the_asker_owns_nothing() -> None:
     """담당 업무가 0건인데 '내 업무 0건' 블록을 넣으면 모델이 그걸 근거로 단정한다."""
-    pool = _FakePool(_FakeConn([_row("todo", "허영주", 20, assignee_id=1)]))
+    pool = _FakePool(_FakeConn([_row("todo", "구성원나", 20, assignee_id=1)]))
 
     stats = await fetch_project_stats(pool, 1, assignee_id=99)
 
@@ -226,9 +226,9 @@ def _due_row(due_date: str, title: str, name: str | None, match_total: int) -> d
 async def test_lists_due_soon_tasks_nearest_first() -> None:
     """마감일은 임베딩에 없어 유사도 검색으로는 못 찾는다. 목록을 SQL로 확정해 넣는다."""
     conn = _FakeConn(
-        [_row("todo", "허영주", 20, due_soon=3, assignee_id=1)],
+        [_row("todo", "구성원나", 20, due_soon=3, assignee_id=1)],
         due_soon_rows=[
-            _due_row("2026-07-26", "업무 상세 우측 패널 구현", "허영주", 9),
+            _due_row("2026-07-26", "업무 상세 우측 패널 구현", "구성원나", 9),
             _due_row("2026-07-27", "대시보드 위험도 표시", None, 9),
         ],
     )
@@ -247,9 +247,9 @@ async def test_lists_due_soon_tasks_nearest_first() -> None:
 async def test_overdue_list_is_separate_and_most_recent_first() -> None:
     """한 목록에 합치면 지난 마감이 상한을 다 먹는다(실측: 지난 48건에 밀려 임박 16건이 0줄)."""
     conn = _FakeConn(
-        [_row("todo", "허영주", 20)],
-        due_soon_rows=[_due_row("2026-07-26", "임박 업무", "허영주", 1)],
-        overdue_rows=[_due_row("2025-12-28", "밀린 업무", "이은주", 48)],
+        [_row("todo", "구성원나", 20)],
+        due_soon_rows=[_due_row("2026-07-26", "임박 업무", "구성원나", 1)],
+        overdue_rows=[_due_row("2025-12-28", "밀린 업무", "구성원사", 48)],
     )
 
     stats = await fetch_project_stats(_FakePool(conn), 1)
@@ -263,7 +263,7 @@ async def test_overdue_list_is_separate_and_most_recent_first() -> None:
 @pytest.mark.asyncio
 async def test_both_lists_are_scoped_to_the_asker_for_personal_questions() -> None:
     """개인화 질문에 남의 업무를 섞으면 모델이 그걸 본인 것처럼 답한다(retrieval_service와 같은 방침)."""
-    conn = _FakeConn([_row("todo", "허영주", 1, assignee_id=1)])
+    conn = _FakeConn([_row("todo", "구성원나", 1, assignee_id=1)])
 
     await fetch_project_stats(_FakePool(conn), 1, assignee_id=7)
 
@@ -275,8 +275,8 @@ async def test_both_lists_are_scoped_to_the_asker_for_personal_questions() -> No
 async def test_counts_overdue_tasks_separately() -> None:
     """목록에는 지난 마감이 섞여 나오므로, 숫자 쪽에도 같은 기준의 값이 있어야 설명이 맞는다."""
     pool = _FakePool(_FakeConn([
-        _row("todo", "허영주", 20, due_soon=3, overdue=4),
-        _row("done", "허영주", 10),
+        _row("todo", "구성원나", 20, due_soon=3, overdue=4),
+        _row("done", "구성원나", 10),
     ]))
 
     stats = await fetch_project_stats(pool, 1)
@@ -324,7 +324,7 @@ async def test_lists_blocked_tasks_with_the_reason_they_are_stuck() -> None:
 @pytest.mark.asyncio
 async def test_blocked_list_is_scoped_to_the_asker_for_personal_questions() -> None:
     """'내 블로커'에 남의 업무를 섞으면 모델이 그걸 본인 것처럼 추천한다(마감 목록과 같은 방침)."""
-    conn = _FakeConn([_row("blocked", "허영주", 1, assignee_id=1)])
+    conn = _FakeConn([_row("blocked", "구성원나", 1, assignee_id=1)])
 
     await fetch_project_stats(_FakePool(conn), 1, assignee_id=7)
 
@@ -334,7 +334,7 @@ async def test_blocked_list_is_scoped_to_the_asker_for_personal_questions() -> N
 @pytest.mark.asyncio
 async def test_blocked_list_puts_high_priority_first() -> None:
     """상한이 3건이라 정렬이 곧 '무엇을 보여줄지'다. 급한 것부터 잘려 나가면 안 된다."""
-    conn = _FakeConn([_row("blocked", "허영주", 1, assignee_id=1)])
+    conn = _FakeConn([_row("blocked", "구성원나", 1, assignee_id=1)])
 
     await fetch_project_stats(_FakePool(conn), 1)
 

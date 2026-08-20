@@ -187,11 +187,11 @@ def test_parse_action_items_keeps_row_without_trailing_priority():
     우선순위 값이 행의 끝을 표시하는 구조라, 끝 표시가 없는 마지막 묶음은 파일 끝으로 닫는다.
     (모든 행에서 우선순위를 지우면 자유 서술과 구분할 수 없으므로 그때는 줄마다 할 일로 본다.)
     """
-    items = parse_action_items("결제 API 연동\n보통\n배포 스크립트 점검\n박지수")
+    items = parse_action_items("결제 API 연동\n보통\n배포 스크립트 점검\n구성원카")
 
     assert items == [
         ("MEDIUM", "결제 API 연동", "", ""),
-        (None, "배포 스크립트 점검", "박지수", ""),
+        (None, "배포 스크립트 점검", "구성원카", ""),
     ]
 
 
@@ -252,7 +252,7 @@ def test_schema_placeholder_statements_are_dropped():
 # 나눠 쓰라는 것은 우리가 정한 규격인데, 파서는 그 칸을 통문장으로 받아 제목에 넣었다.
 # 그래서 보드에 "담당 미정 · 삭제된 심사자 계정…"처럼 담당자 칸이 제목에 박혔다.
 #
-# 제목은 문자열이고 배정은 별개 필드다. 나중에 박지수를 배정해도 제목의 "담당 미정"은
+# 제목은 문자열이고 배정은 별개 필드다. 나중에 구성원카를 배정해도 제목의 "담당 미정"은
 # 그대로 남아 영원히 어긋난다. 어시스턴트가 그 글자를 읽고 "담당자는 미정입니다"라고
 # 답한 것이 그 결과였다(2026-08-04 운영 실측).
 
@@ -269,11 +269,11 @@ def test_담당_미정_표기가_제목에서_빠진다():
 
 def test_담당자_이름이_제목에서_빠진다():
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
+        [("MEDIUM", "구성원자 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
         meeting_date="2026-08-03",
     )
 
-    assert "고무서" not in todos[0].title
+    assert "구성원자" not in todos[0].title
     assert todos[0].title.startswith("관리자와 구글 계정")
 
 
@@ -288,12 +288,12 @@ def test_미배정_표기도_빠진다():
 
 def test_원문은_설명과_근거에_그대로_남는다():
     """제목만 다듬는다. 원문을 잃으면 회의록에 뭐라고 적혔는지 되짚을 수 없다."""
-    sentence = "고무서 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일"
+    sentence = "구성원자 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일"
 
     todos = build_todos_from_action_items([("MEDIUM", sentence)], meeting_date="2026-08-03")
 
     assert todos[0].description == sentence
-    assert "고무서" in todos[0].evidence_text
+    assert "구성원자" in todos[0].evidence_text
 
 
 def test_가운뎃점이_없는_자유_서술은_건드리지_않는다():
@@ -326,7 +326,7 @@ def test_이름_자리만_있고_내용이_비면_원문을_지킨다():
 
 
 CELL_TEXT = "\n".join([
-    "고무서 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일",
+    "구성원자 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일",
     "담당 미정 · 삭제된 심사자 계정 3개를 다시 만들지 결정 · 심사 일정 전까지",
 ])
 
@@ -368,7 +368,7 @@ def test_LLM_제목이_비어_설명으로_대체될_때도_담당자_칸이_빠
         "keywords": [],
         "todos": [{
             "title": "",
-            "description": "고무서 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일",
+            "description": "구성원자 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일",
             "assignee_candidate": "",
             "due_date": "",
             "priority": "MEDIUM",
@@ -379,13 +379,13 @@ def test_LLM_제목이_비어_설명으로_대체될_때도_담당자_칸이_빠
 
     result = parse_ollama_analysis_response(raw, _request(text=CELL_TEXT))
 
-    assert result.todos[0].description.startswith("고무서"), "원문 To-Do 가 유지돼야 검사가 유효하다"
-    assert "고무서" not in result.todos[0].title
+    assert result.todos[0].description.startswith("구성원자"), "원문 To-Do 가 유지돼야 검사가 유효하다"
+    assert "구성원자" not in result.todos[0].title
 
 
 # ── 실행항목 칸의 "누가"를 담당자 후보로 쓴다 ────────────────────────────────
 #
-# 회의록에 "고무서 · 관리자와 구글 계정으로…"라고 적혀 있는데도 4건이 전부 미배정으로
+# 회의록에 "구성원자 · 관리자와 구글 계정으로…"라고 적혀 있는데도 4건이 전부 미배정으로
 # 등록됐다. extract_assignee_candidate 는 "OO가 ~한다"와 "담당: OO"만 보기 때문에
 # 양식이 정한 "누가 · 무엇을 · 언제까지" 형식을 읽지 못한다.
 #
@@ -394,11 +394,11 @@ def test_LLM_제목이_비어_설명으로_대체될_때도_담당자_칸이_빠
 
 def test_누가_칸의_이름이_담당자_후보가_된다():
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
+        [("MEDIUM", "구성원자 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
         meeting_date="2026-08-03",
     )
 
-    assert todos[0].assignee_candidate == "고무서"
+    assert todos[0].assignee_candidate == "구성원자"
 
 
 def test_담당_미정이라고_적었으면_미배정으로_확정한다():
@@ -423,7 +423,7 @@ def test_누가_칸이_없으면_기존_문장_추출을_그대로_쓴다():
 def test_참석자_목록에_없는_이름은_지금처럼_지운다():
     """참석자를 골라 보냈다면 그건 실제 명단이다. 명단 밖 이름은 오타이거나 외부인이다."""
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
+        [("MEDIUM", "구성원자 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
         meeting_date="2026-08-03",
         participants=["김민준", "이서연"],
     )
@@ -450,7 +450,7 @@ def test_참석자_목록에_있는_이름은_남는다():
 
 def test_기한_칸이_제목에서_빠진다():
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
+        [("MEDIUM", "구성원자 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
         meeting_date="2026-08-03",
     )
 
@@ -469,7 +469,7 @@ def test_담당자_칸이_없어도_기한_칸은_빠진다():
 def test_가운데_칸에_가운뎃점이_더_있어도_내용을_잃지_않는다():
     """칸이 넷 이상이면 처음이 누가, 마지막이 언제까지, 나머지가 전부 내용이다."""
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · A 확인 · B 확인 · 배포 당일")],
+        [("MEDIUM", "구성원자 · A 확인 · B 확인 · 배포 당일")],
         meeting_date="2026-08-03",
     )
 
@@ -480,7 +480,7 @@ def test_가운데_칸에_가운뎃점이_더_있어도_내용을_잃지_않는�
 
 def test_기한_칸을_떼면_내용이_비는_경우는_그대로_둔다():
     todos = build_todos_from_action_items(
-        [("LOW", "고무서 · 배포 당일")],
+        [("LOW", "구성원자 · 배포 당일")],
         meeting_date="2026-08-03",
     )
 
@@ -495,7 +495,7 @@ def test_마감일은_원문에서_계속_읽는다():
     이건 이 변경과 무관한 기존 동작이라 여기서는 인정되는 형태로 검증한다.
     """
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · 결제 API 연동 마무리 · 8/10까지")],
+        [("MEDIUM", "구성원자 · 결제 API 연동 마무리 · 8/10까지")],
         meeting_date="2026-08-03",
     )
 
@@ -513,7 +513,7 @@ def test_마감일은_원문에서_계속_읽는다():
 
 def test_기한_칸에_날짜만_적어도_마감일이_잡힌다():
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · 결제 API 연동 마무리 · 8/10")],
+        [("MEDIUM", "구성원자 · 결제 API 연동 마무리 · 8/10")],
         meeting_date="2026-08-03",
     )
 
@@ -522,9 +522,9 @@ def test_기한_칸에_날짜만_적어도_마감일이_잡힌다():
 
 def test_기한_칸의_여러_날짜_표기를_모두_읽는다():
     for cell, expected in [
-        ("고무서 · 결제 연동 마무리 · 2026-08-10", "2026-08-10"),
-        ("고무서 · 결제 연동 마무리 · 8월 10일", "2026-08-10"),
-        ("고무서 · 결제 연동 마무리 · 8/10까지", "2026-08-10"),
+        ("구성원자 · 결제 연동 마무리 · 2026-08-10", "2026-08-10"),
+        ("구성원자 · 결제 연동 마무리 · 8월 10일", "2026-08-10"),
+        ("구성원자 · 결제 연동 마무리 · 8/10까지", "2026-08-10"),
     ]:
         todos = build_todos_from_action_items([("MEDIUM", cell)], meeting_date="2026-08-03")
         assert todos[0].due_date == expected, cell
@@ -533,7 +533,7 @@ def test_기한_칸의_여러_날짜_표기를_모두_읽는다():
 def test_날짜가_아닌_기한_표현은_마감일이_없다():
     """"배포 당일"은 사람은 알아도 날짜가 아니다. 없는 날짜를 지어내면 안 된다."""
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
+        [("MEDIUM", "구성원자 · 관리자와 구글 계정으로 로그인되는지 확인 · 배포 당일")],
         meeting_date="2026-08-03",
     )
 
@@ -546,7 +546,7 @@ def test_기한_칸_밖의_날짜는_기존_방어막을_그대로_받는다():
     업무 내용 칸에 적힌 날짜는 선언이 아니라 서술이므로 문맥 키워드가 없으면 쓰지 않는다.
     """
     todos = build_todos_from_action_items(
-        [("MEDIUM", "고무서 · 2026-08-10 배포 회고 정리 · 미정")],
+        [("MEDIUM", "구성원자 · 2026-08-10 배포 회고 정리 · 미정")],
         meeting_date="2026-08-03",
     )
 
