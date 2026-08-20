@@ -138,10 +138,10 @@ def test_prompt_carries_source_text_when_given():
         ["결정A"],
         [ChecklistItem("항목1", SAFETY)],
         ask=fake_ask,
-        source_text="박지수: 8월 10일까지 끝냅니다.",
+        source_text="구성원카: 8월 10일까지 끝냅니다.",
     )
 
-    assert "박지수: 8월 10일까지 끝냅니다." in seen[0]
+    assert "구성원카: 8월 10일까지 끝냅니다." in seen[0]
 
 
 def test_prompt_omits_source_section_when_not_given():

@@ -12,7 +12,7 @@ def test_loads_case_with_sections_and_golden():
 
     case = next(c for c in cases if c.case_id == "formal-01")
     assert case.scenario == "양식 준수"
-    assert case.request.participants == ["박지수", "유소은"]
+    assert case.request.participants == ["구성원카", "구성원라"]
     assert case.request.sections is not None
     assert "임베딩 모델 교체" in case.request.sections.todos
     assert [todo.evidence_id for todo in case.golden.todos] == ["T1", "T2"]

@@ -7,13 +7,13 @@
     "meeting_kind": "개발회의",
     "source_type": "document",
     "participants": [
-      "박지수",
-      "유소은"
+      "구성원카",
+      "구성원라"
     ],
     "sections": {
-      "discussion": "박지수: 재색인 스크립트는 제가 마무리하겠습니다.\n유소은: 언제쯤 될까요?\n박지수: 다음 주쯤엔 되겠죠.",
+      "discussion": "구성원카: 재색인 스크립트는 제가 마무리하겠습니다.\n구성원라: 언제쯤 될까요?\n구성원카: 다음 주쯤엔 되겠죠.",
       "decisions": "",
-      "todos": "[ ] 긴급    [v] 보통    [ ] 낮음\n박지수 · 재색인 스크립트 마무리 · 미정",
+      "todos": "[ ] 긴급    [v] 보통    [ ] 낮음\n구성원카 · 재색인 스크립트 마무리 · 미정",
       "issues": ""
     }
   },
@@ -22,7 +22,7 @@
       {
         "evidence_id": "T1",
         "title": "재색인 스크립트 마무리",
-        "assignee": "박지수",
+        "assignee": "구성원카",
         "due_date": null,
         "priority": "MEDIUM",
         "evidence_snippet": "재색인 스크립트 마무리"
