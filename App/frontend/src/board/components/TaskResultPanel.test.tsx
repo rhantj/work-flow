@@ -9,7 +9,7 @@ import {
 import type { Task } from "../libs/types/task";
 
 vi.mock("../../global/hooks/useAuth", () => ({
-  useAuth: () => ({ currentProjectId: 1, user: { id: 5, name: "박지수", email: "member3@workflow.ai" } }),
+  useAuth: () => ({ currentProjectId: 1, user: { id: 5, name: "정하늘", email: "member3@workflow.ai" } }),
 }));
 
 vi.mock("../libs/utils/taskResultApi", () => ({

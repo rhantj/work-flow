@@ -278,14 +278,14 @@ def test_extracts_assignee_candidate_from_meeting_text_instead_of_rotating_atten
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-15",
-        text="유소은은 API 문서를 정리한다. 김민준이 발표자료를 작성한다.",
-        participants=["김민준", "이서연", "박지수", "최동혁"],
+        text="구성원라는 API 문서를 정리한다. 김민준이 발표자료를 작성한다.",
+        participants=["김민준", "이서연", "구성원카", "최동혁"],
     )
 
     result = analyze_meeting(request)
 
     candidates = [todo.assignee_candidate for todo in result.todos]
-    assert "유소은" not in candidates
+    assert "구성원라" not in candidates
     assert "김민준" in candidates
     assert "" in candidates
 
@@ -304,15 +304,15 @@ def test_leaves_assignee_candidate_empty_when_no_name_is_written_in_text():
     assert result.todos[0].assignee_candidate == ""
 
 
-CAPSTONE_KICKOFF_TRANSCRIPT = """고무서: 전체 범위와 1주차 개발 목표를 정리하겠습니다.
-곽진아: 인증과 권한 구조는 제가 먼저 잡겠습니다. Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다.
-박지수: 저는 회의록 AI 분석을 맡겠습니다. 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다.
-허영주: 업무 보드는 네 개 상태로 가면 될 것 같습니다. 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다.
-유소은: 대시보드는 완료율, 마감 임박 업무, 블로커, 팀원별 업무량을 보여주겠습니다. ML 지연 위험도는 처음에는 규칙 기반으로 만들겠습니다.
-박상준: AI Assistant는 RAG 구조로 설계하겠습니다.
-이은주: 심사자 화면에서는 개인별 기여도 리포트와 AI 평가 근거를 볼 수 있게 하겠습니다.
-곽진아: API 명세는 공통 응답 형식을 맞춰야 합니다.
-박지수: 회의록 분석 결과는 summary, decisions, todos, risks, keywords 형식으로 고정하겠습니다.
+CAPSTONE_KICKOFF_TRANSCRIPT = """구성원자: 전체 범위와 1주차 개발 목표를 정리하겠습니다.
+구성원타: 인증과 권한 구조는 제가 먼저 잡겠습니다. Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다.
+구성원카: 저는 회의록 AI 분석을 맡겠습니다. 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다.
+구성원나: 업무 보드는 네 개 상태로 가면 될 것 같습니다. 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다.
+구성원라: 대시보드는 완료율, 마감 임박 업무, 블로커, 팀원별 업무량을 보여주겠습니다. ML 지연 위험도는 처음에는 규칙 기반으로 만들겠습니다.
+구성원다: AI Assistant는 RAG 구조로 설계하겠습니다.
+구성원사: 심사자 화면에서는 개인별 기여도 리포트와 AI 평가 근거를 볼 수 있게 하겠습니다.
+구성원타: API 명세는 공통 응답 형식을 맞춰야 합니다.
+구성원카: 회의록 분석 결과는 summary, decisions, todos, risks, keywords 형식으로 고정하겠습니다.
 """
 
 
@@ -322,51 +322,51 @@ def test_extracts_speaker_name_as_assignee_candidate_from_name_colon_utterance_t
         meeting_date="2026-07-09",
         meeting_kind="캡스톤디자인",
         text=CAPSTONE_KICKOFF_TRANSCRIPT,
-        participants=["김민준", "이서연", "박지수", "최동혁"],
+        participants=["김민준", "이서연", "구성원카", "최동혁"],
     )
 
     result = analyze_meeting(request)
 
     candidates = [todo.assignee_candidate for todo in result.todos]
-    assert "박지수" in candidates
-    for name in ["고무서", "곽진아", "허영주", "유소은", "박상준", "이은주"]:
+    assert "구성원카" in candidates
+    for name in ["구성원자", "구성원타", "구성원나", "구성원라", "구성원다", "구성원사"]:
         assert name not in candidates
     assert "" in candidates
 
     # 선택된 참석자/멤버 목록에 없는 사람의 업무는 미배정이어야 하고, 한 사람에게 몰리면 안 된다.
-    assert candidates.count("박지수") < len(candidates)
+    assert candidates.count("구성원카") < len(candidates)
 
 
 def test_extracts_multiple_speakers_on_one_line_without_piling_on_first_speaker():
     request = AnalyzeRequest(
         title="연동 확인 회의",
         meeting_date="2026-07-20",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다. 김민준: 화면 로딩 표시를 개선하겠습니다.",
-        participants=["박지수", "김민준"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다. 김민준: 화면 로딩 표시를 개선하겠습니다.",
+        participants=["구성원카", "김민준"],
     )
 
     result = analyze_meeting(request)
 
     candidates = [todo.assignee_candidate for todo in result.todos]
-    assert candidates == ["박지수", "김민준"]
+    assert candidates == ["구성원카", "김민준"]
 
 
 def test_parse_ollama_analysis_response_builds_valid_result_from_json():
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-15",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.",
-        participants=["박지수", "김민준"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
+        participants=["구성원카", "김민준"],
     )
     raw = json.dumps(
         {
             "summary": "회의록 AI 분석 담당을 정했다.",
-            "decisions": ["회의록 AI 분석은 박지수가 담당한다."],
+            "decisions": ["회의록 AI 분석은 구성원카가 담당한다."],
             "todos": [
                 {
                     "title": "회의록 AI 분석 구현",
                     "description": "회의록 AI 분석 기능을 구현한다.",
-                    "assignee_candidate": "박지수",
+                    "assignee_candidate": "구성원카",
                     "due_date": "2026-07-20",
                     "priority": "HIGH",
                     "category": "AI",
@@ -381,7 +381,7 @@ def test_parse_ollama_analysis_response_builds_valid_result_from_json():
     result = parse_ollama_analysis_response(raw, request)
 
     assert result.summary == "회의록 AI 분석 담당을 정했다."
-    assert result.todos[0].assignee_candidate == "박지수"
+    assert result.todos[0].assignee_candidate == "구성원카"
     assert result.todos[0].assignee_id is None
     assert result.todos[0].needs_leader_review is True
     assert result.todos[0].category == "AI"
@@ -437,10 +437,10 @@ def test_parse_ollama_analysis_response_repairs_placeholder_todos_with_speaker_t
         title="연동 확인 회의",
         meeting_date="2026-07-20",
         text=(
-            "박지수: 저는 회의록 AI 분석을 맡겠습니다. 우선 문서 업로드 기반 요약과 To-Do 후보 추출을 구현하겠습니다.\n"
+            "구성원카: 저는 회의록 AI 분석을 맡겠습니다. 우선 문서 업로드 기반 요약과 To-Do 후보 추출을 구현하겠습니다.\n"
             "김민준: 저는 화면 로딩 표시를 개선하겠습니다."
         ),
-        participants=["박지수", "김민준"],
+        participants=["구성원카", "김민준"],
     )
     raw = json.dumps(
         {
@@ -464,7 +464,7 @@ def test_parse_ollama_analysis_response_repairs_placeholder_todos_with_speaker_t
     result = parse_ollama_analysis_response(raw, request)
 
     candidates = [todo.assignee_candidate for todo in result.todos]
-    assert "박지수" in candidates
+    assert "구성원카" in candidates
     assert "김민준" in candidates
     assert all("업무 제목" not in todo.title for todo in result.todos)
 
@@ -500,7 +500,7 @@ def test_parse_model_response_removes_hallucinated_due_date_and_decision_deadlin
         title="AI 분석 테스트 회의",
         meeting_date="2026-07-20",
         text="AI 분석 테스트 환경 구축 방향을 논의하고, 테스트 결과를 다음 회의에서 공유하기로 했다.",
-        participants=["김민준", "이서연", "박지수", "최동혁"],
+        participants=["김민준", "이서연", "구성원카", "최동혁"],
     )
     raw = json.dumps(
         {
@@ -584,13 +584,13 @@ def test_build_ollama_prompt_includes_assignee_rules_and_participants():
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-15",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.",
-        participants=["박지수", "김민준"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
+        participants=["구성원카", "김민준"],
     )
 
     prompt = build_ollama_prompt(request)
 
-    assert "박지수" in prompt and "김민준" in prompt
+    assert "구성원카" in prompt and "김민준" in prompt
     assert "빈 문자열" in prompt
     assert "임의 배정" in prompt
     assert "몰아서 배정" in prompt
@@ -606,7 +606,7 @@ def test_build_ollama_prompt_keeps_tasks_without_owner_or_deadline():
         title="정기회의",
         meeting_date="2026-07-15",
         text="배포 스크립트 점검은 진행하되 담당자는 다음 회의에서 정한다.",
-        participants=["박지수"],
+        participants=["구성원카"],
     )
 
     prompt = build_ollama_prompt(request)
@@ -834,8 +834,8 @@ def test_analyze_meeting_with_ollama_uses_fast_default_model_and_bounded_options
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-20",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.",
-        participants=["박지수"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
+        participants=["구성원카"],
     )
     raw = json.dumps(
         {
@@ -898,8 +898,8 @@ def test_analyze_meeting_with_huggingface_uses_openai_compatible_router(monkeypa
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-20",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.",
-        participants=["박지수"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
+        participants=["구성원카"],
     )
     raw = json.dumps(
         {
@@ -955,9 +955,9 @@ def test_acknowledgement_is_not_treated_as_a_task():
     회의에서 '알'(= '알겠습니다'를 제목으로 다듬다 잘린 것)이 To-Do로 나갔다.
     """
     text = (
-        "유소은: 회의록에 자동 번역을 붙이면 어떨까요?\n"
-        "박상준: 이번 분기에는 안 하는 걸로 하시죠.\n"
-        "유소은: 알겠습니다. 나중에 다시 이야기하겠습니다."
+        "구성원라: 회의록에 자동 번역을 붙이면 어떨까요?\n"
+        "구성원다: 이번 분기에는 안 하는 걸로 하시죠.\n"
+        "구성원라: 알겠습니다. 나중에 다시 이야기하겠습니다."
     )
 
     assert extract_speaker_task_candidates(text) == []
@@ -965,8 +965,8 @@ def test_acknowledgement_is_not_treated_as_a_task():
 
 def test_meeting_closing_remark_is_not_treated_as_a_task():
     text = (
-        "허영주: 폴백 로직은 8월 12일에 배포 완료했습니다.\n"
-        "이은주: 좋습니다. 이 건은 종료하겠습니다."
+        "구성원나: 폴백 로직은 8월 12일에 배포 완료했습니다.\n"
+        "구성원사: 좋습니다. 이 건은 종료하겠습니다."
     )
 
     assert extract_speaker_task_candidates(text) == []
@@ -979,11 +979,11 @@ def test_meeting_without_action_items_produces_no_todos():
     사용자 회의록에서 뽑은 것처럼 내보냈다.
     """
     text = (
-        "이은주: 이번 스프린트 지표 공유드립니다. 배포 성공률 98%입니다.\n"
-        "박지수: 확인했습니다."
+        "구성원사: 이번 스프린트 지표 공유드립니다. 배포 성공률 98%입니다.\n"
+        "구성원카: 확인했습니다."
     )
 
-    assert build_todos(text, normalize_text(text), "2026-08-14", ["이은주", "박지수"]) == []
+    assert build_todos(text, normalize_text(text), "2026-08-14", ["구성원사", "구성원카"]) == []
 
 
 def test_empty_model_result_is_respected_when_there_is_no_task_evidence():
@@ -994,8 +994,8 @@ def test_empty_model_result_is_respected_when_there_is_no_task_evidence():
     request = AnalyzeRequest(
         title="스프린트 지표 공유",
         meeting_date="2026-08-14",
-        text="이은주: 이번 스프린트 지표 공유드립니다.\n박지수: 확인했습니다.",
-        participants=["이은주", "박지수"],
+        text="구성원사: 이번 스프린트 지표 공유드립니다.\n구성원카: 확인했습니다.",
+        participants=["구성원사", "구성원카"],
     )
 
     assert repair_ollama_todos([], request) == []
@@ -1013,19 +1013,19 @@ def test_model_todos_survive_when_fewer_than_declaration_sentences():
         meeting_date="2026-08-14",
         text=(
             "김도현: 결제 연동 문서에서 테스트 키 발급 절차가 빠져 있습니다.\n"
-            "이은주: 제가 결제사에 문의해서 절차를 확인하고 8/20까지 공유하겠습니다."
+            "구성원사: 제가 결제사에 문의해서 절차를 확인하고 8/20까지 공유하겠습니다."
         ),
-        participants=["김도현", "이은주"],
+        participants=["김도현", "구성원사"],
     )
     todos = [
         MeetingTodo(
             title="테스트 키 발급 절차 확인",
             description="결제사에 문의해 절차를 확인하고 공유한다.",
-            assignee_candidate="이은주",
+            assignee_candidate="구성원사",
             due_date="2026-08-20",
             priority="MEDIUM",
             category="BACKEND",
-            evidence_text="이은주: 제가 결제사에 문의해서 절차를 확인하고 8/20까지 공유하겠습니다.",
+            evidence_text="구성원사: 제가 결제사에 문의해서 절차를 확인하고 8/20까지 공유하겠습니다.",
         )
     ]
 
@@ -1106,8 +1106,8 @@ def test_parse_model_response_removes_assignee_without_task_evidence():
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-20",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.\n김민준: 발표자료 준비를 하겠습니다.\n결정사항은 문서 업로드 기반 분석을 먼저 구현하는 것입니다.",
-        participants=["박지수", "김민준"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.\n김민준: 발표자료 준비를 하겠습니다.\n결정사항은 문서 업로드 기반 분석을 먼저 구현하는 것입니다.",
+        participants=["구성원카", "김민준"],
     )
     raw = json.dumps(
         {
@@ -1145,8 +1145,8 @@ def test_parse_model_response_fills_missing_assignee_from_speaker_evidence():
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-20",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.\n김민준: 발표자료 준비를 하겠습니다.",
-        participants=["박지수", "김민준"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.\n김민준: 발표자료 준비를 하겠습니다.",
+        participants=["구성원카", "김민준"],
     )
     raw = json.dumps(
         {
@@ -1156,7 +1156,7 @@ def test_parse_model_response_fills_missing_assignee_from_speaker_evidence():
                 {
                     "title": "회의록 AI 분석",
                     "description": "회의록 분석 기능을 구현한다.",
-                    "assignee_candidate": "박지수",
+                    "assignee_candidate": "구성원카",
                     "priority": "HIGH",
                     "category": "AI",
                 },
@@ -1176,18 +1176,18 @@ def test_parse_model_response_fills_missing_assignee_from_speaker_evidence():
 
     result = parse_ollama_analysis_response(raw, request)
 
-    assert result.todos[0].assignee_candidate == "박지수"
+    assert result.todos[0].assignee_candidate == "구성원카"
     assert result.todos[1].assignee_candidate == "김민준"
 
 
 def test_ollama_response_does_not_pile_all_todos_on_one_person():
     """캡스톤 착수 회의 시나리오: Ollama가 각 발언자의 담당 발언만 assignee_candidate로 채택하고,
-    박지수에게 모든 업무가 몰리지 않아야 한다. 담당자 불명확 업무는 미배정이어야 한다."""
+    구성원카에게 모든 업무가 몰리지 않아야 한다. 담당자 불명확 업무는 미배정이어야 한다."""
     request = AnalyzeRequest(
         title="캡스톤디자인 WorkFlow AI 착수 회의",
         meeting_date="2026-07-09",
         text=CAPSTONE_KICKOFF_TRANSCRIPT,
-        participants=["김민준", "이서연", "박지수", "최동혁"],
+        participants=["김민준", "이서연", "구성원카", "최동혁"],
     )
     raw = json.dumps(
         {
@@ -1197,42 +1197,42 @@ def test_ollama_response_does_not_pile_all_todos_on_one_person():
                 {
                     "title": "인증/권한 구조",
                     "description": "인증과 권한 구조를 잡는다.",
-                    "assignee_candidate": "곽진아",
+                    "assignee_candidate": "구성원타",
                     "priority": "HIGH",
                     "category": "BACKEND",
                 },
                 {
                     "title": "회의록 AI 분석",
                     "description": "회의록 AI 분석을 맡는다.",
-                    "assignee_candidate": "박지수",
+                    "assignee_candidate": "구성원카",
                     "priority": "HIGH",
                     "category": "AI",
                 },
                 {
                     "title": "업무 보드 상태",
                     "description": "업무 보드는 네 개 상태로 구성한다.",
-                    "assignee_candidate": "허영주",
+                    "assignee_candidate": "구성원나",
                     "priority": "MEDIUM",
                     "category": "FRONTEND",
                 },
                 {
                     "title": "대시보드 지표",
                     "description": "완료율과 마감 임박 업무를 보여준다.",
-                    "assignee_candidate": "유소은",
+                    "assignee_candidate": "구성원라",
                     "priority": "MEDIUM",
                     "category": "FRONTEND",
                 },
                 {
                     "title": "AI Assistant RAG 설계",
                     "description": "AI Assistant는 RAG 구조로 설계한다.",
-                    "assignee_candidate": "박상준",
+                    "assignee_candidate": "구성원다",
                     "priority": "MEDIUM",
                     "category": "AI",
                 },
                 {
                     "title": "심사자 기여도 리포트",
                     "description": "심사자 화면에서 개인별 기여도 리포트를 보여준다.",
-                    "assignee_candidate": "이은주",
+                    "assignee_candidate": "구성원사",
                     "priority": "MEDIUM",
                     "category": "FRONTEND",
                 },
@@ -1253,10 +1253,10 @@ def test_ollama_response_does_not_pile_all_todos_on_one_person():
     result = parse_ollama_analysis_response(raw, request)
 
     candidates = [todo.assignee_candidate for todo in result.todos]
-    assert candidates.count("박지수") >= 1
-    assert candidates.count("박지수") < len(candidates)
+    assert candidates.count("구성원카") >= 1
+    assert candidates.count("구성원카") < len(candidates)
     assert "" in candidates  # 담당자 불명확 또는 선택 참석자/멤버가 아닌 업무는 미배정으로 남는다
-    for name in ["곽진아", "허영주", "유소은", "박상준", "이은주"]:
+    for name in ["구성원타", "구성원나", "구성원라", "구성원다", "구성원사"]:
         assert name not in candidates
     for todo in result.todos:
         assert todo.assignee_id is None
@@ -1284,8 +1284,8 @@ def test_build_todos_title_is_not_a_raw_verbatim_quote():
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-15",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.",
-        participants=["박지수"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
+        participants=["구성원카"],
     )
 
     result = analyze_meeting(request)
@@ -1299,21 +1299,21 @@ def test_build_todos_sets_evidence_text_with_speaker_quote():
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-15",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.",
-        participants=["박지수"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
+        participants=["구성원카"],
     )
 
     result = analyze_meeting(request)
 
-    assert result.todos[0].evidence_text == "박지수: 저는 회의록 AI 분석을 맡겠습니다"
+    assert result.todos[0].evidence_text == "구성원카: 저는 회의록 AI 분석을 맡겠습니다"
 
 
 def test_parse_ollama_analysis_response_cleans_title_and_keeps_valid_evidence():
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-15",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.",
-        participants=["박지수"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
+        participants=["구성원카"],
     )
     raw = json.dumps(
         {
@@ -1323,10 +1323,10 @@ def test_parse_ollama_analysis_response_cleans_title_and_keeps_valid_evidence():
                 {
                     "title": "저는 회의록 AI 분석을 맡겠습니다",
                     "description": "회의록 AI 분석 기능을 구현한다.",
-                    "assignee_candidate": "박지수",
+                    "assignee_candidate": "구성원카",
                     "priority": "HIGH",
                     "category": "AI",
-                    "evidence_text": "박지수: 저는 회의록 AI 분석을 맡겠습니다.",
+                    "evidence_text": "구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
                 }
             ],
             "risks": [],
@@ -1339,7 +1339,7 @@ def test_parse_ollama_analysis_response_cleans_title_and_keeps_valid_evidence():
 
     assert result.todos[0].title != "저는 회의록 AI 분석을 맡겠습니다"
     assert "하겠습니다" not in result.todos[0].title
-    assert result.todos[0].evidence_text == "박지수: 저는 회의록 AI 분석을 맡겠습니다."
+    assert result.todos[0].evidence_text == "구성원카: 저는 회의록 AI 분석을 맡겠습니다."
 
 
 def test_parse_ollama_analysis_response_rejects_evidence_not_in_source_text():
@@ -1347,8 +1347,8 @@ def test_parse_ollama_analysis_response_rejects_evidence_not_in_source_text():
     request = AnalyzeRequest(
         title="정기회의",
         meeting_date="2026-07-15",
-        text="박지수: 저는 회의록 AI 분석을 맡겠습니다.",
-        participants=["박지수"],
+        text="구성원카: 저는 회의록 AI 분석을 맡겠습니다.",
+        participants=["구성원카"],
     )
     raw = json.dumps(
         {
@@ -1358,7 +1358,7 @@ def test_parse_ollama_analysis_response_rejects_evidence_not_in_source_text():
                 {
                     "title": "회의록 AI 분석 구현",
                     "description": "회의록 AI 분석 기능을 구현한다.",
-                    "assignee_candidate": "박지수",
+                    "assignee_candidate": "구성원카",
                     "priority": "HIGH",
                     "category": "AI",
                     "evidence_text": "이 문장은 회의록 원문에 존재하지 않는다",
@@ -1373,7 +1373,7 @@ def test_parse_ollama_analysis_response_rejects_evidence_not_in_source_text():
     result = parse_ollama_analysis_response(raw, request)
 
     assert "이 문장은 회의록 원문에 존재하지 않는다" not in result.todos[0].evidence_text
-    assert "박지수" in result.todos[0].evidence_text
+    assert "구성원카" in result.todos[0].evidence_text
 
 
 def test_parse_ollama_analysis_response_defaults_evidence_to_empty_when_no_match_found():
@@ -1406,29 +1406,29 @@ def test_rule_based_analysis_extracts_formal_followup_tasks_from_meeting_minutes
     text = """
 회의록
 회의제목 캡스톤디자인 WorkFlow AI 회의록 분석 기능 점검 회의
-참석자 김민준, 이서연, 박지수, 최동혁
+참석자 김민준, 이서연, 구성원카, 최동혁
 논의 내용
 김민준은 회의 시작과 함께 회의록 업로드 후 분석 결과가 프로젝트 단위로 관리되어야 한다고 설명하였다.
-박지수는 분석 상태 폴링과 실패 시 재시도 흐름을 다시 점검해보겠다고 말했다.
+구성원카는 분석 상태 폴링과 실패 시 재시도 흐름을 다시 점검해보겠다고 말했다.
 이서연은 업무 후보가 실제 업무보드에 등록될 때 등록 중 상태가 보여야 한다고 하였다.
 최동혁은 심사자 화면에서 기여도 근거 문장이 함께 보이는지 확인해보겠다고 말했다.
 추후 일정
 다음 회의 전까지 김민준은 프로젝트별 회의록 접근 권한과 삭제 권한을 확인하고,
-박지수는 회의록 AI 분석 상태 표시와 담당자 검증 로직을 점검한다.
+구성원카는 회의록 AI 분석 상태 표시와 담당자 검증 로직을 점검한다.
 이서연은 업무 후보 등록 후 업무보드 반영 흐름을 확인하고,
 최동혁은 심사자 기여도 분석 화면에서 근거 문장 표시 여부를 검토한다.
-작성자 박지수
+작성자 구성원카
 """
     request = AnalyzeRequest(
         title="캡스톤디자인 WorkFlow AI 회의록 분석 기능 점검 회의",
         meeting_date="2026-07-20",
         text=text,
-        participants=["김민준", "이서연", "박지수", "최동혁"],
+        participants=["김민준", "이서연", "구성원카", "최동혁"],
     )
 
     result = analyze_meeting(request)
 
-    assert [todo.assignee_candidate for todo in result.todos] == ["김민준", "박지수", "이서연", "최동혁"]
+    assert [todo.assignee_candidate for todo in result.todos] == ["김민준", "구성원카", "이서연", "최동혁"]
     titles = [todo.title for todo in result.todos]
     assert "프로젝트별 회의록 접근 권한과 삭제 권한 확인" in titles
     assert any(title.startswith("회의록 AI 분석 상태 표시와 담당자 검증") for title in titles)

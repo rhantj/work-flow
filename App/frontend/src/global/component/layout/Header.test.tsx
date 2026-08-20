@@ -103,25 +103,25 @@ describe("Header 접속자 아바타", () => {
 
   it("프로필 사진이 있는 접속자는 이름 첫 글자 대신 사진을 보여준다", () => {
     mockUsePresence.mockReturnValue([
-      { userId: 1, name: "허영주", role: "팀장", avatarUrl: "https://storage.example/avatars/1/a.png?sig=x" },
+      { userId: 1, name: "김민준", role: "팀장", avatarUrl: "https://storage.example/avatars/1/a.png?sig=x" },
     ]);
 
     renderHeader();
 
-    const avatar = screen.getByRole("img", { name: "허영주" });
+    const avatar = screen.getByRole("img", { name: "김민준" });
     expect(avatar).toHaveAttribute("src", "https://storage.example/avatars/1/a.png?sig=x");
-    expect(screen.getByTitle("허영주 / 팀장")).toBe(avatar);
+    expect(screen.getByTitle("김민준 / 팀장")).toBe(avatar);
   });
 
   it("프로필 사진이 없는 접속자는 이름 첫 글자 아바타로 대체한다", () => {
     mockUsePresence.mockReturnValue([
-      { userId: 2, name: "박지수", role: "팀원", avatarUrl: null },
+      { userId: 2, name: "정하늘", role: "팀원", avatarUrl: null },
     ]);
 
     renderHeader();
 
-    expect(screen.queryByRole("img", { name: "박지수" })).not.toBeInTheDocument();
-    expect(screen.getByTitle("박지수 / 팀원")).toHaveTextContent("박");
+    expect(screen.queryByRole("img", { name: "정하늘" })).not.toBeInTheDocument();
+    expect(screen.getByTitle("정하늘 / 팀원")).toHaveTextContent("정");
   });
 });
 

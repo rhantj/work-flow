@@ -5,7 +5,7 @@ from langchain_core.runnables import chain
 from contribution_score.app.schema.contribution_schema import ContributionMemberResult
 from ml_workload_score.app.schema.workload_schema import WorkloadMemberResult
 
-# 2026-07-20 PCA/엔트로피 가중치 실험 결과 반영 (document_이은주/2026-07-20-contribution-weight-experiment.md)
+# 2026-07-20 PCA/엔트로피 가중치 실험 결과 반영 (근거: 2026-07-20-contribution-weight-experiment.md - 개인 문서 폴더라 레포에 없다)
 WEIGHT_WORKLOAD = 0.2016
 WEIGHT_TASK = 0.4911
 WEIGHT_MEETING = 0.3073

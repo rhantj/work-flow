@@ -66,35 +66,35 @@ class PresenceControllerTest {
 
     @Test
     void 프로필_사진이_있으면_서명_URL을_함께_내려준다() throws Exception {
-        givenActiveMember(userWith(1L, "허영주", "avatars/1/a.png"));
+        givenActiveMember(userWith(1L, "구성원나", "avatars/1/a.png"));
         when(storageClient.createSignedUrl(anyString(), anyInt(), any()))
             .thenReturn("https://storage.example/avatars/1/a.png?sig=x");
 
         mockMvc.perform(get("/api/v1/projects/1/presence"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].name").value("허영주"))
+            .andExpect(jsonPath("$.data[0].name").value("구성원나"))
             .andExpect(jsonPath("$.data[0].avatarUrl").value("https://storage.example/avatars/1/a.png?sig=x"));
     }
 
     @Test
     void 프로필_사진이_없으면_avatarUrl은_비어있다() throws Exception {
-        givenActiveMember(userWith(2L, "박지수", null));
+        givenActiveMember(userWith(2L, "구성원카", null));
 
         mockMvc.perform(get("/api/v1/projects/1/presence"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].name").value("박지수"))
+            .andExpect(jsonPath("$.data[0].name").value("구성원카"))
             .andExpect(jsonPath("$.data[0].avatarUrl").doesNotExist());
     }
 
     @Test
     void 서명_URL_발급이_실패해도_접속자_목록은_그대로_내려준다() throws Exception {
-        givenActiveMember(userWith(3L, "고무서", "avatars/3/a.png"));
+        givenActiveMember(userWith(3L, "구성원자", "avatars/3/a.png"));
         when(storageClient.createSignedUrl(anyString(), anyInt(), any()))
             .thenThrow(new RuntimeException("storage down"));
 
         mockMvc.perform(get("/api/v1/projects/1/presence"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].name").value("고무서"))
+            .andExpect(jsonPath("$.data[0].name").value("구성원자"))
             .andExpect(jsonPath("$.data[0].avatarUrl").doesNotExist());
     }
 
@@ -104,7 +104,7 @@ class PresenceControllerTest {
      */
     @Test
     void 같은_경로에_대한_서명_URL은_폴링마다_다시_만들지_않는다() throws Exception {
-        givenActiveMember(userWith(4L, "유소은", "avatars/4/a.png"));
+        givenActiveMember(userWith(4L, "구성원라", "avatars/4/a.png"));
         when(storageClient.createSignedUrl(anyString(), anyInt(), any()))
             .thenReturn("https://storage.example/avatars/4/a.png?sig=first");
 
@@ -119,14 +119,14 @@ class PresenceControllerTest {
     /** 사진을 바꾸면 저장 경로(UUID)가 바뀌므로, 캐시에 막히지 않고 새 URL이 바로 반영돼야 한다. */
     @Test
     void 프로필_사진을_바꾸면_새_URL이_바로_반영된다() throws Exception {
-        givenActiveMember(userWith(5L, "이은주", "avatars/5/old.png"));
+        givenActiveMember(userWith(5L, "구성원사", "avatars/5/old.png"));
         when(storageClient.createSignedUrl(anyString(), anyInt(), any()))
             .thenReturn("https://storage.example/avatars/5/old.png?sig=x");
 
         mockMvc.perform(get("/api/v1/projects/1/presence"))
             .andExpect(jsonPath("$.data[0].avatarUrl").value("https://storage.example/avatars/5/old.png?sig=x"));
 
-        givenActiveMember(userWith(5L, "이은주", "avatars/5/new.png"));
+        givenActiveMember(userWith(5L, "구성원사", "avatars/5/new.png"));
         when(storageClient.createSignedUrl(anyString(), anyInt(), any()))
             .thenReturn("https://storage.example/avatars/5/new.png?sig=y");
 

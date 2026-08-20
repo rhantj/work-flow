@@ -858,7 +858,7 @@ title 규칙 - 반드시 지킬 것:
 
 evidence_text 규칙 - 반드시 지킬 것:
 1. 이 업무가 어떤 발언/문장에서 나왔는지 회의록 원문 그대로(화자 포함) 인용한다.
-   예: "박지수: 저는 회의록 AI 분석을 맡겠습니다."
+   예: "김민준: 저는 회의록 AI 분석을 맡겠습니다."
 2. 회의록 원문에 없는 내용을 지어내지 않는다.
 3. 근거가 될 만한 발언을 찾을 수 없으면 빈 문자열("")로 남긴다.
 
@@ -1671,7 +1671,7 @@ def extract_speaker_task_candidates(text: str) -> List[tuple[str, str]]:
 
 
 def extract_formal_task_candidates(text: str) -> List[tuple[str, str]]:
-    """표준 회의록 문체("김민준은 ... 확인하고, 박지수는 ... 점검한다")에서
+    """표준 회의록 문체("김민준은 ... 확인하고, 이서연은 ... 점검한다")에서
     실제 후속 업무로 읽히는 이름+행동 절만 추출한다."""
     section = extract_followup_section(text) or text
     found = extract_named_action_clauses(section, trust_followup_section=bool(extract_followup_section(text)))

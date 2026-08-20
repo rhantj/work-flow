@@ -38,7 +38,7 @@ vi.mock("../../global/hooks/useAuth", () => ({
   useAuth: () => ({
     currentProjectId: 1,
     currentProject: { role: "팀장" },
-    user: { id: 1, name: "허영주" },
+    user: { id: 1, name: "김민준" },
     projectContextReady: true,
   }),
 }));
@@ -69,8 +69,8 @@ describe("CompletionApprovalsView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getProjectMembers).mockResolvedValue([
-      { userId: 1, name: "허영주", email: "a@a.com", role: "팀장" },
-      { userId: 2, name: "박상준", email: "b@a.com", role: "팀원" },
+      { userId: 1, name: "김민준", email: "a@a.com", role: "팀장" },
+      { userId: 2, name: "이서연", email: "b@a.com", role: "팀원" },
     ]);
     vi.mocked(fetchChecklist).mockResolvedValue([
       { id: "c1", label: "체크1", done: true },
@@ -86,7 +86,7 @@ describe("CompletionApprovalsView", () => {
     renderApprovals();
 
     await waitFor(() => expect(screen.getByText("결제 모듈 완료")).toBeInTheDocument());
-    expect(screen.getByRole("cell", { name: "박상준" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "이서연" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("1/2")).toBeInTheDocument());
   });
 

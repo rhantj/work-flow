@@ -99,7 +99,7 @@ async def test_enriches_action_item_row_from_meeting_action_items_table() -> Non
 #
 # 담당자는 청크 본문에도 없고 이 조회에도 없었다. 그래서 모델이 제목 문구에서 추측했고,
 # 제목이 "담당 미정 · ..."으로 시작하는 업무(회의록 양식이 담당자 칸을 제목에 흘려 넣는다)에
-# 대해 실제로는 박지수가 배정돼 있는데도 "담당자는 미정입니다"라고 답했다.
+# 대해 실제로는 구성원카가 배정돼 있는데도 "담당자는 미정입니다"라고 답했다.
 # 근거 없음보다 나쁘다 - 사용자가 틀린 줄 모른다.
 
 
@@ -109,14 +109,14 @@ async def test_task_facts_include_assignee_name() -> None:
     conn = _FakeConn(
         task_rows=[{
             "id": 3, "due_date": None, "status": "todo",
-            "priority": "MEDIUM", "assignee_name": "박지수",
+            "priority": "MEDIUM", "assignee_name": "구성원카",
         }],
         action_item_rows=[],
     )
 
     result = await enrich_with_facts(_FakePool(conn), project_id=1, rows=rows)
 
-    assert result[0]["facts"]["assignee_name"] == "박지수"
+    assert result[0]["facts"]["assignee_name"] == "구성원카"
 
 
 @pytest.mark.asyncio

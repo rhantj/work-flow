@@ -290,7 +290,7 @@ class MeetingAnalysisPersistenceTest {
         when(projectMemberRepository.findByProjectIdAndRole(1L, com.workflowai.project.ProjectRole.LEADER))
             .thenReturn(Optional.of(leaderMember));
         User requester = mock(User.class);
-        when(requester.getName()).thenReturn("박지수");
+        when(requester.getName()).thenReturn("구성원카");
         when(userRepository.findById(20L)).thenReturn(Optional.of(requester));
 
         MeetingAnalysisResult result = new MeetingAnalysisResult(
@@ -304,7 +304,7 @@ class MeetingAnalysisPersistenceTest {
         verify(notificationService).notifyAfterCommit(
             eq(99L), eq(1L), eq("MEETING_ANALYSIS_COMPLETED_NOTIFY_LEADER"), any(), contentCaptor.capture(), eq("meeting"), eq(5L)
         );
-        assertThat(contentCaptor.getValue()).contains("박지수님이");
+        assertThat(contentCaptor.getValue()).contains("구성원카님이");
         // 원본 업로더(10L)에게도, 재분석을 실행한 본인(20L)에게도 알림이 가지 않는다.
         verify(notificationService, never()).notifyAfterCommit(eq(10L), any(), any(), any(), any(), any(), any());
         verify(notificationService, never()).notifyAfterCommit(eq(20L), any(), any(), any(), any(), any(), any());
@@ -316,16 +316,16 @@ class MeetingAnalysisPersistenceTest {
         Meeting meeting = newMeeting();
         when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(meeting));
         stubSaves();
-        stubMember("박지수", 3L);
+        stubMember("구성원카", 3L);
         when(meetingAttendeeRepository.findByMeetingId(5L)).thenReturn(List.of(new MeetingAttendee(5L, 3L)));
 
         MeetingAnalysisResult result = new MeetingAnalysisResult(
             "요약",
             List.of("결정1"),
-            List.of(new MeetingTodo("업무1", "설명", "박지수", null, "2026-07-20", "HIGH", "ETC", true)),
+            List.of(new MeetingTodo("업무1", "설명", "구성원카", null, "2026-07-20", "HIGH", "ETC", true)),
             List.of("위험1"),
             List.of("키워드1"),
-            new MeetingMeta("정기회의", "2026-07-15", List.of("박지수"))
+            new MeetingMeta("정기회의", "2026-07-15", List.of("구성원카"))
         );
 
         persistence.saveAnalysisSuccess(5L, result, "FASTAPI");
@@ -345,17 +345,17 @@ class MeetingAnalysisPersistenceTest {
         org.springframework.test.util.ReflectionTestUtils.setField(version, "originalMeetingId", 5L);
         when(meetingRepository.findByIdForUpdate(6L)).thenReturn(Optional.of(version));
         stubSaves();
-        stubMember("박지수", 3L);
+        stubMember("구성원카", 3L);
         // 원본 회의록(id=5)에는 참석자가 등록되어 있다.
         when(meetingAttendeeRepository.findByMeetingId(5L)).thenReturn(List.of(new MeetingAttendee(5L, 3L)));
 
         MeetingAnalysisResult result = new MeetingAnalysisResult(
             "요약",
             List.of("결정1"),
-            List.of(new MeetingTodo("업무1", "설명", "박지수", null, "2026-07-20", "HIGH", "ETC", true)),
+            List.of(new MeetingTodo("업무1", "설명", "구성원카", null, "2026-07-20", "HIGH", "ETC", true)),
             List.of("위험1"),
             List.of("키워드1"),
-            new MeetingMeta("정기회의_수정본", "2026-07-15", List.of("박지수"))
+            new MeetingMeta("정기회의_수정본", "2026-07-15", List.of("구성원카"))
         );
 
         persistence.saveAnalysisSuccess(6L, result, "FASTAPI");
@@ -371,11 +371,11 @@ class MeetingAnalysisPersistenceTest {
         Meeting meeting = newMeeting();
         when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(meeting));
         stubSaves();
-        // 유소은은 프로젝트 멤버지만 이번 회의의 참석자로 체크되지 않았다.
+        // 구성원라는 프로젝트 멤버지만 이번 회의의 참석자로 체크되지 않았다.
         // 참석자 여부를 먼저 검사하므로 프로젝트 멤버십 조회 자체가 호출되지 않는다.
         User outsider = mock(User.class);
         when(outsider.getId()).thenReturn(9L);
-        when(userRepository.findFirstByName("유소은")).thenReturn(Optional.of(outsider));
+        when(userRepository.findFirstByName("구성원라")).thenReturn(Optional.of(outsider));
         when(meetingAttendeeRepository.findByMeetingId(5L)).thenReturn(
             List.of(new MeetingAttendee(5L, 1L), new MeetingAttendee(5L, 2L))
         );
@@ -383,7 +383,7 @@ class MeetingAnalysisPersistenceTest {
         MeetingAnalysisResult result = new MeetingAnalysisResult(
             "요약",
             List.of("결정1"),
-            List.of(new MeetingTodo("업무1", "설명", "유소은", null, "2026-07-20", "HIGH", "ETC", true)),
+            List.of(new MeetingTodo("업무1", "설명", "구성원라", null, "2026-07-20", "HIGH", "ETC", true)),
             List.of("위험1"),
             List.of("키워드1"),
             new MeetingMeta("정기회의", "2026-07-15", List.of("김민준", "이서연"))
@@ -403,7 +403,7 @@ class MeetingAnalysisPersistenceTest {
         Meeting meeting = newMeeting();
         when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(meeting));
         stubSaves();
-        when(userRepository.findFirstByName("고무서")).thenReturn(Optional.empty());
+        when(userRepository.findFirstByName("구성원자")).thenReturn(Optional.empty());
         when(meetingAttendeeRepository.findByMeetingId(5L)).thenReturn(
             List.of(new MeetingAttendee(5L, 1L), new MeetingAttendee(5L, 2L))
         );
@@ -411,7 +411,7 @@ class MeetingAnalysisPersistenceTest {
         MeetingAnalysisResult result = new MeetingAnalysisResult(
             "요약",
             List.of("결정1"),
-            List.of(new MeetingTodo("업무1", "설명", "고무서", null, "2026-07-20", "HIGH", "ETC", true)),
+            List.of(new MeetingTodo("업무1", "설명", "구성원자", null, "2026-07-20", "HIGH", "ETC", true)),
             List.of("위험1"),
             List.of("키워드1"),
             new MeetingMeta("정기회의", "2026-07-15", List.of("김민준", "이서연"))
@@ -427,17 +427,17 @@ class MeetingAnalysisPersistenceTest {
 
     @Test
     void onlyAttendeeMatchedCandidateIsAssignedAmongManyBodyNames() {
-        // 업로드 시 체크된 참석자: 김민준, 이서연, 박지수, 최동혁.
-        // 회의록 본문에는 고무서/곽진아/박지수/허영주/유소은/박상준/이은주가 담당자로 언급된다.
-        // 참석자이자 프로젝트 멤버인 박지수만 자동 배정되고 나머지는 모두 미배정이어야 한다.
+        // 업로드 시 체크된 참석자: 김민준, 이서연, 구성원카, 최동혁.
+        // 회의록 본문에는 구성원자/구성원타/구성원카/구성원나/구성원라/구성원다/구성원사가 담당자로 언급된다.
+        // 참석자이자 프로젝트 멤버인 구성원카만 자동 배정되고 나머지는 모두 미배정이어야 한다.
         MeetingAnalysisPersistence persistence = newPersistence();
         Meeting meeting = newMeeting();
         when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(meeting));
         stubSaves();
 
         Map<String, Long> outsiderIds = Map.of(
-            "고무서", 101L, "곽진아", 102L, "허영주", 103L,
-            "유소은", 104L, "박상준", 105L, "이은주", 106L
+            "구성원자", 101L, "구성원타", 102L, "구성원나", 103L,
+            "구성원라", 104L, "구성원다", 105L, "구성원사", 106L
         );
         outsiderIds.forEach((name, userId) -> {
             User outsider = mock(User.class);
@@ -445,27 +445,27 @@ class MeetingAnalysisPersistenceTest {
             when(userRepository.findFirstByName(name)).thenReturn(Optional.of(outsider));
             // 참석자 여부를 먼저 검사하므로, 참석자가 아닌 이들은 프로젝트 멤버십 조회까지 가지 않는다.
         });
-        stubMember("박지수", 3L);
+        stubMember("구성원카", 3L);
 
         when(meetingAttendeeRepository.findByMeetingId(5L)).thenReturn(List.of(
             new MeetingAttendee(5L, 1L), // 김민준
             new MeetingAttendee(5L, 2L), // 이서연
-            new MeetingAttendee(5L, 3L), // 박지수
+            new MeetingAttendee(5L, 3L), // 구성원카
             new MeetingAttendee(5L, 4L)  // 최동혁
         ));
 
         List<MeetingTodo> todos = List.of(
-            new MeetingTodo("t1", "설명", "고무서", null, "2026-07-20", "HIGH", "ETC", true),
-            new MeetingTodo("t2", "설명", "곽진아", null, "2026-07-20", "HIGH", "ETC", true),
-            new MeetingTodo("t3", "설명", "박지수", null, "2026-07-20", "HIGH", "ETC", true),
-            new MeetingTodo("t4", "설명", "허영주", null, "2026-07-20", "HIGH", "ETC", true),
-            new MeetingTodo("t5", "설명", "유소은", null, "2026-07-20", "HIGH", "ETC", true),
-            new MeetingTodo("t6", "설명", "박상준", null, "2026-07-20", "HIGH", "ETC", true),
-            new MeetingTodo("t7", "설명", "이은주", null, "2026-07-20", "HIGH", "ETC", true)
+            new MeetingTodo("t1", "설명", "구성원자", null, "2026-07-20", "HIGH", "ETC", true),
+            new MeetingTodo("t2", "설명", "구성원타", null, "2026-07-20", "HIGH", "ETC", true),
+            new MeetingTodo("t3", "설명", "구성원카", null, "2026-07-20", "HIGH", "ETC", true),
+            new MeetingTodo("t4", "설명", "구성원나", null, "2026-07-20", "HIGH", "ETC", true),
+            new MeetingTodo("t5", "설명", "구성원라", null, "2026-07-20", "HIGH", "ETC", true),
+            new MeetingTodo("t6", "설명", "구성원다", null, "2026-07-20", "HIGH", "ETC", true),
+            new MeetingTodo("t7", "설명", "구성원사", null, "2026-07-20", "HIGH", "ETC", true)
         );
         MeetingAnalysisResult result = new MeetingAnalysisResult(
             "요약", List.of("결정1"), todos, List.of("위험1"), List.of("키워드1"),
-            new MeetingMeta("정기회의", "2026-07-15", List.of("김민준", "이서연", "박지수", "최동혁"))
+            new MeetingMeta("정기회의", "2026-07-15", List.of("김민준", "이서연", "구성원카", "최동혁"))
         );
 
         persistence.saveAnalysisSuccess(5L, result, "FASTAPI");
@@ -487,21 +487,21 @@ class MeetingAnalysisPersistenceTest {
     @Test
     void endToEndCapstoneKickoffTranscriptOnlyAssignsAttendingSpeaker() {
         // FallbackMeetingAnalyzer의 실제 추출 결과를 그대로 persistence에 흘려보내
-        // 참석자(김민준, 이서연, 박지수, 최동혁) 중 본문에서 발언한 박지수만 배정되는지 end-to-end로 검증한다.
+        // 참석자(김민준, 이서연, 구성원카, 최동혁) 중 본문에서 발언한 구성원카만 배정되는지 end-to-end로 검증한다.
         String transcript = """
-            고무서: 전체 범위와 1주차 개발 목표를 정리하겠습니다.
-            곽진아: 인증과 권한 구조는 제가 먼저 잡겠습니다. Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다.
-            박지수: 저는 회의록 AI 분석을 맡겠습니다. 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다.
-            허영주: 업무 보드는 네 개 상태로 가면 될 것 같습니다. 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다.
-            유소은: 대시보드는 완료율, 마감 임박 업무, 블로커, 팀원별 업무량을 보여주겠습니다. ML 지연 위험도는 처음에는 규칙 기반으로 만들겠습니다.
-            박상준: AI Assistant는 RAG 구조로 설계하겠습니다.
-            이은주: 심사자 화면에서는 개인별 기여도 리포트와 AI 평가 근거를 볼 수 있게 하겠습니다.
-            곽진아: API 명세는 공통 응답 형식을 맞춰야 합니다.
-            박지수: 회의록 분석 결과는 summary, decisions, todos, risks, keywords 형식으로 고정하겠습니다.
+            구성원자: 전체 범위와 1주차 개발 목표를 정리하겠습니다.
+            구성원타: 인증과 권한 구조는 제가 먼저 잡겠습니다. Google OAuth 로그인, JWT 발급, 프로젝트별 팀장/팀원/심사자 권한을 7월 12일까지 기본 구조로 구현하겠습니다.
+            구성원카: 저는 회의록 AI 분석을 맡겠습니다. 우선 문서 업로드 기반으로 회의 요약, 결정사항, 위험요소, To-Do 후보를 JSON으로 추출하는 기능부터 만들겠습니다.
+            구성원나: 업무 보드는 네 개 상태로 가면 될 것 같습니다. 회의록에서 생성된 To-Do가 팀장 승인 후 업무 보드에 들어오게 연결하겠습니다.
+            구성원라: 대시보드는 완료율, 마감 임박 업무, 블로커, 팀원별 업무량을 보여주겠습니다. ML 지연 위험도는 처음에는 규칙 기반으로 만들겠습니다.
+            구성원다: AI Assistant는 RAG 구조로 설계하겠습니다.
+            구성원사: 심사자 화면에서는 개인별 기여도 리포트와 AI 평가 근거를 볼 수 있게 하겠습니다.
+            구성원타: API 명세는 공통 응답 형식을 맞춰야 합니다.
+            구성원카: 회의록 분석 결과는 summary, decisions, todos, risks, keywords 형식으로 고정하겠습니다.
             """;
         AiAnalyzeRequest request = new AiAnalyzeRequest(
             "demo-project", "캡스톤디자인 WorkFlow AI 착수 회의", "2026-07-09", "캡스톤디자인",
-            "document", "kickoff.txt", transcript, List.of("김민준", "이서연", "박지수", "최동혁")
+            "document", "kickoff.txt", transcript, List.of("김민준", "이서연", "구성원카", "최동혁")
         );
         MeetingAnalysisResult result = new FallbackMeetingAnalyzer().analyze(request);
 
@@ -509,8 +509,8 @@ class MeetingAnalysisPersistenceTest {
         Meeting meeting = newMeeting();
         when(meetingRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(meeting));
         stubSaves();
-        // 참석자로 체크된 4명 중 프로젝트 멤버이자 회의 참석자로 저장된 사람은 박지수(3L)뿐이다.
-        stubMember("박지수", 3L);
+        // 참석자로 체크된 4명 중 프로젝트 멤버이자 회의 참석자로 저장된 사람은 구성원카(3L)뿐이다.
+        stubMember("구성원카", 3L);
         when(meetingAttendeeRepository.findByMeetingId(5L)).thenReturn(List.of(
             new MeetingAttendee(5L, 1L), new MeetingAttendee(5L, 2L),
             new MeetingAttendee(5L, 3L), new MeetingAttendee(5L, 4L)
@@ -526,11 +526,11 @@ class MeetingAnalysisPersistenceTest {
         for (MeetingActionItem item : savedItems) {
             Long recommendedId = item.getRecommendedAssigneeId();
             if (recommendedId != null && recommendedId == 3L) {
-                // 박지수가 직접 발언한 업무 -> 반드시 박지수에게 배정.
-                assertThat(item.getFinalAssigneeId()).as("박지수 발언 업무: " + item.getTitle()).isEqualTo(3L);
+                // 구성원카가 직접 발언한 업무 -> 반드시 구성원카에게 배정.
+                assertThat(item.getFinalAssigneeId()).as("구성원카 발언 업무: " + item.getTitle()).isEqualTo(3L);
                 assignedCount++;
             } else {
-                // 그 외(비참석자가 발언한 업무, 또는 후보 추출 실패) -> 절대 배정되면 안 됨(박지수에게 몰리는 것 포함).
+                // 그 외(비참석자가 발언한 업무, 또는 후보 추출 실패) -> 절대 배정되면 안 됨(구성원카에게 몰리는 것 포함).
                 assertThat(item.getFinalAssigneeId()).as("비참석자 발언 업무: " + item.getTitle()).isNull();
             }
         }
