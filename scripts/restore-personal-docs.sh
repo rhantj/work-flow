@@ -15,7 +15,7 @@
 #
 # 사용법:
 #   bash scripts/restore-personal-docs.sh                    # 모든 document_* 폴더 복구
-#   bash scripts/restore-personal-docs.sh document_<이름>      # 특정 폴더만 복구
+#   bash scripts/restore-personal-docs.sh document_본인이름      # 특정 폴더만 복구
 #   bash scripts/restore-personal-docs.sh --dry-run          # 무엇이 복구될지만 출력
 #   bash scripts/restore-personal-docs.sh --force            # 기존 로컬 파일도 덮어쓰기
 #
