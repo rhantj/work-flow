@@ -6,7 +6,7 @@
   "must_include_facts": [
     {
       "fact_id": "F1",
-      "statement": "구성원저이 발표자료 초안을 맡기로 했다",
+      "statement": "구성원저가 발표자료 초안을 맡기로 했다",
       "evidence_snippet": "저는 발표자료 초안을 맡겠습니다"
     },
     {
@@ -28,8 +28,8 @@
   "must_not_claim": [
     {
       "claim_id": "N1",
-      "statement": "발표자료 담당을 구성원저이 아닌 다른 사람으로 말한다",
-      "reason": "근거는 구성원저이 초안을 맡겠다고 밝힌 발언이다"
+      "statement": "발표자료 담당을 구성원저가 아닌 다른 사람으로 말한다",
+      "reason": "근거는 구성원저가 초안을 맡겠다고 밝힌 발언이다"
     },
     {
       "claim_id": "N2",

@@ -166,9 +166,9 @@
 {"assignee_id": null, "content": "제출 전날에는 맞춤법, 분량, 파일명 규칙 … - 제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "id": 338, "source_id": 295, "source_type": "task"}
 {"assignee_id": 2, "content": "알림지연테스트", "id": 339, "source_id": 296, "source_type": "task"}
 {"assignee_id": 2, "content": "알림지연테스트2", "id": 409, "source_id": 309, "source_type": "task"}
-{"assignee_id": null, "content": "삭제 버그 재현을 논의하고, 구성원나가 담당, 구성원다이 리뷰를 맡기로 했다. 결정사항: 구성원나가 버그 재현 담당, 구성원다이 리뷰 담당으로 결정됨", "id": 410, "source_id": 65, "source_type": "meeting"}
-{"assignee_id": 1, "content": "버그 재현 수행하기 - 삭제 버그의 재현을 수행한다. 근거: 구성원나가 버그 재현 담당, 구성원다이 리뷰 담당으로 결정되었습니다.", "id": 411, "source_id": 410, "source_type": "action_item"}
-{"assignee_id": null, "content": "버그 리뷰 수행하기 - 삭제 버그의 리뷰를 수행한다. 근거: 구성원나가 버그 재현 담당, 구성원다이 리뷰 담당으로 결정되었습니다.", "id": 412, "source_id": 411, "source_type": "action_item"}
+{"assignee_id": null, "content": "삭제 버그 재현을 논의하고, 구성원나가 담당, 구성원다가 리뷰를 맡기로 했다. 결정사항: 구성원나가 버그 재현 담당, 구성원다가 리뷰 담당으로 결정됨", "id": 410, "source_id": 65, "source_type": "meeting"}
+{"assignee_id": 1, "content": "버그 재현 수행하기 - 삭제 버그의 재현을 수행한다. 근거: 구성원나가 버그 재현 담당, 구성원다가 리뷰 담당으로 결정되었습니다.", "id": 411, "source_id": 410, "source_type": "action_item"}
+{"assignee_id": null, "content": "버그 리뷰 수행하기 - 삭제 버그의 리뷰를 수행한다. 근거: 구성원나가 버그 재현 담당, 구성원다가 리뷰 담당으로 결정되었습니다.", "id": 412, "source_id": 411, "source_type": "action_item"}
 {"assignee_id": null, "content": "브라우저 fetch 재현 테스트에 대한 담당을 구성원나가 맡았음", "id": 413, "source_id": 66, "source_type": "meeting"}
 {"assignee_id": 1, "content": "fetch 재현 테스트하기 - 브라우저 fetch 기능을 재현하여 테스트 수행 근거: 구성원나가 담당.", "id": 414, "source_id": 412, "source_type": "action_item"}
 {"assignee_id": null, "content": "leader 브라우저 fetch 재현 테스트에 대한 회의가 진행되었음", "id": 415, "source_id": 67, "source_type": "meeting"}

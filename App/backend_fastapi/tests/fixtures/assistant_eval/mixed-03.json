@@ -6,7 +6,7 @@
   "must_include_facts": [
     {
       "fact_id": "F1",
-      "statement": "구성원러이 7월 13일까지 비교 결과를 공유하기로 했다",
+      "statement": "구성원러가 7월 13일까지 비교 결과를 공유하기로 했다",
       "evidence_snippet": "7월 13일까지 결과를 공유하겠습니다"
     },
     {
