@@ -317,7 +317,7 @@ class AuthServiceTest {
 
     @Test
     void devLogin_stillWorksForTestAccounts() {
-        User demoUser = new User("demo-user-1@workflow.ai", "허영주", "demo", "1");
+        User demoUser = new User("demo-user-1@workflow.ai", "구성원나", "demo", "1");
         when(userRepository.findByProviderAndProviderId("demo", "1")).thenReturn(Optional.of(demoUser));
         when(jwtService.issueAccessToken(demoUser)).thenReturn("access-token");
         when(jwtService.issueRefreshToken(demoUser)).thenReturn("refresh-token");

@@ -39,10 +39,10 @@ class ActivityRepositoryTest {
         ));
         // user_id=7인 학생의 학점 공개. target_id가 업무 7과 같은 값이다.
         activityRepository.save(new Activity(
-            PROJECT_ID, REVIEWER_ID, "GRADE_PUBLISHED", COLLIDING_ID, "박지수님의 학점을 공개했습니다."
+            PROJECT_ID, REVIEWER_ID, "GRADE_PUBLISHED", COLLIDING_ID, "구성원카님의 학점을 공개했습니다."
         ));
         activityRepository.save(new Activity(
-            PROJECT_ID, REVIEWER_ID, "REVIEW_COMMENT_SAVED", COLLIDING_ID, "박지수님에 대한 심사 코멘트를 작성했습니다."
+            PROJECT_ID, REVIEWER_ID, "REVIEW_COMMENT_SAVED", COLLIDING_ID, "구성원카님에 대한 심사 코멘트를 작성했습니다."
         ));
 
         List<Activity> found = activityRepository.findByProjectIdAndTargetIdAndTypeNotInOrderByCreatedAtDesc(
@@ -74,7 +74,7 @@ class ActivityRepositoryTest {
         // 점수 저장 직후 확정처럼 같은 초에 여러 건이 쌓이면 created_at만으로는 순서가
         // 정해지지 않아 요청마다 목록이 흔들린다.
         Activity first = activityRepository.save(new Activity(
-            PROJECT_ID, REVIEWER_ID, "CONTRIBUTION_SCORE_PUBLISHED", 7L, "박지수님의 기여 점수를 공개했습니다."
+            PROJECT_ID, REVIEWER_ID, "CONTRIBUTION_SCORE_PUBLISHED", 7L, "구성원카님의 기여 점수를 공개했습니다."
         ));
         Activity second = activityRepository.save(new Activity(
             PROJECT_ID, REVIEWER_ID, "EVALUATION_FINALIZED", null, "프로젝트 평가를 확정했습니다."
@@ -96,7 +96,7 @@ class ActivityRepositoryTest {
             PROJECT_ID, REVIEWER_ID, "PROJECT_ACCESS", null, "프로젝트에 접속했습니다."
         ));
         activityRepository.save(new Activity(
-            PROJECT_ID, REVIEWER_ID, "GRADE_PUBLISHED", 7L, "박지수님의 학점을 공개했습니다."
+            PROJECT_ID, REVIEWER_ID, "GRADE_PUBLISHED", 7L, "구성원카님의 학점을 공개했습니다."
         ));
 
         List<Activity> found = activityRepository.findTop10ByActorIdAndTypeInOrderByCreatedAtDescIdDesc(

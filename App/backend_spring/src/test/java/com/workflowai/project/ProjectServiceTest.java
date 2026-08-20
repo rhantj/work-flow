@@ -331,14 +331,14 @@ class ProjectServiceTest {
         ProjectMember leader = new ProjectMember(10L, 1L, ProjectRole.LEADER);
         ProjectMember reviewer = new ProjectMember(10L, 2L, ProjectRole.REVIEWER);
         when(projectMemberRepository.findAllByProjectId(10L)).thenReturn(List.of(leader, reviewer));
-        User leaderUser = new User("leader@example.com", "허영주", "email", "leader");
+        User leaderUser = new User("leader@example.com", "구성원나", "email", "leader");
         ReflectionTestUtils.setField(leaderUser, "id", 1L);
         when(userRepository.findAllById(List.of(1L))).thenReturn(List.of(leaderUser));
 
         List<MemberResponse> members = projectService.members(10L);
 
         assertThat(members).hasSize(1);
-        assertThat(members.get(0).name()).isEqualTo("허영주");
+        assertThat(members.get(0).name()).isEqualTo("구성원나");
     }
 
     @Test

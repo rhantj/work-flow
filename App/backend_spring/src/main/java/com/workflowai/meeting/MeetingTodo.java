@@ -13,7 +13,7 @@ public record MeetingTodo(
     @Schema(description = "우선순위", example = "HIGH", allowableValues = {"HIGH", "MEDIUM", "LOW"}) String priority,
     @Schema(description = "카테고리", example = "PRESENTATION") String category,
     @Schema(description = "팀장 검토가 필요한지 여부 (담당자 미배정 등)", example = "false") boolean needs_leader_review,
-    @Schema(description = "이 업무의 근거가 된 회의록 원문 발언/문장", example = "박지수: 저는 회의록 AI 분석을 맡겠습니다.") String evidence_text
+    @Schema(description = "이 업무의 근거가 된 회의록 원문 발언/문장", example = "김민준: 저는 회의록 AI 분석을 맡겠습니다.") String evidence_text
 ) {
     /** start_date가 없던 기존 호출부와의 호환을 위한 보조 생성자 (시작일 없음으로 처리). */
     public MeetingTodo(
