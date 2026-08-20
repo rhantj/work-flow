@@ -6,7 +6,7 @@
   "must_include_facts": [
     {
       "fact_id": "F1",
-      "statement": "소라가 ERD 수정본을 오늘 밤까지 공유하기로 했다",
+      "statement": "구성원O가 ERD 수정본을 오늘 밤까지 공유하기로 했다",
       "evidence_snippet": "ERD 수정본은 오늘 밤까지 공유하겠습니다"
     },
     {
@@ -20,8 +20,8 @@
     "action_item#520"
   ],
   "expected_source_excerpts": {
-    "action_item#523": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 소라: ERD 수정본은 오늘 밤까지 공유하겠습니다",
-    "action_item#520": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 소라: 데이터베이스 ERD는 1차로 만들었습니다"
+    "action_item#523": "ERD 수정본은 오늘 밤까지 공유 - ERD 수정본은 오늘 밤까지 공유하겠습니다 근거: 구성원O: ERD 수정본은 오늘 밤까지 공유하겠습니다",
+    "action_item#520": "데이터베이스 ERD는 1차로 만들었 - 데이터베이스 ERD는 1차로 만들었습니다 근거: 구성원O: 데이터베이스 ERD는 1차로 만들었습니다"
   },
   "must_not_claim": [
     {

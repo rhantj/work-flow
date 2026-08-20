@@ -2,12 +2,12 @@
   "case_id": "mixed-08",
   "category": "mixed",
   "retrieval_case_id": "C08",
-  "question": "박상준이 어떤 구조로 설계한다고 했어?",
+  "question": "구성원B이 어떤 구조로 설계한다고 했어?",
   "must_include_facts": [
     {
       "fact_id": "F1",
-      "statement": "박상준은 AI Assistant를 RAG 구조로 설계하겠다고 했다",
-      "evidence_snippet": "박상준: AI Assistant는 RAG 구조로 설계하겠습니다"
+      "statement": "구성원B은 AI Assistant를 RAG 구조로 설계하겠다고 했다",
+      "evidence_snippet": "구성원B: AI Assistant는 RAG 구조로 설계하겠습니다"
     }
   ],
   "expected_source_ids": [
@@ -16,9 +16,9 @@
     "task#7"
   ],
   "expected_source_excerpts": {
-    "action_item#6": "박상준: AI Assistant는 RAG 구조로 설계하겠습니다 - 박상준: AI Assistant는 RAG 구조로 설계하겠습니다",
-    "task#8": "박상준: AI Assistant는 RAG 구조로 설계하겠습니다 - 박상준: AI Assistant는 RAG 구조로 설계하겠습니다",
-    "task#7": "박상준: AI Assistant는 RAG 구조로 설계하겠습니다 - 박상준: AI Assistant는 RAG 구조로 설계하겠습니다"
+    "action_item#6": "구성원B: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원B: AI Assistant는 RAG 구조로 설계하겠습니다",
+    "task#8": "구성원B: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원B: AI Assistant는 RAG 구조로 설계하겠습니다",
+    "task#7": "구성원B: AI Assistant는 RAG 구조로 설계하겠습니다 - 구성원B: AI Assistant는 RAG 구조로 설계하겠습니다"
   },
   "must_not_claim": [
     {
@@ -28,7 +28,7 @@
     },
     {
       "claim_id": "N2",
-      "statement": "박상준이 설계를 이미 완료했다고 말한다",
+      "statement": "구성원B이 설계를 이미 완료했다고 말한다",
       "reason": "근거는 앞으로 하겠다는 발언이다"
     }
   ]

@@ -1,0 +1,166 @@
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-174", "due_date": null, "id": 29, "priority": "high", "status": "done", "title": "로그인과 JWT 세션을 제공한다"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-175", "due_date": null, "id": 30, "priority": "high", "status": "done", "title": "프로젝트 생성과 멤버 초대를 제공한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-176", "due_date": null, "id": 31, "priority": "medium", "status": "done", "title": "역할별 마이페이지 셸을 제공한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-177", "due_date": "2026-07-26", "id": 32, "priority": "high", "status": "done", "title": "회의록 문서 업로드와 상태 조회를 제공한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-178\n\n팀원별 업무량 페이지", "due_date": "2026-09-01", "id": 33, "priority": "high", "status": "blocked", "title": "LLM 회의 분석 결과를 구조화한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-179", "due_date": null, "id": 34, "priority": "high", "status": "done", "title": "To-Do 후보를 검토 후 업무로 승인한다"}
+{"assignee_id": 4, "description": "ㅇㅇ", "due_date": "2026-07-26", "id": 35, "priority": "high", "status": "done", "title": "프로젝트 대시보드 기본 집계를 제공한다"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-181", "due_date": null, "id": 36, "priority": "high", "status": "done", "title": "ML 지연 위험도 예측을 제공한다"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-182", "due_date": null, "id": 37, "priority": "high", "status": "done", "title": "팀원별 업무량을 표시한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-183", "due_date": "2026-07-31", "id": 38, "priority": "high", "status": "done", "title": "프로젝트 문서를 RAG 인덱싱한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-184\n\n저쪽 대시보드에서 보낸 업무 수정입니다....", "due_date": "2026-07-31", "id": 39, "priority": "low", "status": "done", "title": "출처 포함 프로젝트 Q&A를 제공한다(수정됨)"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-185", "due_date": null, "id": 40, "priority": "high", "status": "done", "title": "업무 편중 점수 모델을 제공한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-186", "due_date": null, "id": 41, "priority": "high", "status": "done", "title": "ML 모델링 파이프라인을 지원한다"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-187", "due_date": null, "id": 42, "priority": "high", "status": "done", "title": "상태 기반 칸반 업무 보드를 제공한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-188", "due_date": null, "id": 43, "priority": "high", "status": "done", "title": "카테고리별 업무 생성과 상세 패널을 제공한다"}
+{"assignee_id": 11, "description": "[Jira01 재검증 테스트 삽입] WF-189", "due_date": null, "id": 44, "priority": "high", "status": "todo", "title": "심사자 전용 기여도 리포트를 제공한다"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-190", "due_date": null, "id": 45, "priority": "high", "status": "done", "title": "통합 QA와 권한 시나리오를 검증한다"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-191", "due_date": null, "id": 46, "priority": "high", "status": "done", "title": "공통 API 규칙과 응답 envelope를 적용한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-192", "due_date": null, "id": 47, "priority": "high", "status": "done", "title": "비동기 처리와 상태 폴링 기반을 구축한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-193\n\n저쪽 대시보드/팀원별 업무량에서 보내려다 실패하고 또 보내려다 실패했지만 결국 보내는 데 성공한 업무 수정입니다.....\n\n[업무 수정 후 다시 업무 배정 리스트로 이동되는지 테스트]", "due_date": "2026-07-01", "id": 48, "priority": "high", "status": "done", "title": "FS-1 인증/프로젝트/RBAC"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-194", "due_date": "2026-01-01", "id": 49, "priority": "high", "status": "done", "title": "FS-2 회의록 AI/To-Do"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-195", "due_date": "2025-12-28", "id": 50, "priority": "high", "status": "done", "title": "FS-3 대시보드/지연 위험도"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-196", "due_date": "2026-07-30", "id": 51, "priority": "high", "status": "done", "title": "FS-4 AI Assistant/RAG"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-197", "due_date": "2025-12-28", "id": 52, "priority": "high", "status": "done", "title": "FS-5 ML/AI 모델링"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-198", "due_date": "2025-12-28", "id": 53, "priority": "high", "status": "done", "title": "FS-6 업무 보드"}
+{"assignee_id": 11, "description": "[Jira01 재검증 테스트 삽입] WF-199", "due_date": "2025-12-28", "id": 54, "priority": "high", "status": "todo", "title": "FS-4 심사자/기여도/QA (통합)"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-201", "due_date": "2025-12-28", "id": 56, "priority": "high", "status": "done", "title": "로그인과 JWT 세션을 제공한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-202", "due_date": "2025-12-28", "id": 57, "priority": "high", "status": "done", "title": "로그인/콜백 화면 구현"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-203", "due_date": "2025-12-28", "id": 58, "priority": "high", "status": "done", "title": "로그인/refresh/logout API 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-204", "due_date": "2025-12-28", "id": 59, "priority": "high", "status": "done", "title": "users 테이블 및 인증 필드 구현"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-205", "due_date": "2025-12-28", "id": 60, "priority": "high", "status": "done", "title": "프로젝트 생성과 멤버 초대를 제공한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-206", "due_date": "2025-12-28", "id": 61, "priority": "high", "status": "done", "title": "프로젝트 목록/생성 UI 구현"}
+{"assignee_id": 11, "description": "[Jira01 재검증 테스트 삽입] WF-207", "due_date": "2025-12-28", "id": 62, "priority": "high", "status": "blocked", "title": "프로젝트 CRUD 및 초대 API 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-208", "due_date": "2025-12-28", "id": 63, "priority": "high", "status": "done", "title": "프로젝트별 RBAC 라우트/API 가드 구현"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-209", "due_date": "2025-12-28", "id": 64, "priority": "medium", "status": "done", "title": "역할별 마이페이지 셸을 제공한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-210", "due_date": "2025-12-28", "id": 65, "priority": "medium", "status": "done", "title": "/me, /me/tasks 기본 API 구현"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-211", "due_date": "2025-12-28", "id": 66, "priority": "medium", "status": "done", "title": "역할별 마이페이지 라우트/위젯 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-212", "due_date": "2026-01-01", "id": 67, "priority": "high", "status": "done", "title": "회의록 문서 업로드와 상태 조회를 제공한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-213", "due_date": "2025-12-28", "id": 68, "priority": "high", "status": "done", "title": "회의록 업로드 화면 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-214", "due_date": "2025-12-28", "id": 69, "priority": "high", "status": "done", "title": "회의록 업로드 API 및 메타데이터 저장 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-215", "due_date": "2025-12-28", "id": 70, "priority": "high", "status": "done", "title": "LLM 회의 분석 결과를 구조화한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-216", "due_date": "2026-07-01", "id": 71, "priority": "high", "status": "done", "title": "/ai/meeting/analyze 엔드포인트 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-217", "due_date": "2025-12-28", "id": 72, "priority": "high", "status": "done", "title": "회의 분석 결과 화면 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-218", "due_date": "2025-12-28", "id": 73, "priority": "high", "status": "done", "title": "분석 상태 폴링 및 오류 처리 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-219", "due_date": "2026-01-01", "id": 74, "priority": "high", "status": "done", "title": "To-Do 후보를 검토 후 업무로 승인한다"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-220", "due_date": "2025-12-28", "id": 75, "priority": "high", "status": "done", "title": "To-Do 후보 검토/수정 UI 구현ddddd"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-221", "due_date": "2026-07-25", "id": 76, "priority": "high", "status": "done", "title": "To-Do 승인 API 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-222", "due_date": "2025-12-28", "id": 77, "priority": "high", "status": "done", "title": "프로젝트 대시보드 기본 집계를 제공한다"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-223", "due_date": "2025-12-28", "id": 78, "priority": "high", "status": "done", "title": "대시보드 카드/차트 UI 구현"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-224", "due_date": "2025-12-28", "id": 79, "priority": "high", "status": "done", "title": "dashboard summary/workload API 구현"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-225", "due_date": "2025-12-28", "id": 80, "priority": "high", "status": "done", "title": "activities 이벤트 로그 저장 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-226", "due_date": "2025-12-28", "id": 81, "priority": "high", "status": "done", "title": "ML 지연 위험도 예측을 제공한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-227", "due_date": "2025-12-28", "id": 82, "priority": "high", "status": "done", "title": "지연 위험도 baseline 모델 구현"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-228", "due_date": "2025-12-28", "id": 83, "priority": "high", "status": "done", "title": "/ai/predict/delay 연동 및 예측 저장 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-229", "due_date": "2025-12-28", "id": 84, "priority": "high", "status": "done", "title": "업무 상세/대시보드 위험도 표시 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-230", "due_date": "2025-12-28", "id": 85, "priority": "high", "status": "done", "title": "팀원별 업무량을 표시한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-231", "due_date": "2025-12-28", "id": 86, "priority": "high", "status": "done", "title": "팀원별 업무량 차트/과부하 표시 구현"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-232", "due_date": "2025-12-28", "id": 87, "priority": "high", "status": "done", "title": "프로젝트 문서를 RAG 인덱싱한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-233", "due_date": "2025-12-28", "id": 88, "priority": "high", "status": "blocked", "title": "document_chunks 및 pgvector 스키마 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-234", "due_date": "2025-12-28", "id": 89, "priority": "high", "status": "done", "title": "/ai/rag/index 엔드포인트 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-235", "due_date": "2025-12-28", "id": 90, "priority": "high", "status": "done", "title": "출처 포함 프로젝트 Q&A를 제공한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-236", "due_date": "2025-12-28", "id": 91, "priority": "high", "status": "done", "title": "Assistant 채팅 UI 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-237", "due_date": "2026-07-08", "id": 92, "priority": "high", "status": "done", "title": "/assistant/ask API와 권한 필터 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-238", "due_date": "2025-12-28", "id": 93, "priority": "high", "status": "done", "title": "/ai/rag/query 엔드포인트 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-239", "due_date": "2026-07-20", "id": 94, "priority": "high", "status": "done", "title": "업무 편중 점수 모델을 제공한다"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-240", "due_date": "2026-07-31", "id": 95, "priority": "high", "status": "done", "title": "업무 편중 피처 설계 및 데이터 준비"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-241", "due_date": "2026-07-20", "id": 96, "priority": "high", "status": "blocked", "title": "/ai/score/workload 서빙 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-242", "due_date": "2026-07-01", "id": 97, "priority": "high", "status": "inprogress", "title": "ML 모델링 파이프라인을 지원한다"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-243", "due_date": "2026-07-27", "id": 98, "priority": "high", "status": "done", "title": "지연 위험도 모델 학습/평가 지원"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-244", "due_date": "2026-07-20", "id": 99, "priority": "medium", "status": "done", "title": "임베딩 파이프라인 지원 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-245", "due_date": "2026-07-27", "id": 100, "priority": "medium", "status": "blocked", "title": "학습/평가 노트북 및 산출물 정리"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-246", "due_date": "2025-12-28", "id": 101, "priority": "high", "status": "done", "title": "상태 기반 칸반 업무 보드를 제공한다"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-247", "due_date": "2025-12-28", "id": 102, "priority": "high", "status": "done", "title": "칸반 보드 UI와 드래그 상태 이동 구현"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-248", "due_date": "2025-12-28", "id": 103, "priority": "high", "status": "done", "title": "Task CRUD API 구현"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-249", "due_date": "2025-12-28", "id": 104, "priority": "high", "status": "done", "title": "카테고리별 업무 생성과 상세 패널을 제공한다"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-250", "due_date": "2025-12-28", "id": 105, "priority": "high", "status": "done", "title": "업무 생성 모달 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-251", "due_date": "2025-12-28", "id": 106, "priority": "high", "status": "done", "title": "업무 상세 우측 패널 구현"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-252", "due_date": "2025-12-28", "id": 107, "priority": "high", "status": "done", "title": "체크리스트 API 구현"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-253", "due_date": "2025-12-28", "id": 108, "priority": "high", "status": "done", "title": "심사자 전용 기여도 리포트를 제공한다"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-254", "due_date": "2025-12-28", "id": 109, "priority": "high", "status": "done", "title": "심사자 목록/기여도 화면 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-255", "due_date": "2025-12-28", "id": 110, "priority": "high", "status": "done", "title": "기여도 조회 API 구현"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-256", "due_date": "2025-12-28", "id": 111, "priority": "high", "status": "done", "title": "/ai/contribution/summarize 엔드포인트 구현"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-257", "due_date": "2025-12-28", "id": 112, "priority": "high", "status": "done", "title": "통합 QA와 권한 시나리오를 검증한다"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-258", "due_date": "2025-12-28", "id": 113, "priority": "high", "status": "done", "title": "권한/RBAC 테스트 케이스 작성 및 실행"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-259", "due_date": "2025-12-28", "id": 114, "priority": "high", "status": "done", "title": "최종 데모 E2E 시나리오 검증"}
+{"assignee_id": 4, "description": "[Jira01 재검증 테스트 삽입] WF-260", "due_date": "2025-12-28", "id": 115, "priority": "high", "status": "done", "title": "공통 API 규칙과 응답 envelope를 적용한다"}
+{"assignee_id": 1, "description": "[Jira01 재검증 테스트 삽입] WF-261", "due_date": "2025-12-28", "id": 116, "priority": "high", "status": "inprogress", "title": "공통 응답 envelope와 오류 코드 구현"}
+{"assignee_id": 2, "description": "[Jira01 재검증 테스트 삽입] WF-262", "due_date": "2025-12-28", "id": 117, "priority": "high", "status": "done", "title": "프론트 API 클라이언트 공통 처리 구현"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-263", "due_date": "2025-12-28", "id": 118, "priority": "high", "status": "done", "title": "비동기 처리와 상태 폴링 기반을 구축한다"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-264", "due_date": "2025-12-28", "id": 119, "priority": "high", "status": "done", "title": "Redis Queue 작업 처리 구조 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-265", "due_date": "2025-12-28", "id": 120, "priority": "medium", "status": "done", "title": "공통 작업 상태 폴링 컴포넌트 구현"}
+{"assignee_id": 9, "description": "[Jira01 재검증 테스트 삽입] WF-266", "due_date": "2026-07-18", "id": 121, "priority": "medium", "status": "done", "title": "실제 비동기 분석 처리 구현"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-267", "due_date": "2026-07-22", "id": 122, "priority": "medium", "status": "done", "title": "실제 LLM/STT/문서 파서 연동"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-268", "due_date": "2026-07-22", "id": 123, "priority": "medium", "status": "done", "title": "업무보드 DB 완전 연동"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-269", "due_date": "2026-07-18", "id": 124, "priority": "medium", "status": "done", "title": "API 경로 명세 정리"}
+{"assignee_id": 3, "description": "[Jira01 재검증 테스트 삽입] WF-270", "due_date": "2026-07-18", "id": 125, "priority": "medium", "status": "done", "title": "실패 상태 저장 / 재시도 처리"}
+{"assignee_id": 3, "description": "회의록 AI 분석 API 구현", "due_date": null, "id": 142, "priority": "HIGH", "status": "done", "title": "회의록 AI 분석 API 구현"}
+{"assignee_id": 3, "description": "분석 결과 화면과 업무 보드 등록 흐름 연결", "due_date": null, "id": 143, "priority": "HIGH", "status": "done", "title": "분석 결과 화면과 업무 보드 등록 흐름 연결"}
+{"assignee_id": 3, "description": "팀장 검토용 To-Do 승인 화면 점검", "due_date": null, "id": 144, "priority": "MEDIUM", "status": "done", "title": "팀장 검토용 To-Do 승인 화면 점검"}
+{"assignee_id": 3, "description": "회의록 AI 분석 API 구현", "due_date": null, "id": 145, "priority": "HIGH", "status": "inprogress", "title": "회의록 AI 분석 API 구현"}
+{"assignee_id": 3, "description": "분석 결과 화면과 업무 보드 등록 흐름 연결", "due_date": null, "id": 146, "priority": "HIGH", "status": "done", "title": "분석 결과 화면과 업무 보드 등록 흐름 연결"}
+{"assignee_id": 3, "description": "팀장 검토용 To-Do 승인 화면 점검", "due_date": null, "id": 147, "priority": "MEDIUM", "status": "done", "title": "팀장 검토용 To-Do 승인 화면 점검"}
+{"assignee_id": 3, "description": "회의록 AI 분석 API 구현", "due_date": null, "id": 148, "priority": "HIGH", "status": "done", "title": "회의록 AI 분석 API 구현"}
+{"assignee_id": 3, "description": "분석 결과 화면과 업무 보드 등록 흐름 연결", "due_date": null, "id": 149, "priority": "HIGH", "status": "done", "title": "분석 결과 화면과 업무 보드 등록 흐름 연결"}
+{"assignee_id": 3, "description": "팀장 검토용 To-Do 승인 화면 점검", "due_date": null, "id": 150, "priority": "MEDIUM", "status": "done", "title": "팀장 검토용 To-Do 승인 화면 점검"}
+{"assignee_id": null, "description": null, "due_date": "2026-11-17", "id": 229, "priority": "medium", "status": "done", "title": "심사자 전용 기여도 리포트 저장"}
+{"assignee_id": 11, "description": "심사자 전용 기여도 리포트를 저장한다", "due_date": "2026-08-28", "id": 230, "priority": "medium", "status": "todo", "title": "AI/ML 업무"}
+{"assignee_id": 11, "description": "경쟁사 분석", "due_date": null, "id": 231, "priority": "medium", "status": "todo", "title": "시장 조사"}
+{"assignee_id": 4, "description": null, "due_date": "2026-08-28", "id": 232, "priority": "medium", "status": "done", "title": "GitHub 연동"}
+{"assignee_id": null, "description": null, "due_date": "2026-09-30", "id": 233, "priority": "medium", "status": "done", "title": "DB 연결"}
+{"assignee_id": 11, "description": null, "due_date": "2026-09-30", "id": 234, "priority": "medium", "status": "todo", "title": "구성원I test"}
+{"assignee_id": null, "description": null, "due_date": "2026-09-01", "id": 242, "priority": "medium", "status": "todo", "title": "테스트"}
+{"assignee_id": 1, "description": "대시보드 테스트1", "due_date": "2026-10-01", "id": 247, "priority": "low", "status": "done", "title": "대시보드 테스트1"}
+{"assignee_id": 1, "description": "테스트/대시보드-전체 업무 관리", "due_date": "2026-07-26", "id": 249, "priority": "medium", "status": "done", "title": "테스트/대시보드-전체 업무 관리"}
+{"assignee_id": 1, "description": "테스트/대시보드-전체 업무 관리2", "due_date": "2026-07-26", "id": 250, "priority": "high", "status": "done", "title": "테스트/대시보드-전체 업무 관리2"}
+{"assignee_id": 1, "description": "테스트/대시보드-전체 업무 관리/알림기능 테스트", "due_date": "2026-07-26", "id": 252, "priority": "low", "status": "done", "title": "테스트/대시보드-전체 업무 관리/알림기능 테스트"}
+{"assignee_id": 1, "description": "저쪽 대시보드에서 보내신 업무입니다.", "due_date": "2026-07-24", "id": 253, "priority": "high", "status": "done", "title": "대시보드/테스트/날짜 및 시간 대한민국 기준으로 출력"}
+{"assignee_id": 1, "description": null, "due_date": null, "id": 254, "priority": "medium", "status": "done", "title": "기획 업무"}
+{"assignee_id": 1, "description": "테스트/대시보드/업무 추가 후 새로고침 테스트", "due_date": "2026-07-24", "id": 255, "priority": "medium", "status": "done", "title": "테스트/대시보드/업무 추가 후 새로고침 테스트"}
+{"assignee_id": 4, "description": "111", "due_date": "2026-07-31", "id": 256, "priority": "high", "status": "done", "title": "111"}
+{"assignee_id": 1, "description": "대시보드 알림 테스트1\n\n기획 목적: 대시보드 알림 테스트1\n사용자 시나리오: 대시보드 알림 테스트1\n연결된 기능: 대시보드 알림 테스트1", "due_date": "2026-07-26", "id": 257, "priority": "medium", "status": "done", "title": "대시보드 알림 테스트1"}
+{"assignee_id": 3, "description": "대시보드 알림 테스트2\n\n기획 목적: 대시보드 알림 테스트2\n사용자 시나리오: 대시보드 알림 테스트2\n연결된 기능: 대시보드 알림 테스트2", "due_date": "2026-07-25", "id": 258, "priority": "high", "status": "done", "title": "대시보드 알림 테스트2"}
+{"assignee_id": 3, "description": "대시보드 업무추가 테스트2\n\n기획 목적: 대시보드 업무추가 테스트2\n사용자 시나리오: 대시보드 업무추가 테스트2\n연결된 기능: 대시보드 업무추가 테스트2", "due_date": "2026-07-25", "id": 259, "priority": "high", "status": "done", "title": "대시보드 업무추가 테스트2"}
+{"assignee_id": 1, "description": "테스트/대시보드/\n\n기획 목적: 테스트/대시보드/\n사용자 시나리오: 테스트/대시보드/\n연결된 기능: 테스트/대시보드/", "due_date": "2026-07-26", "id": 260, "priority": "high", "status": "done", "title": "테스트/대시보드/알림 테스트/팀장-추가/담당자-배정"}
+{"assignee_id": 3, "description": "테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가\n\n기획 목적: 테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가\n사용자 시나리오: 테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가\n연결된 기능: 테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가", "due_date": "2026-07-26", "id": 261, "priority": "medium", "status": "done", "title": "테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가"}
+{"assignee_id": 2, "description": "테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가3\n\n기획 목적: 테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가3\n사용자 시나리오: 테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가3\n연결된 기능: 테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가3", "due_date": "2026-07-26", "id": 262, "priority": "medium", "status": "done", "title": "테스트/대시보드/업무 추가 알림 테스트/팀장-배정, 담당자-추가3"}
+{"assignee_id": 1, "description": "테스트/대시보드/업무 알림 순서 테스트/추가 먼저, 배정 나중\n\n기획 목적: 테스트/대시보드/업무 알림 순서 테스트/추가 먼저, 배정 나중\n사용자 시나리오: 테스트/대시보드/업무 알림 순서 테스트/추가 먼저, 배정 나중\n연결된 기능: 테스트/대시보드/업무 알림 순서 테스트/추가 먼저, 배정 나중", "due_date": "2026-07-25", "id": 263, "priority": "high", "status": "done", "title": "테스트/대시보드/업무 알림 순서 테스트/추가 먼저, 배정 나중"}
+{"assignee_id": 1, "description": "테스트/대시보드/업무 추가 후 새로고침 작동 테스트\n\n기획 목적: 테스트/대시보드/업무 추가 후 새로고침 작동 테스트\n사용자 시나리오: 테스트/대시보드/업무 추가 후 새로고침 작동 테스트\n연결된 기능: 테스트/대시보드/업무 추가 후 새로고침 작동 테스트", "due_date": "2026-07-25", "id": 264, "priority": "high", "status": "done", "title": "테스트/대시보드/업무 추가 후 새로고침 테스트"}
+{"assignee_id": 3, "description": "테스트/대시보드/업무 추가 후 새로고침 작동 테스트2\n\n기획 목적: 테스트/대시보드/업무 추가 후 새로고침 작동 테스트2\n사용자 시나리오: 테스트/대시보드/업무 추가 후 새로고침 작동 테스트2\n연결된 기능: 테스트/대시보드/업무 추가 후 새로고침 작동 테스트2", "due_date": "2026-07-24", "id": 265, "priority": "low", "status": "done", "title": "테스트/대시보드/업무 추가 후 새로고침 작동 테스트2"}
+{"assignee_id": null, "description": "공모전 제출 마감이 7월 21일입니다", "due_date": null, "id": 284, "priority": "HIGH", "status": "done", "title": "공모전 제출 마감이 7월 21일입니다"}
+{"assignee_id": null, "description": "오늘은 제안서 목차와 발표자료 역할을 나누겠습니다", "due_date": null, "id": 285, "priority": "HIGH", "status": "done", "title": "제안서 목차와 발표자료 역할을 나누"}
+{"assignee_id": null, "description": "핵심은 회의록 AI가 업무와 기여도 평가로 연결된다는 점이라고 생각합니다", "due_date": null, "id": 286, "priority": "MEDIUM", "status": "done", "title": "회의록 AI가 업무와 기여도 평가로 연결된다…"}
+{"assignee_id": null, "description": "첫 장에는 팀 회의 장면이나 대시보드 예시 이미지를 넣는 게 좋겠습니다", "due_date": null, "id": 287, "priority": "MEDIUM", "status": "done", "title": "첫 장에는 팀 회의 장면이나 대시보드 예시 …"}
+{"assignee_id": null, "description": "제가 7월 14일까지 제안서 초안을 쓰겠습니다", "due_date": null, "id": 288, "priority": "MEDIUM", "status": "todo", "title": "7월 14일까지 제안서 초안을 쓰"}
+{"assignee_id": null, "description": "기존 서비스 비교 표도 같이 넣겠습니다", "due_date": null, "id": 289, "priority": "MEDIUM", "status": "done", "title": "기존 서비스 비교 표도 같이 넣"}
+{"assignee_id": null, "description": "저는 발표자료 초안을 맡겠습니다", "due_date": null, "id": 290, "priority": "MEDIUM", "status": "todo", "title": "발표자료 초안"}
+{"assignee_id": null, "description": "7월 15일까지 1차 디자인을 공유하겠습니다", "due_date": null, "id": 291, "priority": "MEDIUM", "status": "todo", "title": "7월 15일까지 1차 디자인을 공유"}
+{"assignee_id": null, "description": "서비스 화면 목업과 아이콘은 제가 만들겠습니다", "due_date": null, "id": 292, "priority": "MEDIUM", "status": "todo", "title": "서비스 화면 목업과 아이콘은 제가"}
+{"assignee_id": null, "description": "특히 회의록 업로드 화면, 업무 보드 화면, 심사자 리포트 화면을 중심으로 준비하겠습니다", "due_date": null, "id": 293, "priority": "MEDIUM", "status": "todo", "title": "특히 회의록 업로드 화면, 업무 보드 화면,…"}
+{"assignee_id": null, "description": "저는 전체 문장 톤과 제출 양식 검수를 맡겠습니다", "due_date": null, "id": 294, "priority": "MEDIUM", "status": "todo", "title": "전체 문장 톤과 제출 양식 검수"}
+{"assignee_id": null, "description": "제출 전날에는 맞춤법, 분량, 파일명 규칙을 확인하겠습니다", "due_date": null, "id": 295, "priority": "MEDIUM", "status": "todo", "title": "제출 전날에는 맞춤법, 분량, 파일명 규칙 …"}
+{"assignee_id": 2, "description": null, "due_date": null, "id": 296, "priority": null, "status": "done", "title": "알림지연테스트"}
+{"assignee_id": 1, "description": null, "due_date": null, "id": 345, "priority": "medium", "status": "done", "title": "로컬 compose 스모크 테스트 업무"}
+{"assignee_id": 11, "description": "", "due_date": null, "id": 362, "priority": "MEDIUM", "status": "todo", "title": "7월 17일이라 오늘은 기능별 진행률과 블로…"}
+{"assignee_id": 9, "description": "", "due_date": null, "id": 363, "priority": "MEDIUM", "status": "todo", "title": "로그인 화면과 메인 대시보드 화면까지 만들었"}
+{"assignee_id": 4, "description": "", "due_date": null, "id": 364, "priority": "MEDIUM", "status": "todo", "title": "다만 API 응답 형식이 아직 확정되지 않아…"}
+{"assignee_id": 11, "description": "", "due_date": null, "id": 365, "priority": "MEDIUM", "status": "todo", "title": "데이터베이스 ERD는 1차로 만들었"}
+{"assignee_id": 9, "description": "", "due_date": "2026-07-14", "id": 366, "priority": "MEDIUM", "status": "todo", "title": "7월 14일까지 대시보드 화면에 mock 데…"}
+{"assignee_id": 9, "description": "", "due_date": "2026-07-15", "id": 367, "priority": "MEDIUM", "status": "todo", "title": "7월 15일까지 OAuth 로그인과 JWT …"}
+{"assignee_id": 1, "description": "", "due_date": null, "id": 368, "priority": "MEDIUM", "status": "done", "title": "ERD 수정본은 오늘 밤까지 공유"}
+{"assignee_id": null, "description": "중간발표가 7월 17일이라 오늘은 기능별 진행률과 블로커를 확인하겠습니다", "due_date": null, "id": 369, "priority": "HIGH", "status": "todo", "title": "7월 17일이라 오늘은 기능별 진행률과 블로…"}
+{"assignee_id": null, "description": "프론트는 로그인 화면과 메인 대시보드 화면까지 만들었습니다", "due_date": null, "id": 370, "priority": "HIGH", "status": "todo", "title": "로그인 화면과 메인 대시보드 화면까지 만들었"}
+{"assignee_id": null, "description": "다만 API 응답 형식이 아직 확정되지 않아서 실제 데이터 연결은 못 했습니다", "due_date": null, "id": 371, "priority": "MEDIUM", "status": "todo", "title": "다만 API 응답 형식이 아직 확정되지 않아…"}
+{"assignee_id": null, "description": "데이터베이스 ERD는 1차로 만들었습니다", "due_date": null, "id": 372, "priority": "MEDIUM", "status": "todo", "title": "데이터베이스 ERD는 1차로 만들었"}
+{"assignee_id": null, "description": "제가 7월 14일까지 대시보드 화면에 mock 데이터를 연결하겠습니다", "due_date": "2026-07-14", "id": 373, "priority": "MEDIUM", "status": "todo", "title": "7월 14일까지 대시보드 화면에 mock 데…"}
+{"assignee_id": null, "description": "저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다", "due_date": "2026-07-15", "id": 374, "priority": "MEDIUM", "status": "todo", "title": "7월 15일까지 OAuth 로그인과 JWT …"}
+{"assignee_id": null, "description": "ERD 수정본은 오늘 밤까지 공유하겠습니다", "due_date": null, "id": 375, "priority": "MEDIUM", "status": "todo", "title": "ERD 수정본은 오늘 밤까지 공유"}
+{"assignee_id": 3, "description": "대시보드 테스트1", "due_date": "2026-07-31", "id": 376, "priority": "high", "status": "todo", "title": "대시보드 테스트1"}
+{"assignee_id": 2, "description": "07.29 테스트1", "due_date": "2026-09-01", "id": 377, "priority": "low", "status": "inprogress", "title": "07.29 테스트1"}
+{"assignee_id": 2, "description": "07.29 테스트2", "due_date": "2026-09-01", "id": 378, "priority": "low", "status": "blocked", "title": "07.29 테스트2"}
+{"assignee_id": 2, "description": "07.29 테스트3", "due_date": "2026-08-01", "id": 379, "priority": "medium", "status": "done", "title": "07.29 테스트3"}
+{"assignee_id": 2, "description": "대시보드 테스트4\n\n팀원별 업무량 페이지", "due_date": "2026-10-01", "id": 380, "priority": "medium", "status": "blocked", "title": "대시보드 테스트4"}
+{"assignee_id": 4, "description": "대시보드 테스트5", "due_date": "2026-10-01", "id": 381, "priority": "low", "status": "blocked", "title": "대시보드 테스트5"}
+{"assignee_id": 3, "description": "세상아 안녕...", "due_date": "2026-09-29", "id": 382, "priority": "medium", "status": "todo", "title": "bye world..."}
+{"assignee_id": 2, "description": "테스트 업무1", "due_date": "2026-10-01", "id": 383, "priority": "high", "status": "inprogress", "title": "테스트 업무1"}
+{"assignee_id": 2, "description": "테스트 업무2", "due_date": "2026-09-01", "id": 384, "priority": "low", "status": "inprogress", "title": "테스트 업무2"}

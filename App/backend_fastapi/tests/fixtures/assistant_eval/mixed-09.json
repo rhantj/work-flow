@@ -6,7 +6,7 @@
   "must_include_facts": [
     {
       "fact_id": "F1",
-      "statement": "태민이 담당하기로 했다",
+      "statement": "구성원V이 담당하기로 했다",
       "evidence_snippet": "저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다"
     },
     {
@@ -21,8 +21,8 @@
     "task#374"
   ],
   "expected_source_excerpts": {
-    "action_item#522": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 태민: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다",
-    "action_item#609": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 태민: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다",
+    "action_item#522": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 구성원V: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다",
+    "action_item#609": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다 근거: 구성원V: 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다",
     "task#374": "7월 15일까지 OAuth 로그인과 JWT … - 저는 7월 15일까지 OAuth 로그인과 JWT 재발급 API를 완성하겠습니다"
   },
   "must_not_claim": [

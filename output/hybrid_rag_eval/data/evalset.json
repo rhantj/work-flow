@@ -425,9 +425,9 @@
   {
     "id": "C05",
     "category": "mixed",
-    "question": "허영주가 맡은 일이 뭐야?",
+    "question": "구성원A가 맡은 일이 뭐야?",
     "gold_patterns": [
-      "허영주"
+      "구성원A"
     ],
     "gold_ids": [
       8,
@@ -475,9 +475,9 @@
   {
     "id": "C08",
     "category": "mixed",
-    "question": "박상준이 어떤 구조로 설계한다고 했어?",
+    "question": "구성원B이 어떤 구조로 설계한다고 했어?",
     "gold_patterns": [
-      "박상준: AI Assistant는 RAG"
+      "구성원B: AI Assistant는 RAG"
     ],
     "gold_ids": [
       12,

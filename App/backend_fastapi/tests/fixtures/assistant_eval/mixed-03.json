@@ -6,7 +6,7 @@
   "must_include_facts": [
     {
       "fact_id": "F1",
-      "statement": "수빈이 7월 13일까지 비교 결과를 공유하기로 했다",
+      "statement": "구성원P이 7월 13일까지 비교 결과를 공유하기로 했다",
       "evidence_snippet": "7월 13일까지 결과를 공유하겠습니다"
     },
     {
@@ -20,8 +20,8 @@
     "action_item#487"
   ],
   "expected_source_excerpts": {
-    "action_item#451": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 수빈: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다",
-    "action_item#487": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 수빈: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다"
+    "action_item#451": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 구성원P: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다",
+    "action_item#487": "KLUE-BERT와 sentence-tran… - KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다 근거: 구성원P: KLUE-BERT와 sentence-transformers를 비교해보고 7월 13일까지 결과를 공유하겠습니다"
   },
   "must_not_claim": [
     {
