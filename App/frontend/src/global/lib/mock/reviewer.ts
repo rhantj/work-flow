@@ -16,7 +16,7 @@ export const CONTRIB_REPORTS = [
     aiSummary:"프론트엔드 전반 담당. UI/UX 설계와 발표자료 준비에 기여. 회의 참석률 100%.",
     evidence:["To-Do #4,#7", "PR #12,#17", "11.26, 12.10 회의록"], score:88, isPublic:false,
     categories:{ task:100, meeting:100, workload:82 } },
-  { memberId:"3", name:"박지수", role:"팀원", color:"#10B981", todoDone:3, todoTotal:3, meetings:5, commits:22, prs:5,
+  { memberId:"3", name:"정하늘", role:"팀원", color:"#10B981", todoDone:3, todoTotal:3, meetings:5, commits:22, prs:5,
     aiSummary:"백엔드 API와 DB 설계 주도. 안정적 서버 환경 구축. 문서화 작업 적극 참여.",
     evidence:["To-Do #2,#11", "PR #8,#13", "12.03 회의록"], score:85, isPublic:false,
     categories:{ task:100, meeting:83, workload:75 } },

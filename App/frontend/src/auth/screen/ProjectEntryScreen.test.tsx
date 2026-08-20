@@ -60,7 +60,7 @@ describe("ProjectEntryScreen 초대 URL/코드 입력", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
-      user: { id: 1, name: "허영주" },
+      user: { id: 1, name: "김민준" },
       projectRoles: existingProjectRoles,
       currentProject: null,
       selectProject,
@@ -74,7 +74,7 @@ describe("ProjectEntryScreen 초대 URL/코드 입력", () => {
 
   function refreshMeWithJoinedProject() {
     refreshMe.mockResolvedValue({
-      user: { id: 1, name: "허영주" },
+      user: { id: 1, name: "김민준" },
       projectRoles: [
         ...existingProjectRoles,
         { projectId: 26, projectTitle: "초대기능 테스트 프로젝트", role: "팀원" as const },
@@ -90,7 +90,7 @@ describe("ProjectEntryScreen 초대 URL/코드 입력", () => {
   it("참여 결과가 심사자면 대시보드가 아니라 기여도 화면으로 보낸다", async () => {
     vi.mocked(acceptInvitation).mockResolvedValue({ projectId: 26 });
     refreshMe.mockResolvedValue({
-      user: { id: 1, name: "허영주" },
+      user: { id: 1, name: "김민준" },
       projectRoles: [{ projectId: 26, projectTitle: "심사 대상 프로젝트", role: "심사자" as const }],
     });
 
@@ -130,7 +130,7 @@ describe("ProjectEntryScreen 초대 URL/코드 입력", () => {
   it("이미 멤버인 프로젝트에 다시 참여해도 해당 프로젝트를 선택한다", async () => {
     vi.mocked(acceptInvitation).mockResolvedValue({ projectId: 1 });
     refreshMe.mockResolvedValue({
-      user: { id: 1, name: "허영주" },
+      user: { id: 1, name: "김민준" },
       projectRoles: existingProjectRoles,
     });
 

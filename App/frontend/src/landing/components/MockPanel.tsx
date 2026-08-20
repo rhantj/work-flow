@@ -161,10 +161,10 @@ export function AssistantMockPanel() {
 
 export function ContributionMockPanel() {
   const people = [
-    { name: "허영주", pct: 32 },
-    { name: "박상준", pct: 26 },
-    { name: "유소은", pct: 22 },
-    { name: "이은주", pct: 20 },
+    { name: "김민준", pct: 32 },
+    { name: "이서연", pct: 26 },
+    { name: "최동혁", pct: 22 },
+    { name: "김도현", pct: 20 },
   ];
   return (
     <div className="space-y-2">

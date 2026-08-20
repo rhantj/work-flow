@@ -375,7 +375,7 @@ describe("MyPage 심사자 접근", () => {
       isAuthenticated: true,
       loading: false,
       projectContextReady: true,
-      user: { id: 6, email: "reviewer@university.ac.kr", name: "고무서", affiliation: null, field: null, githubUsername: null, avatarUrl: null, isAdmin: false },
+      user: { id: 6, email: "reviewer@university.ac.kr", name: "오세진", affiliation: null, field: null, githubUsername: null, avatarUrl: null, isAdmin: false },
       // 현재 프로젝트가 심사자면, projectRoles 첫 항목이 팀원이어도 심사자로 판정해야 한다.
       projectRoles: [
         { projectId: 1, projectTitle: "스마트 주차 관리 시스템", role: "팀원", type: null, year: null, taskProgress: 0 },

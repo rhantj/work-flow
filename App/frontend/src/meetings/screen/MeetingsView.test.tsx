@@ -93,12 +93,12 @@ const baseResult = (assignee_id: string | null): MeetingAiResult => ({
   decisions: [],
   risks: [],
   keywords: [],
-  meeting_meta: { title: "정기회의", meeting_date: "2026-07-09", participants: ["김민준", "이서연", "박지수", "최동혁"] },
+  meeting_meta: { title: "정기회의", meeting_date: "2026-07-09", participants: ["김민준", "이서연", "정하늘", "최동혁"] },
   todos: [
     {
       title: "인증과 권한 구조",
       description: "인증과 권한 구조는 제가 먼저 잡겠습니다.",
-      assignee_candidate: "곽진아",
+      assignee_candidate: "윤채민",
       assignee_id,
       due_date: "2026-07-12",
       priority: "HIGH",
@@ -125,11 +125,11 @@ describe("buildGeneratedTodos", () => {
 
   it("uses the server-provided evidence_text as the basis when present", () => {
     const result = baseResult(null);
-    result.todos[0].evidence_text = "곽진아: 인증과 권한 구조는 제가 먼저 잡겠습니다.";
+    result.todos[0].evidence_text = "윤채민: 인증과 권한 구조는 제가 먼저 잡겠습니다.";
 
     const todos = buildGeneratedTodos(result);
 
-    expect(todos[0].basis).toBe("곽진아: 인증과 권한 구조는 제가 먼저 잡겠습니다.");
+    expect(todos[0].basis).toBe("윤채민: 인증과 권한 구조는 제가 먼저 잡겠습니다.");
   });
 
   it("falls back to a generic basis when evidence_text is missing, without breaking the UI", () => {
@@ -138,7 +138,7 @@ describe("buildGeneratedTodos", () => {
 
     const todos = buildGeneratedTodos(result);
 
-    expect(todos[0].basis).toBe("회의록 후보 담당자: 곽진아");
+    expect(todos[0].basis).toBe("회의록 후보 담당자: 윤채민");
   });
 });
 
@@ -988,13 +988,13 @@ describe("MeetingsView PDF 내보내기", () => {
     expect(pdfButton).not.toBeDisabled();
     fireEvent.click(pdfButton);
 
-    // buildExportDataFromMeeting이 meeting.todos("곽진아: 인증과 권한 구조 (07.12)")를
+    // buildExportDataFromMeeting이 meeting.todos("윤채민: 인증과 권한 구조 (07.12)")를
     // parseMeetingTodoLine으로 정확히 파싱해 넘겼는지 검증한다. html2canvas는 DOM 내용과
     // 무관하게 항상 고정된 캔버스를 반환하도록 목업돼 있으므로, 클릭이 pdf.save까지
     // 도달하는지만으로는 assigneeName/title이 뒤바뀌는 회귀를 잡을 수 없다. 대신 캡처
     // 영역 템플릿이 렌더링하는 "{title} - {assigneeName} ({dueDate})" 조합 텍스트가
     // (클릭 직후 pdfExportData가 채워진 시점에) DOM에 실제로 나타나는지 확인한다.
-    expect(screen.getByText("인증과 권한 구조 - 곽진아 (07.12)")).toBeInTheDocument();
+    expect(screen.getByText("인증과 권한 구조 - 윤채민 (07.12)")).toBeInTheDocument();
 
     await waitFor(() => expect(mockPdfSave).toHaveBeenCalled());
   });
