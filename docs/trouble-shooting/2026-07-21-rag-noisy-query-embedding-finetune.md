@@ -47,7 +47,10 @@ chat_service.answer_question()
 - **평가**: Recall@1/3/5, MRR을 `clean_query`/`noisy_query` 각각에 대해 파인튜닝 전/후로 측정해
   비교한다 — noisy 지표가 clean 지표에 얼마나 근접하는지가 성공 기준.
 
-## 노트북 (`document_본인이름/notebooks/`)
+## 노트북
+
+노트북과 산출물은 작성자 개인 문서 폴더에 있고 레포에는 없다. 아래 경로는 전부
+그 폴더를 기준으로 한 상대 경로다.
 
 | 순서 | 노트북 | 내용 | 주요 산출물 |
 | --- | --- | --- | --- |
@@ -56,7 +59,7 @@ chat_service.answer_question()
 | 03 | `03_embedding_finetune.ipynb` | LoRA 파인튜닝 + 어댑터 병합 저장 | `model/` (병합된 SentenceTransformer) |
 | 04 | `04_finetuned_eval_compare.ipynb` | 파인튜닝 후 재평가 + 전/후 비교 차트 | `final_comparison.json`, `final_comparison_chart.png` |
 
-산출물은 전부 `document_본인이름/output/embedding-finetune/`에 저장된다. 01 → 02 → 03 → 04 순서로
+산출물은 전부 `output/embedding-finetune/`에 저장된다. 01 → 02 → 03 → 04 순서로
 실행해야 하며, 각 노트북은 이전 단계의 CSV/모델 산출물을 그대로 읽는다.
 
 ## 실행 방법
@@ -66,7 +69,7 @@ chat_service.answer_question()
 pip install -r requirements.txt
 
 # App/.env의 DATABASE_URL(Supabase)을 그대로 사용 — 로컬 docker-compose db에는 document_chunks가 없음
-cd document_본인이름/notebooks
+# 노트북 폴더로 이동한 뒤 (레포에 없다 - 위 '노트북' 절 참고)
 jupyter notebook  # 01 -> 02 -> 03 -> 04 순서로 실행
 ```
 
@@ -83,7 +86,7 @@ jupyter notebook  # 01 -> 02 -> 03 -> 04 순서로 실행
 
 ## 실험 결과
 
-`document_본인이름/output/embedding-finetune/04_training/final_comparison.json` (eval 26건, recall@1 기준):
+`output/embedding-finetune/04_training/final_comparison.json` (eval 26건, recall@1 기준):
 
 | | clean | noisy |
 | --- | --- | --- |
