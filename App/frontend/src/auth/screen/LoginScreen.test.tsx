@@ -42,10 +42,10 @@ describe("LoginScreen", () => {
   it("일반 사용자 로그인 성공 시 history를 대체하지 않고 /projects로 이동한다 (뒤로가기로 로그인 화면 복귀 가능)", async () => {
     vi.mocked(apiFetch).mockResolvedValue({
       accessToken: "access-1", refreshToken: "refresh-1", expiresIn: 3600, testSessionId: null,
-      user: { id: 1, email: "leader@test", name: "허영주", affiliation: null, field: null, githubUsername: null, avatarUrl: null, isAdmin: false },
+      user: { id: 1, email: "leader@test", name: "김민준", affiliation: null, field: null, githubUsername: null, avatarUrl: null, isAdmin: false },
     });
     mockRefreshMe.mockResolvedValue({
-      user: { id: 1, email: "leader@test", name: "허영주", affiliation: null, field: null, githubUsername: null, avatarUrl: null, isAdmin: false },
+      user: { id: 1, email: "leader@test", name: "김민준", affiliation: null, field: null, githubUsername: null, avatarUrl: null, isAdmin: false },
       projectRoles: [],
     });
 

@@ -12,7 +12,7 @@ export const MEETINGS: Meeting[] = [
     id: "m2", title: "5차 정기 회의 — API 통합 리뷰", date: "2024.12.03", duration: "58분", status: "processed",
     summary: "백엔드 API 통합 현황을 검토하고 프론트엔드 연동 이슈를 해결했습니다. 센서 모듈 실데이터 수집도 시작되었습니다.",
     decisions: ["API 응답 스키마 공통 규격 확정", "센서 데이터 폴링 주기 5초로 결정"],
-    todos: ["박지수: 공통 API 응답 모델 적용 (12.06)", "이서연: 모바일 화면 UI 피드백 반영 (12.08)"],
+    todos: ["정하늘: 공통 API 응답 모델 적용 (12.06)", "이서연: 모바일 화면 UI 피드백 반영 (12.08)"],
     risks: ["센서 데이터 오류율 3% 초과 시 대안 필요"],
   },
   { id: "m3", title: "4차 정기 회의 — 기능 범위 확정", date: "2024.11.26", duration: "1시간 05분", status: "processed" },
